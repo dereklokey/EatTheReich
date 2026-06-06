@@ -69,11 +69,15 @@ export function TurnComposer({
   const [override, setOverride] = useState<number | null>(null);
   const [launched, setLaunched] = useState(false);
 
-  // Selectable gear = printed pool weapons + the single active loot item (RULES §11).
-  const activeLoot = char.loot.find((l) => l.id === char.activeLootSlot);
+  // Selectable gear = printed pool weapons + the single active loot item (RULES §11) +
+  // any slot-free reward gear (rulebook p39 — doesn't use the active slot, always available).
+  const activeLoot = char.loot.find((l) => l.id === char.activeLootSlot && l.loot !== false);
   const gear: Equipment[] = useMemo(
-    () => [...(sheet?.equipment ?? []), ...(activeLoot ? [activeLoot] : [])],
-    [sheet, activeLoot],
+    () => {
+      const slotFree = char.loot.filter((l) => l.loot === false);
+      return [...(sheet?.equipment ?? []), ...slotFree, ...(activeLoot ? [activeLoot] : [])];
+    },
+    [sheet, char.loot, activeLoot],
   );
   const poolGear = gear.filter((e) => e.addsDie !== false && (e.uses === undefined || (char.equipmentUses[e.id] ?? 0) > 0));
   // Reactive / economy gear that never adds a pool die (Chuck's hat, Iryna's cigarettes).

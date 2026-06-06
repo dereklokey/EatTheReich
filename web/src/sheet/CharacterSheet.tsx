@@ -214,6 +214,7 @@ export function CharacterSheet({
             <p className="mono text-xs text-paper-fade italic">No loot yet. One active slot at a time (RULES §11).</p>
           ) : (
             char.loot.map((item) => {
+              const slotFree = item.loot === false; // secondary-objective reward gear (rulebook p39)
               const active = char.activeLootSlot === item.id;
               const tracked = item.uses !== undefined;
               const remaining = char.equipmentUses[item.id] ?? item.uses ?? 0;
@@ -230,7 +231,11 @@ export function CharacterSheet({
                         onRestore={() => send({ kind: "restore_equipment", seat, itemId: item.id })}
                       />
                     )}
-                    {active ? (
+                    {/* Slot-free gear is always in play (no active-slot juggling); regular loot
+                        keeps the one-active-at-a-time activate control (RULES §11). */}
+                    {slotFree ? (
+                      <span className="stamp text-[0.6rem]" title="Doesn’t occupy a Loot slot — always ready">ready · no slot</span>
+                    ) : active ? (
                       <span className="stamp text-[0.6rem]">active</span>
                     ) : (
                       canEdit && (

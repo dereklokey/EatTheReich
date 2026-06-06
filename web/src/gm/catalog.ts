@@ -70,6 +70,7 @@ export function loadLocation(loc: Location): LoadedBoard {
       name: s.name,
       kind: "secondary",
       rating: s.rating,
+      ...(s.rewardEquipment?.length ? { rewardEquipment: s.rewardEquipment } : {}),
     })),
   };
 }
@@ -108,6 +109,22 @@ export function newLoot(name: string, bonus?: string, note?: string): Equipment 
     name,
     uses: LOOT_DEFAULT_USES,
     loot: true,
+    ...(b ? { bonus: b } : {}),
+    ...(note ? { note } : {}),
+  };
+}
+
+/**
+ * Special gear unlocked by a Secondary Objective (rulebook p39): **slot-free**
+ * (`loot: false` → never occupies/needs the one active loot slot, always available) and a
+ * persistent asset (no use track — a weapons platform isn't a 3-use consumable).
+ */
+export function newRewardGear(name: string, bonus?: string, note?: string): Equipment {
+  const b = parseLootBonus(bonus);
+  return {
+    id: `gear-${uuid().slice(0, 8)}`,
+    name,
+    loot: false,
     ...(b ? { bonus: b } : {}),
     ...(note ? { note } : {}),
   };

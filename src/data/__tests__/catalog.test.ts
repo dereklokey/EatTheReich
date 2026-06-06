@@ -13,6 +13,7 @@ import {
 import type { ActionContext } from "../../domain/types.js";
 import { sequenceRoller } from "../../domain/dice.js";
 import { parseLootBonus } from "../rewards.js";
+import { LOCATIONS } from "../locations.js";
 import { reinforce, availableCritSpecials } from "../../engine/index.js";
 import { CHUCK, ASTRID, NICOLE } from "../characters.js";
 
@@ -192,5 +193,27 @@ describe("parseLootBonus — looted gear bonus strings (rulebook p39)", () => {
     expect(parseLootBonus("   ")).toBeUndefined();
     expect(parseLootBonus("no plus sign")).toBeUndefined();
     expect(parseLootBonus("++")).toBeUndefined();
+  });
+});
+
+describe("secondary-objective reward gear (issue #4 gating)", () => {
+  it("the gear-granting secondaries carry structured, parseable reward equipment", () => {
+    const withGear = LOCATIONS.flatMap((l) => l.secondaryObjectives ?? []).filter((s) => s.rewardEquipment?.length);
+    // The two scenarios whose Secondary Objective unlocks special gear (rulebook pp.55,58).
+    expect(withGear.length).toBeGreaterThanOrEqual(2);
+    for (const s of withGear) {
+      for (const g of s.rewardEquipment!) {
+        expect(g.name.length).toBeGreaterThan(0);
+        // Every printed bonus is a valid (+tag) requirement the grant flow can parse.
+        if (g.bonus) expect(parseLootBonus(g.bonus)).toBeDefined();
+      }
+    }
+  });
+
+  it("the weapons platform unlock carries both assets with their bonus tags", () => {
+    const pavilion = LOCATIONS.find((l) => l.id === "german-technology-pavilion");
+    const gear = pavilion?.secondaryObjectives?.[0]?.rewardEquipment ?? [];
+    expect(gear.map((g) => g.name)).toEqual(["Quadrupedal weapons platform", "Microwave array turret"]);
+    expect(parseLootBonus(gear[1]?.bonus)).toEqual({ tag: "anti-tank", plus: 3 });
   });
 });

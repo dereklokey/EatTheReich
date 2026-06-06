@@ -73,6 +73,17 @@ export interface Threat {
  * Objective. A rescue one is tied to a Downed character; others grant a reward on
  * completion (see data/rewards.ts).
  */
+/**
+ * Special gear unlocked by completing a Secondary Objective (rulebook p39: "clear the
+ * Objective, and you unlock the equipment"). This gear does NOT occupy a Loot slot, so it
+ * grants slot-free. `bonus` is the printed (+tag) requirement string (e.g. "+++anti-tank").
+ */
+export interface RewardItem {
+  name: string;
+  bonus?: string;
+  note?: string;
+}
+
 export interface SecondaryObjective {
   id: string;
   name: string;
@@ -83,6 +94,8 @@ export interface SecondaryObjective {
   rescueFor?: string;
   /** Chosen reward id once completed. */
   rewardChoice?: string;
+  /** Gear this objective unlocks on completion (slot-free). Drives the GM gate (issue #4). */
+  rewardEquipment?: RewardItem[];
 }
 
 export type Target = Objective | Threat;

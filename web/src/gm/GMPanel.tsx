@@ -1,14 +1,14 @@
 import { useState, type ReactNode } from "react";
 import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
-import type { Objective, Threat, SecondaryObjective } from "@shared/domain/types.js";
+import type { Objective, Threat, SecondaryObjective, RewardItem } from "@shared/domain/types.js";
 import { CHAR_IDS, type CharId, type SeatId, type GameEvent } from "@shared/events/types.js";
 import type { DieFace } from "@shared/domain/types.js";
 import { LOCATIONS_BY_SECTOR, LOCATIONS_BY_ID, type Sector, type LootRef } from "@shared/data/locations.js";
 import { SECONDARY_OBJECTIVE_REWARDS } from "@shared/data/rewards.js";
 import { seatName } from "@/game/seats";
 import { Die } from "@/components/dice/Die";
-import { THREAT_CATALOG, LOOT_CATALOG, loadLocation, newObjective, newLoot, newSecondaryObjective, rescueObjective } from "./catalog";
+import { THREAT_CATALOG, LOOT_CATALOG, loadLocation, newObjective, newLoot, newRewardGear, newSecondaryObjective, rescueObjective } from "./catalog";
 
 /**
  * GM panel (CLAUDE.md §4) — the only GM-only surface. Frame scenes / quick-load a
@@ -258,7 +258,7 @@ function SecondaryObjectivesSection({ state, send }: { state: GameState; send: (
         <p className="mono text-xs text-paper-fade italic">None in play. Load a location or add one below.</p>
       ) : (
         <div className="flex flex-col gap-1.5">
-          {list.map((o) => <SecondaryRow key={o.id} o={o} send={send} />)}
+          {list.map((o) => <SecondaryRow key={o.id} o={o} state={state} send={send} />)}
         </div>
       )}
       {/* Add with a default rating, then tune rating/challenge on the card above. */}
@@ -274,11 +274,18 @@ function SecondaryObjectivesSection({ state, send }: { state: GameState; send: (
   );
 }
 
-function SecondaryRow({ o, send }: { o: SecondaryObjective; send: (i: Intent) => void }) {
+function SecondaryRow({ o, state, send }: { o: SecondaryObjective; state: GameState; send: (i: Intent) => void }) {
   const [reward, setReward] = useState("");
+  const firstClaimed = CHAR_IDS.find((id) => state.seats[id]?.claimed) ?? CHAR_IDS[0]!;
+  const [recipient, setRecipient] = useState<CharId>(firstClaimed);
   const done = o.rating <= 0;
+  const gear = o.rewardEquipment ?? [];
+  const hasGear = gear.length > 0;
   const rewardLabel = (id?: string) => SECONDARY_OBJECTIVE_REWARDS.find((r) => r.id === id)?.label;
   const patch = (p: Partial<SecondaryObjective>) => send({ kind: "update_secondary_objective", id: o.id, patch: p });
+  // Slot-free gear (rulebook p39): granted as a no-slot asset to one player on completion.
+  const grant = (g: RewardItem) => send({ kind: "loot_add", seat: recipient, item: newRewardGear(g.name, g.bonus, g.note) });
+
   return (
     <div className="paper paper-tight mono text-sm">
       <div className="flex items-center gap-2">
@@ -286,31 +293,80 @@ function SecondaryRow({ o, send }: { o: SecondaryObjective; send: (i: Intent) =>
         {o.rescueFor && <span className="stamp text-[0.55rem]">rescue</span>}
         <button className="text-xs underline text-blood" onClick={() => send({ kind: "remove_secondary_objective", id: o.id })}>remove</button>
       </div>
+
       {done ? (
-        <div className="mono text-[0.65rem] text-hazard mt-1">
-          ✓ complete{o.rewardChoice ? ` — reward: ${rewardLabel(o.rewardChoice) ?? o.rewardChoice}` : ""}
-        </div>
+        <>
+          <div className="mono text-[0.65rem] text-hazard mt-1">
+            ✓ complete{o.rewardChoice ? ` — reward: ${rewardLabel(o.rewardChoice) ?? o.rewardChoice}` : ""}
+          </div>
+          {hasGear && (
+            <div className="mt-1.5">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[0.6rem] text-hazard">unlocked — grant to</span>
+                <select className="mono text-xs flex-1 min-w-0 px-1 py-0.5 bg-paper-shadow/40" value={recipient} onChange={(e) => setRecipient(e.target.value as CharId)}>
+                  {CHAR_IDS.map((id) => (
+                    <option key={id} value={id}>{seatName(id)}{state.seats[id]?.claimed ? "" : " (unclaimed)"}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                {gear.map((g, i) => (
+                  <div key={i} className="flex items-center gap-2 bg-paper-shadow/30 px-2 py-1" style={{ borderRadius: 2 }}>
+                    <span className="flex-1 min-w-0">
+                      <span className="text-xs">{g.name}</span>
+                      {g.bonus && <span className="text-[0.6rem] text-blood ml-1">{g.bonus}</span>}
+                      <span className="text-[0.55rem] text-paper-fade ml-1">· no slot</span>
+                    </span>
+                    <button className="display bg-blood text-paper px-2 py-0.5 text-[0.65rem]" style={{ borderRadius: 2 }} onClick={() => grant(g)}>grant</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <>
           <div className="flex items-center gap-3 mt-1 text-xs">
             <span className="flex items-center gap-1">rating <Stepper value={o.rating} onChange={(v) => patch({ rating: v })} /></span>
             <span className="flex items-center gap-1">chal <Stepper value={o.challenge ?? 0} onChange={(v) => patch({ challenge: v })} /></span>
           </div>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            {/* Rescue secondaries have a fixed reward (the rescued vampire); others draw the p38 menu. */}
-            {!o.rescueFor && (
-              <select className="mono text-xs flex-1 min-w-0 px-1 py-0.5 bg-paper-shadow/40" value={reward} onChange={(e) => setReward(e.target.value)}>
-                <option value="">reward on completion…</option>
-                {SECONDARY_OBJECTIVE_REWARDS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
-              </select>
-            )}
-            <button
-              className="display bg-dusk-mauve text-paper px-3 py-0.5 text-xs ml-auto" style={{ borderRadius: 2 }}
-              onClick={() => send({ kind: "complete_secondary_objective", id: o.id, ...(reward ? { rewardChoice: reward } : {}) })}
-            >
-              {o.rescueFor ? "rescued" : "complete"}
-            </button>
-          </div>
+
+          {hasGear ? (
+            // Gear-gated secondary (rulebook p39): the reward IS the equipment, so show it
+            // locked (no p38 menu) and unlock it for distribution once the objective clears.
+            <>
+              <div className="mt-1.5 border border-paper-shadow/40 px-2 py-1" style={{ borderRadius: 2 }}>
+                <div className="text-[0.6rem] text-paper-fade mb-0.5">🔒 unlocks on completion (slot-free):</div>
+                {gear.map((g, i) => (
+                  <div key={i} className="text-[0.65rem] text-paper-fade">
+                    {g.name}{g.bonus && <span className="text-blood/70"> {g.bonus}</span>}
+                  </div>
+                ))}
+              </div>
+              <button
+                className="display bg-dusk-mauve text-paper px-3 py-0.5 text-xs mt-1.5 ml-auto block" style={{ borderRadius: 2 }}
+                onClick={() => send({ kind: "complete_secondary_objective", id: o.id })}
+              >
+                complete &amp; unlock
+              </button>
+            </>
+          ) : (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              {/* Rescue secondaries have a fixed reward (the rescued vampire); others draw the p38 menu. */}
+              {!o.rescueFor && (
+                <select className="mono text-xs flex-1 min-w-0 px-1 py-0.5 bg-paper-shadow/40" value={reward} onChange={(e) => setReward(e.target.value)}>
+                  <option value="">reward on completion…</option>
+                  {SECONDARY_OBJECTIVE_REWARDS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+                </select>
+              )}
+              <button
+                className="display bg-dusk-mauve text-paper px-3 py-0.5 text-xs ml-auto" style={{ borderRadius: 2 }}
+                onClick={() => send({ kind: "complete_secondary_objective", id: o.id, ...(reward ? { rewardChoice: reward } : {}) })}
+              >
+                {o.rescueFor ? "rescued" : "complete"}
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

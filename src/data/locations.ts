@@ -23,7 +23,10 @@ export interface LootRef {
 export interface SecondaryObjectiveRef {
   name: string;
   rating: number;
+  /** Free-text reward (effects/flavour) shown on the secondary objective. */
   reward?: string;
+  /** Slot-free special gear unlocked on completion (rulebook p39). */
+  rewardEquipment?: { name: string; bonus?: string; note?: string }[];
 }
 
 export interface Location {
@@ -98,7 +101,15 @@ export const LOCATIONS: Location[] = [
       { name: "Loose, glowing fuel source", bonus: "++near flammable material" },
     ],
     secondaryObjectives: [
-      { name: "Power up the weapons platform", rating: 5, reward: "Quadrupedal weapons platform (+shrug off incoming fire) and Microwave array turret (+++anti-tank) — do not occupy Loot slots" },
+      {
+        name: "Power up the weapons platform",
+        rating: 5,
+        reward: "These do not occupy Loot slots.",
+        rewardEquipment: [
+          { name: "Quadrupedal weapons platform", bonus: "+shrug off incoming fire" },
+          { name: "Microwave array turret", bonus: "+++anti-tank" },
+        ],
+      },
     ],
   },
   {
@@ -127,7 +138,12 @@ export const LOCATIONS: Location[] = [
     objectives: [{ name: "Lose the nazis by hiding in the bar", rating: 6 }],
     enemies: ["Police Patrol x2", "Infantry Squad in an Armoured Car (turn up halfway through)"],
     secondaryObjectives: [
-      { name: "Team up with the Resistance", rating: 4, reward: "Guerrilla Squad (+flanking manoeuvre) — does not occupy a Loot slot" },
+      {
+        name: "Team up with the Resistance",
+        rating: 4,
+        reward: "Does not occupy a Loot slot.",
+        rewardEquipment: [{ name: "Guerrilla Squad", bonus: "+flanking manoeuvre" }],
+      },
     ],
   },
   {
