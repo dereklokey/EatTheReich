@@ -18,8 +18,9 @@
 
   --blood:        #c0142e;   /* arterial crimson — hits, danger, GM */
   --blood-bright: #ff2d4a;   /* spray highlight / crit flash */
-  --hazard:       #f2c014;   /* highlighter / success */
+  --hazard:       #f2c014;   /* highlighter / success — on the DARK layer only */
   --hazard-warm:  #e8941c;   /* fire / explosion */
+  --hazard-ink:   #7a5500;   /* dark amber — 'success/done' text on the light paper layer */
 
   --die-player:   #6a2b8a;
   --die-player-2: #9c3bb0;
@@ -57,6 +58,7 @@
   --color-blood-bright: var(--blood-bright);
   --color-hazard: var(--hazard);
   --color-hazard-warm: var(--hazard-warm);
+  --color-hazard-ink: var(--hazard-ink);
   --color-discard: var(--discard);
   --font-mono: var(--font-mono);
   --font-display: var(--font-display);

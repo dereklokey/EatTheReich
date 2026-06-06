@@ -215,7 +215,7 @@ function ObjectivesSection({ state, send }: { state: GameState; send: (i: Intent
           <div key={o.id} className="paper paper-tight mono text-sm">
             <div className="flex items-center gap-2">
               <span className="flex-1">{o.name}</span>
-              {o.rating > 0 && <button className="text-xs underline text-hazard" onClick={() => send({ kind: "complete_objective", id: o.id })}>done</button>}
+              {o.rating > 0 && <button className="text-xs underline text-hazard-ink" onClick={() => send({ kind: "complete_objective", id: o.id })}>done</button>}
             </div>
             <div className="flex items-center gap-3 mt-1 text-xs">
               {/* Rating and Challenge are independent (RULES §6) — both editable here. */}
@@ -296,13 +296,13 @@ function SecondaryRow({ o, state, send }: { o: SecondaryObjective; state: GameSt
 
       {done ? (
         <>
-          <div className="mono text-[0.65rem] text-hazard mt-1">
+          <div className="mono text-[0.65rem] text-hazard-ink font-bold mt-1">
             ✓ complete{o.rewardChoice ? ` — reward: ${rewardLabel(o.rewardChoice) ?? o.rewardChoice}` : ""}
           </div>
           {hasGear && (
             <div className="mt-1.5">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-[0.6rem] text-hazard">unlocked — grant to</span>
+                <span className="text-[0.6rem] text-hazard-ink font-bold">unlocked — grant to</span>
                 <select className="mono text-xs flex-1 min-w-0 px-1 py-0.5 bg-paper-shadow/40" value={recipient} onChange={(e) => setRecipient(e.target.value as CharId)}>
                   {CHAR_IDS.map((id) => (
                     <option key={id} value={id}>{seatName(id)}{state.seats[id]?.claimed ? "" : " (unclaimed)"}</option>

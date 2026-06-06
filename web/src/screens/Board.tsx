@@ -136,7 +136,7 @@ export function Board({
                           {o.name}
                           {o.rescueFor && <span className="text-blood"> (rescue)</span>}
                         </span>
-                        {done ? <span className="mono text-[0.6rem] text-hazard">done</span> : <RatingPips n={o.rating} tone="hazard" />}
+                        {done ? <span className="mono text-[0.6rem] text-hazard-ink font-bold">done</span> : <RatingPips n={o.rating} tone="hazard" />}
                       </div>
                       {!done && o.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {o.challenge}</div> : null}
                     </div>
