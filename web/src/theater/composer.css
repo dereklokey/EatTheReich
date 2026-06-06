@@ -1,0 +1,335 @@
+/* The Turn Composer (DESIGN.md §6 "Building the pool") — the active player's loadout
+   bench: pick a stat + gear on the sheet (left), watch the pool assemble as a narrated
+   list of dice (centre), choose what you're fighting (right). The calm dossier register;
+   the spectacle is the roll that follows. All motion is auto-zeroed under reduce-effects. */
+
+.composer {
+  position: fixed;
+  inset: 0;
+  z-index: 78;
+  overflow-y: auto;
+  background:
+    radial-gradient(90% 60% at 50% 24%, rgba(58, 37, 64, 0.6), transparent 70%),
+    rgba(13, 10, 28, 0.97);
+}
+
+.composer__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 0;
+}
+
+.composer__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  width: 100%;
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 5rem; /* clears the always-on-top safety bar */
+}
+@media (min-width: 64rem) {
+  .composer__grid {
+    grid-template-columns: minmax(15rem, 1fr) minmax(18rem, 1.15fr) minmax(15rem, 1fr);
+    align-items: start;
+  }
+  /* The three columns scroll independently within the viewport on wide screens. */
+  .composer__sheet,
+  .composer__threats {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 7rem);
+    overflow-y: auto;
+  }
+}
+
+.composer__col-head {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(232, 220, 192, 0.55); /* legible on the dark file (pool + threats columns) */
+  font-size: 0.8rem;
+  margin-bottom: 0.6rem;
+}
+/* The sheet is a cream paper card — its header reads as dark carbon instead. */
+.composer__sheet .composer__col-head { color: var(--paper-fade); }
+
+/* ───────── LEFT: the sheet, made selectable ───────── */
+.composer__sheet { padding: 0.9rem 1rem; }
+
+.composer__blood-wrap { margin-bottom: 0.4rem; }
+.composer__blood { display: flex; gap: 2px; }
+.composer__blood-cell {
+  flex: 1;
+  height: 0.7rem;
+  border-radius: 1px;
+  background: var(--paper-shadow);
+}
+.composer__blood-cell--full { background: var(--blood); }
+/* Earmarked for an armed ability — striped crimson/hazard with a slow pulse so it reads
+   as "spoken for", distinct from both spent (empty) and free (solid crimson) Blood. */
+.composer__blood-cell--reserved {
+  background: repeating-linear-gradient(45deg, var(--blood) 0 3px, var(--hazard) 3px 6px);
+  animation: blood-reserve 1.2s ease-in-out infinite;
+}
+@keyframes blood-reserve {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.composer__blood-note { color: var(--hazard); }
+
+.composer__group-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--paper-fade);
+  margin: 0.9rem 0 0.4rem;
+}
+.composer__group-label:first-of-type { margin-top: 0; }
+
+.composer__stat {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--paper-shadow) 45%, transparent);
+  color: var(--paper-ink);
+  transition: transform var(--motion-fast) var(--ease-impact), background var(--motion-fast);
+}
+.composer__stat:hover:not(:disabled) { transform: translateY(-1px); }
+.composer__stat--on { background: var(--blood); color: #fff; }
+.composer__stat-n { opacity: 0.7; }
+
+.composer__pick {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  margin-bottom: 0.35rem;
+  border: 1px solid var(--paper-shadow);
+  border-left: 3px solid transparent;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--paper) 70%, transparent);
+  transition: border-color var(--motion-fast), transform var(--motion-fast) var(--ease-impact);
+}
+.composer__pick:hover:not(:disabled) { transform: translateX(2px); }
+.composer__pick:disabled { opacity: 0.45; cursor: not-allowed; }
+.composer__pick--on { border-left-color: var(--blood); background: color-mix(in srgb, var(--hazard) 14%, var(--paper)); }
+.composer__pick-mark {
+  font-family: var(--font-mono);
+  width: 1rem;
+  text-align: center;
+  color: var(--blood);
+  font-weight: 700;
+}
+.composer__loot-tag {
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dusk-mauve);
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  padding: 0 0.25rem;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+.composer__rest {
+  color: var(--paper-ink);
+  padding: 0.2rem 0.5rem;
+  opacity: 0.8;
+}
+
+/* ───────── CENTRE: the assembled pool + detonator ───────── */
+.composer__pool {
+  display: flex;
+  flex-direction: column;
+  min-height: 60vh;
+}
+.composer__sources {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+/* A pool source is RUBBER-STAMPED straight onto the dark file — no card, no list-item
+   chrome. The label is heavy stamped display type sitting slightly askew, like ink pressed
+   onto the page; only the dice + the remove control flank it. It slams in oversized and
+   settles (DESIGN.md §6). Auto-zeroed under reduce-effects. */
+.composer__src {
+  position: relative;
+  padding: 0.3rem 0.1rem;
+  transform-origin: 12% 50%;
+  animation: src-stamp 360ms var(--ease-impact) both;
+}
+@keyframes src-stamp {
+  0% { transform: scale(1.8) rotate(-6deg); opacity: 0; }
+  52% { transform: scale(0.93) rotate(1.6deg); opacity: 1; }
+  74% { transform: scale(1.03) rotate(-0.8deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+.composer__src-main { flex: 1; display: flex; flex-direction: column; line-height: 1; min-width: 0; }
+/* The same rubber-stamp impression as the loot "ACTIVE" tag (theme.css .stamp): a bordered
+   crimson stamp, set askew. align-self keeps the box hugging the word, not the column. */
+.composer__src-label {
+  align-self: flex-start;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.1em;
+  color: var(--blood);
+  border: 2px solid var(--blood);
+  border-radius: 2px;
+  padding: 0.06em 0.4em;
+  transform: rotate(-5deg);
+  transform-origin: left center;
+  opacity: 0.92;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+.composer__src--base .composer__src-label { color: var(--hazard); border-color: var(--hazard); }
+.composer__src-sub {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(232, 220, 192, 0.5);
+  transform: rotate(-5deg);
+  transform-origin: left center;
+  margin-top: 0.32rem;
+}
+.composer__dice { display: inline-flex; flex-wrap: wrap; gap: 0.2rem; max-width: 9rem; justify-content: flex-end; }
+
+.composer__x {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1;
+  width: 1.3rem;
+  height: 1.3rem;
+  display: grid;
+  place-items: center;
+  border-radius: 2px;
+  color: rgba(232, 220, 192, 0.5);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: color var(--motion-fast), border-color var(--motion-fast);
+}
+.composer__x:hover { color: #fff; border-color: var(--blood); }
+.composer__x--locked { color: rgba(232, 220, 192, 0.22); cursor: default; }
+
+.composer__bang {
+  color: var(--hazard-warm);
+  margin-top: 0.2rem;
+}
+.composer__claim {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+}
+.composer__claim-tag { color: rgba(232, 220, 192, 0.6); }
+.composer__claim-tag.hl { color: var(--paper-ink); }
+.composer__claim-plus { color: var(--blood-bright); }
+.composer__claim-hint { color: rgba(232, 220, 192, 0.45); font-style: italic; }
+
+/* Mini dice — quantity glyphs for "this adds N dice", not rolled values. They drop in
+   from above as a source is added (DESIGN.md §6 "each die slams into the pool tray"). */
+.minidie {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 2px;
+  background:
+    radial-gradient(60% 55% at 30% 25%, var(--die-player-2) 0%, transparent 55%),
+    conic-gradient(from 200deg at 50% 50%, var(--die-player), #531f70, var(--die-player-2), var(--die-player));
+  border: 1px solid #3b1551;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+  animation: minidie-drop var(--motion-base) var(--ease-impact) both;
+}
+.minidie--gm {
+  background: radial-gradient(70% 60% at 32% 28%, #fff8ea 0%, transparent 60%), var(--die-gm);
+  border-color: #cdbf9f;
+}
+.minidie--bonus { box-shadow: 0 0 0 1px var(--hazard), 0 1px 0 rgba(0, 0, 0, 0.4); }
+@keyframes minidie-drop {
+  0% { transform: translateY(-120%) rotate(-18deg); opacity: 0; }
+  70% { transform: translateY(8%) rotate(3deg); opacity: 1; }
+  100% { transform: translateY(0) rotate(-2deg); }
+}
+
+.composer__total {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px dashed color-mix(in srgb, var(--paper-shadow) 60%, transparent);
+}
+.composer__total-in {
+  width: 4rem;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  text-align: center;
+  color: var(--paper-ink);
+  background: var(--paper);
+  border: 1px solid var(--paper-shadow);
+  border-radius: 2px;
+  padding: 0.1rem 0.2rem;
+}
+.composer__roll { align-self: center; margin-top: 1rem; }
+
+/* ───────── RIGHT: threats + the Reich gutter ───────── */
+.composer__threat-rows { display: flex; gap: 0.6rem; align-items: stretch; }
+
+/* The Reich pool sits to the LEFT of the threats — the dice the GM will roll back. */
+.composer__reich {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-width: 3.6rem;
+  padding: 0.5rem 0.4rem;
+  border-right: 2px solid color-mix(in srgb, var(--blood) 55%, transparent);
+}
+.composer__reich-n {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  line-height: 0.9;
+  color: var(--blood-bright);
+  text-shadow: 0 0 14px rgba(255, 45, 74, 0.5);
+}
+.composer__reich-dice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  justify-content: center;
+  max-width: 3.4rem;
+}
+
+.composer__threat-list { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+.composer__threat {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--paper-shadow);
+  border-left: 3px solid transparent;
+  border-radius: 2px;
+  background:
+    linear-gradient(0deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.04)),
+    var(--paper);
+  transition: transform var(--motion-fast) var(--ease-impact), border-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+.composer__threat:hover:not(:disabled) { transform: translateY(-1px); }
+.composer__threat:disabled { cursor: not-allowed; }
+.composer__threat--on {
+  border-left-color: var(--blood);
+  box-shadow: 0 0 0 1px var(--blood), 0 6px 14px rgba(0, 0, 0, 0.4);
+}
+.composer__avoid { border-style: dashed; }
+.composer__avoid.composer__threat--on { border-left-color: var(--hazard); box-shadow: 0 0 0 1px var(--hazard), 0 6px 14px rgba(0, 0, 0, 0.4); }

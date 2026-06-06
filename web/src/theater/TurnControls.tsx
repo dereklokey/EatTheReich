@@ -1,26 +1,24 @@
-import { useState } from "react";
 import type { GameState } from "@shared/state/types.js";
-import type { Intent } from "@shared/protocol/messages.js";
 import type { CharId, SeatId } from "@shared/events/types.js";
 import { CHAR_IDS } from "@shared/events/types.js";
 import { seatName } from "@/game/seats";
-import { DeclareModal } from "./DeclareModal";
 
 /**
  * Launches a turn (RULES §1 — characters act in any order, once per round). A seated
- * player starts their own turn; the GM can start any character's. Declaring sends
- * `start_turn`, which opens the theater. Hidden while a turn is already in progress.
+ * player starts their own turn; the GM can start any character's. Picking a character
+ * opens the Turn Composer (DECLARE + BUILD_PLAYER_POOL); the roll fires from there.
+ * Hidden while a turn is already in progress.
  */
 export function TurnControls({
   state,
-  send,
   mySeat,
+  onCompose,
 }: {
   state: GameState;
-  send: (i: Intent) => void;
   mySeat: SeatId | null;
+  /** Open the composer for this character (the player's own seat, or any seat for the GM). */
+  onCompose: (seat: CharId) => void;
 }) {
-  const [declaring, setDeclaring] = useState<CharId | null>(null);
   if (state.currentTurn || !mySeat) return null;
 
   const acted = (id: CharId) => state.actedThisRound.includes(id);
@@ -46,24 +44,12 @@ export function TurnControls({
             key={id}
             className="display text-paper bg-blood px-3 py-1 text-sm"
             style={{ borderRadius: 2 }}
-            onClick={() => setDeclaring(id)}
+            onClick={() => onCompose(id)}
           >
             {mySeat === "gm" ? seatName(id) : "Take your turn"}
           </button>
         ))}
       </div>
-
-      {declaring && (
-        <DeclareModal
-          seat={declaring}
-          state={state}
-          onCancel={() => setDeclaring(null)}
-          onConfirm={(decl) => {
-            send({ kind: "start_turn", seat: declaring, ...decl });
-            setDeclaring(null);
-          }}
-        />
-      )}
     </div>
   );
 }

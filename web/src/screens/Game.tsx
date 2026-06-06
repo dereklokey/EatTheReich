@@ -5,6 +5,7 @@ import { SeatPick } from "./SeatPick";
 import { Board } from "./Board";
 import { SafetyBar, XCardOverlay } from "./SafetyBar";
 import { Theater } from "@/theater/Theater";
+import { TurnComposer } from "@/theater/TurnComposer";
 import { LastStand } from "@/theater/LastStand";
 import { TurnControls } from "@/theater/TurnControls";
 import { GMPanel } from "@/gm/GMPanel";
@@ -26,6 +27,7 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
   const [gmOpen, setGmOpen] = useState(false);
   const [sheetSeat, setSheetSeat] = useState<CharId | null>(null);
   const [theaterMin, setTheaterMin] = useState(false);
+  const [composeSeat, setComposeSeat] = useState<CharId | null>(null);
 
   // Always re-open the theater when a (new) turn starts; "peek" is only a local
   // collapse within the current turn.
@@ -33,6 +35,17 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
   useEffect(() => {
     setTheaterMin(false);
   }, [turnSeat]);
+
+  // The composer is the active player's private prep (DECLARE + BUILD_PLAYER_POOL). It
+  // fires start_turn → roll back-to-back, so it stays mounted across the brief gap until
+  // the dice land (playerDice set), then the shared theater takes over. Drop it if the
+  // turn ends some other way (cancel, or the GM starting a different seat's turn).
+  const turnHasDice = !!game.state?.currentTurn?.playerDice;
+  const composing = composeSeat != null && !turnHasDice;
+  useEffect(() => {
+    if (turnHasDice) setComposeSeat(null);
+    else if (composeSeat != null && turnSeat != null && turnSeat !== composeSeat) setComposeSeat(null);
+  }, [turnHasDice, turnSeat, composeSeat]);
 
   if (game.deleted) return <GameEnded onExit={onExit} />;
 
@@ -66,7 +79,7 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
         />
       ) : (
         <>
-          <TurnControls state={game.state} send={game.send} mySeat={game.mySeat} />
+          <TurnControls state={game.state} mySeat={game.mySeat} onCompose={setComposeSeat} />
           <Board
             state={game.state}
             online={game.online}
@@ -90,6 +103,15 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
           ▴ Resume {seatName(turnSeat!)}’s turn
         </button>
       ) : null}
+      {game.state && composing && composeSeat && (
+        <TurnComposer
+          seat={composeSeat}
+          state={game.state}
+          send={game.send}
+          mySeat={game.mySeat}
+          onCancel={() => setComposeSeat(null)}
+        />
+      )}
       {game.state && isGm && gmOpen && (
         <GMPanel state={game.state} send={game.send} events={game.events} onRewind={game.rewind} onDelete={game.deleteGame} onClose={() => setGmOpen(false)} />
       )}

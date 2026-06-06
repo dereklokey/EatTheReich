@@ -99,10 +99,10 @@ export function RollReveal({
           {gm.map((face, i) => {
             const gmState = revealed && face >= 4 ? "success" : "normal";
             return reduced ? (
-              <Die key={i} kind="gm" value={face} state={face >= 4 ? "success" : "normal"} tilt={tiltFor(i + 3)} />
+              <Die key={i} kind="gm" value={face} state={face >= 4 ? "success" : "normal"} tilt={tiltFor(i + 3)} size="2.75rem" />
             ) : (
               <motion.div key={i} {...entry(player.length + i)}>
-                <Die kind="gm" value={face} state={gmState} tilt={tiltFor(i + 3)} />
+                <Die kind="gm" value={face} state={gmState} tilt={tiltFor(i + 3)} size="2.75rem" />
               </motion.div>
             );
           })}
