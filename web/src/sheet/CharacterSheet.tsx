@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
 import type { CharId } from "@shared/events/types.js";
@@ -6,7 +6,9 @@ import { CHAR_IDS } from "@shared/events/types.js";
 import { STATS } from "@shared/domain/types.js";
 import type { Power } from "@shared/domain/character.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
+import { useEffects } from "@/effects/EffectsContext";
 import { seatName } from "@/game/seats";
+import "./sheet.css";
 
 /**
  * Character sheet (CLAUDE.md §4). The owner (and the GM) get the controls; everyone
@@ -31,13 +33,53 @@ export function CharacterSheet({
 }) {
   const sheet = CHARACTERS_BY_ID[seat];
   const char = state.characters[seat];
+  const { reduced } = useEffects();
   const [flashback, setFlashback] = useState(false);
+
+  // The cost & care (§6): diff this render against the last to fire one-shots when an
+  // injury is marked/healed or the character goes Downed/Dead. `seq` re-keys the
+  // animating element so each transition replays; refs avoid firing on first open/resume.
+  const prevRef = useRef<{ inj: readonly number[]; downed: boolean; dead: boolean } | null>(null);
+  const [injFx, setInjFx] = useState<{ cat: number; kind: "mark" | "heal"; seq: number } | null>(null);
+  const [stampSlam, setStampSlam] = useState(0);
+  const [shuddering, setShuddering] = useState(false);
+  const fxSeq = useRef(0);
+
+  const injuries = char?.injuries;
+  const downed = char?.downed;
+  const dead = char?.dead;
+  useEffect(() => {
+    const cur = { inj: injuries ?? [], downed: !!downed, dead: !!dead };
+    const p = prevRef.current;
+    prevRef.current = cur;
+    if (!p || reduced) return;
+    for (let cat = 0; cat < cur.inj.length; cat++) {
+      const before = p.inj[cat] ?? 0;
+      if (cur.inj[cat]! > before) {
+        setInjFx({ cat, kind: "mark", seq: ++fxSeq.current });
+        if (cur.inj[cat]! >= 2) setShuddering(true); // penalty box → whole-sheet shudder
+      } else if (cur.inj[cat]! < before) {
+        setInjFx({ cat, kind: "heal", seq: ++fxSeq.current });
+      }
+    }
+    if ((cur.downed && !p.downed) || (cur.dead && !p.dead)) setStampSlam(++fxSeq.current);
+  }, [injuries, downed, dead, reduced]);
+
+  useEffect(() => {
+    if (!shuddering) return;
+    const t = setTimeout(() => setShuddering(false), 460);
+    return () => clearTimeout(t);
+  }, [shuddering]);
+
   if (!sheet) return null;
 
   return (
     <div className="fixed inset-0 z-[66] flex justify-end">
       <button className="flex-1 bg-night-deep/70" aria-label="close" onClick={onClose} />
-      <div className="w-full max-w-md h-full overflow-y-auto bg-paper text-paper-ink p-4 pb-24" style={{ boxShadow: "-12px 0 30px rgba(0,0,0,0.5)" }}>
+      <div
+        className={`w-full max-w-md h-full overflow-y-auto bg-paper text-paper-ink p-4 pb-24 ${char.dead ? "sheet--dead" : char.downed ? "sheet--downed" : ""} ${shuddering ? "sheet-shudder" : ""}`}
+        style={{ boxShadow: "-12px 0 30px rgba(0,0,0,0.5)" }}
+      >
         <div className="flex items-start justify-between">
           <div>
             <h2 className="display text-3xl underline-squiggle inline-block">{sheet.name}</h2>
@@ -46,7 +88,9 @@ export function CharacterSheet({
           <button className="mono text-sm underline text-paper-fade" onClick={onClose}>close</button>
         </div>
         {(char.downed || char.dead) && (
-          <div className="stamp mt-2">{char.dead ? "DEAD" : "DOWNED"}</div>
+          <div key={`stamp-${stampSlam}`} className={`stamp mt-2 ${stampSlam && !reduced ? "stamp--slam" : ""}`}>
+            {char.dead ? "DEAD" : "DOWNED"}
+          </div>
         )}
 
         <BloodSection seat={seat} char={char} canEdit={canEdit} state={state} send={send} />
@@ -98,11 +142,19 @@ export function CharacterSheet({
                     {cat.faces[0]}–{cat.faces[1]}
                   </span>
                   <span className="mono text-sm flex-1">{cat.boxes[0]?.label}</span>
-                  {cat.boxes.map((box, bi) => (
-                    <span key={bi} className="grid place-items-center w-5 h-5 border border-paper-shadow text-blood" title={box.penalty ?? box.label}>
-                      {marked >= bi + 1 ? "✕" : ""}
-                    </span>
-                  ))}
+                  {cat.boxes.map((box, bi) => {
+                    const isMarked = marked >= bi + 1;
+                    const justMarked = !reduced && injFx?.kind === "mark" && injFx.cat === ci && bi + 1 === marked;
+                    const justHealed = !reduced && injFx?.kind === "heal" && injFx.cat === ci && bi + 1 === marked + 1;
+                    return (
+                      <span key={bi} className="injury-box grid place-items-center w-5 h-5 border border-paper-shadow text-blood" title={box.penalty ?? box.label}>
+                        {isMarked && (
+                          <span key={justMarked ? `m${injFx!.seq}` : "m"} className={justMarked ? "ink-splat" : undefined}>✕</span>
+                        )}
+                        {justHealed && <span key={`h${injFx!.seq}`} className="heal-shimmer" />}
+                      </span>
+                    );
+                  })}
                   {canEdit && marked > 0 && (
                     <button
                       className="mono text-xs underline text-blood disabled:opacity-40"
@@ -211,15 +263,31 @@ function BloodSection({
   state: GameState;
   send: (i: Intent) => void;
 }) {
+  const { reduced } = useEffects();
   const [to, setTo] = useState<CharId | "">("");
   const [amount, setAmount] = useState(1);
   const mates = CHAR_IDS.filter((id) => id !== seat && state.seats[id]?.claimed && !state.characters[id]?.dead);
 
+  // Flood up on a gain (feed/share), bleed down on a spend (heal/ability) — §6.
+  const prevBlood = useRef(char.blood);
+  const [pulse, setPulse] = useState<"up" | "down" | null>(null);
+  useEffect(() => {
+    if (prevBlood.current !== char.blood && !reduced) {
+      setPulse(char.blood > prevBlood.current ? "up" : "down");
+    }
+    prevBlood.current = char.blood;
+  }, [char.blood, reduced]);
+  useEffect(() => {
+    if (!pulse) return;
+    const t = setTimeout(() => setPulse(null), 620);
+    return () => clearTimeout(t);
+  }, [pulse]);
+
   return (
     <Section title={`Blood — ${char.blood}/10`}>
-      <div className="flex gap-0.5">
+      <div className={`flex gap-0.5 ${pulse === "up" ? "blood-meter--up" : pulse === "down" ? "blood-meter--down" : ""}`} style={{ borderRadius: 1 }}>
         {Array.from({ length: 10 }, (_, i) => (
-          <span key={i} className="h-3 flex-1" style={{ background: i < char.blood ? "var(--blood)" : "var(--paper-shadow)", borderRadius: 1 }} />
+          <span key={i} className="blood-cell h-3 flex-1" style={{ backgroundColor: i < char.blood ? "var(--blood)" : "var(--paper-shadow)", borderRadius: 1 }} />
         ))}
       </div>
       {canEdit && (
@@ -299,8 +367,8 @@ function FlashbackModal({ onCancel, onConfirm }: { onCancel: () => void; onConfi
   const [context, setContext] = useState("");
   const [question, setQuestion] = useState("");
   return (
-    <div className="fixed inset-0 z-[74] grid place-items-center bg-night-deep/90 p-4" style={{ filter: "sepia(0.3)" }}>
-      <div className="paper w-full max-w-md">
+    <div className="fixed inset-0 z-[74] grid place-items-center p-4 flashback-wash">
+      <div className="paper w-full max-w-md flashback-card">
         <h3 className="display text-xl">Flashback</h3>
         <p className="mono text-xs text-paper-fade mt-1">A scene from before. Answer it, then reroll with +2 dice.</p>
         <input className="mono w-full mt-3 px-2 py-1.5 bg-paper-shadow/40" placeholder="context (where/when)" value={context} onChange={(e) => setContext(e.target.value)} />
