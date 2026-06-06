@@ -3,6 +3,8 @@
  * Objective, the player chooses ONE of these. The `magnitude` is the numeric
  * default the GM/engine applies (some reward dice are 1d6, resolved at runtime).
  */
+import type { BonusRequirement } from "../domain/character.js";
+
 export interface SecondaryObjectiveReward {
   id: string;
   label: string;
@@ -23,3 +25,18 @@ export const SECONDARY_OBJECTIVE_REWARDS: SecondaryObjectiveReward[] = [
 
 /** Looted items become regular equipment with three uses and one bonus requirement (rulebook p39). */
 export const LOOT_DEFAULT_USES = 3;
+
+/**
+ * Parse a loot bonus string into a structured requirement. Loot is printed with leading
+ * `+` signs for its bonus-die count and the trigger tag after them, e.g. "++anti-tank" →
+ * `{ tag: "anti-tank", plus: 2 }`. Returns undefined for blank/garbled input.
+ */
+export function parseLootBonus(bonus?: string): BonusRequirement | undefined {
+  if (!bonus) return undefined;
+  // Tag must start with a real (non-+, non-space) character, so "++" with no tag is rejected
+  // rather than reading the trailing + as the tag.
+  const m = /^(\++)\s*([^+\s].*)$/.exec(bonus.trim());
+  if (!m) return undefined;
+  const plus = Math.min(4, m[1]!.length) as 1 | 2 | 3 | 4;
+  return { tag: m[2]!.trim(), plus };
+}

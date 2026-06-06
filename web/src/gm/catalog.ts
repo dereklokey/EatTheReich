@@ -1,5 +1,8 @@
 import type { Objective, Threat, SecondaryObjective } from "@shared/domain/types.js";
-import type { Location } from "@shared/data/locations.js";
+import type { Equipment } from "@shared/domain/character.js";
+import type { Location, LootRef } from "@shared/data/locations.js";
+import { LOCATIONS } from "@shared/data/locations.js";
+import { LOOT_DEFAULT_USES, parseLootBonus } from "@shared/data/rewards.js";
 import {
   COMMON_ENEMY_FACTORIES,
   UBERMENSCHEN_FACTORIES,
@@ -77,4 +80,31 @@ export function newObjective(name: string, rating: number, challenge?: number): 
 
 export function rescueObjective(seatName: string, seat: string): SecondaryObjective {
   return { id: uuid(), name: `Rescue ${seatName}`, kind: "secondary", rating: 4, rescueFor: seat };
+}
+
+/** The loot named across all locations, de-duped — quick-pick suggestions for granting. */
+export const LOOT_CATALOG: LootRef[] = (() => {
+  const seen = new Set<string>();
+  const out: LootRef[] = [];
+  for (const loc of LOCATIONS) {
+    for (const l of loc.loot ?? []) {
+      if (seen.has(l.name)) continue;
+      seen.add(l.name);
+      out.push(l);
+    }
+  }
+  return out;
+})();
+
+/** Build a loot Equipment from GM input: 3 uses, occupies a Loot slot, optional bonus/note (rulebook p39). */
+export function newLoot(name: string, bonus?: string, note?: string): Equipment {
+  const b = parseLootBonus(bonus);
+  return {
+    id: `loot-${uuid().slice(0, 8)}`,
+    name,
+    uses: LOOT_DEFAULT_USES,
+    loot: true,
+    ...(b ? { bonus: b } : {}),
+    ...(note ? { note } : {}),
+  };
 }

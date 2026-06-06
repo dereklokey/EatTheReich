@@ -2,10 +2,10 @@ import { useState, type ReactNode } from "react";
 import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
 import type { Objective, Threat } from "@shared/domain/types.js";
-import { CHAR_IDS, type SeatId, type GameEvent } from "@shared/events/types.js";
-import { LOCATIONS_BY_SECTOR, type Sector } from "@shared/data/locations.js";
+import { CHAR_IDS, type CharId, type SeatId, type GameEvent } from "@shared/events/types.js";
+import { LOCATIONS_BY_SECTOR, type Sector, type LootRef } from "@shared/data/locations.js";
 import { seatName } from "@/game/seats";
-import { THREAT_CATALOG, loadLocation, newObjective, rescueObjective } from "./catalog";
+import { THREAT_CATALOG, LOOT_CATALOG, loadLocation, newObjective, newLoot, rescueObjective } from "./catalog";
 
 /**
  * GM panel (CLAUDE.md §4) — the only GM-only surface. Frame scenes / quick-load a
@@ -44,6 +44,7 @@ export function GMPanel({
         <ObjectivesSection state={state} send={send} />
         <ThreatsSection state={state} send={send} />
         <RescueSection state={state} send={send} />
+        <GrantLootSection state={state} send={send} />
         <RewindSection state={state} events={events} onRewind={onRewind} />
         <SeatsSection state={state} send={send} />
         <DangerSection onDelete={onDelete} />
@@ -236,6 +237,62 @@ function RescueSection({ state, send }: { state: GameState; send: (i: Intent) =>
           Add rescue objective for {seatName(id)}
         </button>
       ))}
+    </Section>
+  );
+}
+
+function GrantLootSection({ state, send }: { state: GameState; send: (i: Intent) => void }) {
+  const firstClaimed = CHAR_IDS.find((id) => state.seats[id]?.claimed) ?? CHAR_IDS[0]!;
+  const [seat, setSeat] = useState<CharId>(firstClaimed);
+  const [name, setName] = useState("");
+  const [bonus, setBonus] = useState("");
+  const [note, setNote] = useState("");
+
+  const pickSuggestion = (ref: LootRef | undefined) => {
+    if (!ref) return;
+    setName(ref.name);
+    setBonus(ref.bonus ?? "");
+    setNote(ref.note ?? "");
+  };
+  const grant = () => {
+    if (!name.trim()) return;
+    send({ kind: "loot_add", seat, item: newLoot(name.trim(), bonus.trim() || undefined, note.trim() || undefined) });
+    setName("");
+    setBonus("");
+    setNote("");
+  };
+
+  return (
+    <Section title="Grant loot">
+      <p className="mono text-[0.65rem] text-paper-fade mb-2">
+        Looted gear becomes equipment with 3 uses and one bonus requirement (rulebook p39). It lands in the character’s Loot, ready to activate.
+      </p>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex gap-1.5">
+          <select className="mono flex-1 px-2 py-1 bg-paper text-paper-ink" value={seat} onChange={(e) => setSeat(e.target.value as CharId)} title="who receives it">
+            {CHAR_IDS.map((id) => (
+              <option key={id} value={id}>{seatName(id)}{state.seats[id]?.claimed ? "" : " (unclaimed)"}</option>
+            ))}
+          </select>
+          <select className="mono flex-1 px-2 py-1 bg-paper text-paper-ink" value="" onChange={(e) => pickSuggestion(LOOT_CATALOG[Number(e.target.value)])} title="prefill from a known location's loot">
+            <option value="">suggestions…</option>
+            {LOOT_CATALOG.map((l, i) => <option key={i} value={i}>{l.name}</option>)}
+          </select>
+        </div>
+        <input className="mono px-2 py-1 bg-paper text-paper-ink" placeholder="item name" value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="flex gap-1.5">
+          <input className="mono flex-1 px-2 py-1 bg-paper text-paper-ink" placeholder="bonus, e.g. ++anti-tank" value={bonus} onChange={(e) => setBonus(e.target.value)} title="leading +'s set the bonus die count" />
+          <input className="mono flex-1 px-2 py-1 bg-paper text-paper-ink" placeholder="note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+        </div>
+        <button
+          className="display bg-blood text-paper px-2 py-1 text-sm disabled:opacity-40 self-start"
+          style={{ borderRadius: 2 }}
+          disabled={!name.trim()}
+          onClick={grant}
+        >
+          Grant to {seatName(seat)}
+        </button>
+      </div>
     </Section>
   );
 }

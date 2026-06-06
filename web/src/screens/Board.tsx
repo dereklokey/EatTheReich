@@ -1,26 +1,78 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { motion } from "motion/react";
 import type { GameState, CharacterRuntime } from "@shared/state/types.js";
-import type { SeatId, CharId } from "@shared/events/types.js";
+import type { SeatId, CharId, GameEvent } from "@shared/events/types.js";
 import { CHAR_IDS } from "@shared/events/types.js";
 import { seatName } from "@/game/seats";
+import { useEffects } from "@/effects/EffectsContext";
+import { useSound } from "@/effects/SoundContext";
+import "./blood-arc.css";
+
+/** A live blood-share spectacle: a crimson arc from giver to receiver (§6). */
+interface ShareArc {
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  fromId: CharId;
+  toId: CharId;
+  amount: number;
+  seq: number;
+}
 
 /**
  * The shared board (CLAUDE.md §4): objectives, threats, and the vampire roster —
- * visible to everyone, read-only here (the resolution theater + GM panel that drive
- * it are the next increment). This is the calm dossier layer; no ambient motion.
+ * visible to everyone. The calm dossier layer — no ambient motion — with one exception:
+ * when Blood is shared between vampires, a crimson arc streaks across the roster from
+ * giver to receiver (the one-at-a-time slide-over sheet can't show both, but the board
+ * always shows the whole crew), so the table sees the gift land (DESIGN.md §6).
  */
 export function Board({
   state,
   online,
+  events,
   onOpenSheet,
   onFrameScene,
 }: {
   state: GameState;
   online: SeatId[];
+  events: GameEvent[];
   onOpenSheet?: (id: CharId) => void;
   /** GM-only: open the GM panel to frame the first scene (shown as an empty-state CTA). */
   onFrameScene?: () => void;
 }) {
+  const { reduced } = useEffects();
+  const { play } = useSound();
+  const crewRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const lastShareSeq = useRef(0);
+  const [arc, setArc] = useState<ShareArc | null>(null);
+
+  // Watch the (session-local) event feed for a fresh BLOOD_SHARED and stream the arc.
+  useEffect(() => {
+    let latest: GameEvent | undefined;
+    for (const e of events) if (e.type === "BLOOD_SHARED" && e.seq > lastShareSeq.current) latest = e;
+    if (!latest || latest.type !== "BLOOD_SHARED") return;
+    lastShareSeq.current = latest.seq;
+    if (reduced) return;
+
+    const layer = crewRef.current;
+    const a = cardRefs.current.get(latest.payload.from);
+    const b = cardRefs.current.get(latest.payload.to);
+    if (!layer || !a || !b) return;
+    const lr = layer.getBoundingClientRect();
+    const center = (el: HTMLElement) => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left - lr.left + r.width / 2, y: r.top - lr.top + r.height / 2 };
+    };
+    play("feed");
+    setArc({ from: center(a), to: center(b), fromId: latest.payload.from, toId: latest.payload.to, amount: latest.payload.amount, seq: latest.seq });
+  }, [events, reduced, play]);
+
+  useEffect(() => {
+    if (!arc) return;
+    const t = setTimeout(() => setArc(null), 1100);
+    return () => clearTimeout(t);
+  }, [arc]);
+
   const empty = state.board.objectives.length === 0 && state.board.threats.length === 0;
   return (
     <div className="substrate grain min-h-full p-4 pb-20 mx-auto max-w-5xl">
@@ -75,11 +127,15 @@ export function Board({
 
       <section className="mt-6">
         <h2 className="display text-paper text-xl mb-2">The crew</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div ref={crewRef} className="relative grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {CHAR_IDS.map((id) => (
             <CharCard
               key={id}
               id={id}
+              innerRef={(el) => {
+                if (el) cardRefs.current.set(id, el);
+                else cardRefs.current.delete(id);
+              }}
               char={state.characters[id]}
               claimed={state.seats[id]?.claimed ?? false}
               online={online.includes(id)}
@@ -87,9 +143,11 @@ export function Board({
               // Whose turn (§6): the active vampire takes a warm spotlight; the rest
               // recede while someone holds the floor. A state change, not ambient motion.
               recede={!!state.activeSeat && state.activeSeat !== id && (state.seats[id]?.claimed ?? false)}
+              fx={arc ? (arc.fromId === id ? "bleed" : arc.toId === id ? "flood" : undefined) : undefined}
               onOpen={onOpenSheet ? () => onOpenSheet(id) : undefined}
             />
           ))}
+          {arc && <BloodArc key={arc.seq} arc={arc} />}
         </div>
       </section>
     </div>
@@ -119,19 +177,24 @@ function BoardHeader({ state }: { state: GameState }) {
 
 function CharCard({
   id,
+  innerRef,
   char,
   claimed,
   online,
   active,
   recede,
+  fx,
   onOpen,
 }: {
   id: string;
+  innerRef?: (el: HTMLDivElement | null) => void;
   char: CharacterRuntime;
   claimed: boolean;
   online: boolean;
   active: boolean;
   recede: boolean;
+  /** A blood-share one-shot: the giver bleeds, the receiver floods (§6). */
+  fx?: "bleed" | "flood";
   onOpen?: () => void;
 }) {
   const spotlight = active
@@ -144,7 +207,8 @@ function CharCard({
       : undefined;
   return (
     <div
-      className={`paper ${onOpen ? "cursor-pointer" : ""} ${char.dead ? "opacity-40" : char.downed ? "opacity-70 -rotate-1" : ""}`}
+      ref={innerRef}
+      className={`paper ${onOpen ? "cursor-pointer" : ""} ${char.dead ? "opacity-40" : char.downed ? "opacity-70 -rotate-1" : ""} ${fx ? `card-${fx}` : ""}`}
       style={{ transition: "transform 220ms var(--ease-impact), box-shadow 220ms, opacity 220ms", ...spotlight }}
       onClick={onOpen}
       title={onOpen ? "open sheet" : undefined}
@@ -215,6 +279,56 @@ function RatingPips({ n, tone }: { n: number; tone: "hazard" | "blood" }) {
         ))}
       </span>
     </span>
+  );
+}
+
+/**
+ * The blood-share spectacle (§6): a thrown crimson arc + a stream of droplets from the
+ * giver's card to the receiver's, with the gifted amount floating up at the landing.
+ * One-shot; positions are measured from the live card rects so it tracks the layout.
+ */
+function BloodArc({ arc }: { arc: ShareArc }) {
+  const { from, to, amount } = arc;
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  // Lift the apex perpendicular to the line so the gift is lobbed, not dragged.
+  const lift = Math.min(90, Math.max(34, dist * 0.22));
+  const mid = { x: (from.x + to.x) / 2 + (-dy / dist) * lift, y: (from.y + to.y) / 2 + (dx / dist) * lift };
+  const path = `M ${from.x} ${from.y} Q ${mid.x} ${mid.y} ${to.x} ${to.y}`;
+
+  return (
+    <div className="blood-arc" aria-hidden>
+      <svg className="blood-arc__svg">
+        <motion.path
+          d={path}
+          fill="none"
+          stroke="var(--blood-bright)"
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ pathLength: 1, opacity: [0, 0.85, 0] }}
+          transition={{ duration: 0.85, ease: [0.2, 0.7, 0.2, 1] }}
+        />
+      </svg>
+      {[0, 1, 2, 3].map((i) => (
+        <motion.span
+          key={i}
+          className="blood-drop"
+          initial={{ x: from.x, y: from.y, opacity: 0, scale: 0.5 }}
+          animate={{ x: [from.x, mid.x, to.x], y: [from.y, mid.y, to.y], opacity: [0, 1, 1, 0], scale: [0.5, 1, 0.85] }}
+          transition={{ duration: 0.8, delay: i * 0.09, ease: "easeInOut" }}
+        />
+      ))}
+      <motion.span
+        className="blood-amount display"
+        initial={{ x: to.x, y: to.y, opacity: 0 }}
+        animate={{ x: to.x, y: [to.y, to.y - 28], opacity: [0, 1, 1, 0] }}
+        transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
+      >
+        +{amount}
+      </motion.span>
+    </div>
   );
 }
 

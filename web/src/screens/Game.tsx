@@ -70,6 +70,7 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
           <Board
             state={game.state}
             online={game.online}
+            events={game.events}
             onOpenSheet={setSheetSeat}
             onFrameScene={isGm ? () => setGmOpen(true) : undefined}
           />

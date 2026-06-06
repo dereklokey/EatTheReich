@@ -12,6 +12,7 @@ import {
 } from "../threats.js";
 import type { ActionContext } from "../../domain/types.js";
 import { sequenceRoller } from "../../domain/dice.js";
+import { parseLootBonus } from "../rewards.js";
 import { reinforce, availableCritSpecials } from "../../engine/index.js";
 import { CHUCK, ASTRID, NICOLE } from "../characters.js";
 
@@ -175,5 +176,21 @@ describe("Übermenschen & Solo reinforcement behaviour (rulebook p38/p61)", () =
 
   it("Einherjar carries its painless/bloodless rule keys", () => {
     expect(einherjar().rules).toEqual(["painless", "bloodless"]);
+  });
+});
+
+describe("parseLootBonus — looted gear bonus strings (rulebook p39)", () => {
+  it("reads the leading +'s as the bonus-die count and the rest as the tag", () => {
+    expect(parseLootBonus("++anti-tank")).toEqual({ tag: "anti-tank", plus: 2 });
+    expect(parseLootBonus("+swing for the fences")).toEqual({ tag: "swing for the fences", plus: 1 });
+    expect(parseLootBonus("+++ front-mounted machine guns")).toEqual({ tag: "front-mounted machine guns", plus: 3 });
+  });
+
+  it("clamps to 4 and rejects blank or tag-less input", () => {
+    expect(parseLootBonus("+++++overkill")).toEqual({ tag: "overkill", plus: 4 });
+    expect(parseLootBonus(undefined)).toBeUndefined();
+    expect(parseLootBonus("   ")).toBeUndefined();
+    expect(parseLootBonus("no plus sign")).toBeUndefined();
+    expect(parseLootBonus("++")).toBeUndefined();
   });
 });

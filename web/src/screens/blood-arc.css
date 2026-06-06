@@ -1,0 +1,55 @@
+/* Blood-share spectacle (DESIGN.md §6). A crimson arc + droplet stream across the crew
+   roster, with the giver and receiver cards reacting. One-shot, gated by reduce-effects. */
+
+.blood-arc {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 10;
+}
+.blood-arc__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 0 6px rgba(255, 45, 74, 0.6));
+}
+
+/* A travelling bead of blood — x/y are driven by Motion; the negative margins centre it. */
+.blood-drop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, var(--blood-bright), var(--blood) 58%, #5e0a18);
+  box-shadow: 0 0 10px rgba(255, 45, 74, 0.85);
+}
+
+.blood-amount {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: -0.6rem 0 0 0.4rem;
+  font-size: 1.1rem;
+  color: var(--blood-bright);
+  text-shadow: 0 0 8px rgba(255, 45, 74, 0.7), 0 1px 0 #5e0a18;
+}
+
+/* The receiver floods crimson; the giver dims as it's drained. */
+@keyframes card-flood {
+  0% { box-shadow: 0 0 0 0 rgba(192, 20, 46, 0); }
+  35% { box-shadow: 0 0 0 2px var(--blood), 0 0 24px rgba(192, 20, 46, 0.75); }
+  100% { box-shadow: 0 0 0 0 rgba(192, 20, 46, 0); }
+}
+@keyframes card-bleed {
+  0% { filter: none; }
+  45% { filter: brightness(0.82) saturate(1.25); }
+  100% { filter: none; }
+}
+.card-flood { animation: card-flood 900ms var(--ease-impact) both; }
+.card-bleed { animation: card-bleed 900ms var(--ease-impact) both; }
