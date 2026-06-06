@@ -18,8 +18,8 @@ Cloudflare yet, nothing deployed, $0**.
 
 | Step | Area | State |
 | --- | --- | --- |
-| 1 | Data layer (types, characters, threats) | ✅ structure + rules-hooks; ⚠️ numeric stat blocks pending (see below) |
-| 2 | Pure engine + golden tests | ✅ RULES §12 A–E pass |
+| 1 | Data layer (characters, threats, locations, flashbacks) | ✅ fully transcribed from the rulebook |
+| 2 | Pure engine + golden tests | ✅ RULES §12 A–E pass; verified vs rulebook |
 | 3 | Event store + reducer + snapshots | ⏳ next |
 | 4 | Durable Object room (Cloudflare) | ⏳ |
 | 5 | Seats, sessions, presence | ⏳ |
@@ -37,7 +37,8 @@ src/
     allocate (challenge/defend/feed) · injury · reinforcements · specials
     __tests__/golden.test.ts   RULES §12 A–E — the correctness contract
     __tests__/units.test.ts    supporting coverage
-  data/        characters.ts, threats.ts
+  data/        characters.ts · threats.ts · locations.ts · flashbacks.ts · rewards.ts
+    __tests__/catalog.test.ts  catalog integrity + reinforcement variants
 ```
 
 The engine is intentionally Cloudflare-free: it's `reduce`-able pure functions so it
@@ -52,18 +53,15 @@ npm run test:watch
 npm run typecheck # tsc --noEmit, strict
 ```
 
-## ⚠️ Pending rulebook data (do not invent)
+## Rulebook as source of truth
 
-RULES.md §10 deliberately omits verbatim numeric stat blocks. The following are
-**placeholders marked in code** and must be transcribed from the printed rulebook —
-guessing them would violate "RULES.md is the source of truth":
-
-- **Character stat ratings** (`src/data/characters.ts`): all are `0` (PENDING)
-  except **Iryna SHOOT 3** (known from golden test A). The mechanical hooks
-  (SPECIAL triggers, passives, gear bonuses) *are* encoded.
-- **Übermenschen rating/Attack** (`src/data/threats.ts`): `PENDING_RATING` /
-  `PENDING_ATTACK` placeholders. Their roster and non-ideological framing follow
-  RULES §13.
+All character and enemy data is transcribed from the printed rulebook (kept locally
+in `reference/`, gitignored). Where the book and `RULES.md` disagree, the **book
+wins** and the divergence is logged in [`RULEBOOK_NOTES.md`](./RULEBOOK_NOTES.md) —
+e.g. Nicole's Scavenger is a crit SPECIAL (not a non-crit trigger), and the
+Stahlsoldat has a hybrid reinforcement. That file also lists special enemy rules
+(Painless, Anathema, Rending Claws, …) captured as data but not yet wired into the
+engine.
 
 ## Cost
 

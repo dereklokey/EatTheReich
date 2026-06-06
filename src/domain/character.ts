@@ -1,77 +1,101 @@
 import type { Stat, ActionContext } from "./types.js";
 
 /**
- * Character data shapes (RULES §7, §10). The six pregens are fixed; this models
- * the rules-hooks the engine needs. Verbatim numeric stat blocks come from the
- * rulebook and are filled in data/characters.ts as they're transcribed.
+ * Character data shapes (rulebook pp. 14–24; mechanics pp. 30–41). The six pregens
+ * are fixed. Numeric values here are transcribed from the printed character sheets
+ * — the rulebook is the source of truth (per the project owner).
  */
 
 /**
- * A condition the engine/GM checks before offering a conditional SPECIAL or bonus
- * (e.g. Chuck's Elbow Grease only on a solo FIX Objective). Any field present must
- * match the ActionContext; absent fields are wildcards.
+ * A condition the engine/GM checks before offering a conditional SPECIAL/ability
+ * (e.g. Chuck's Elbow Grease only on a solo FIX Objective). Any present field must
+ * match the ActionContext; absent fields are wildcards. A `tag` requirement is
+ * satisfied when the GM has flagged that tag on the action (ctx.tags).
  */
 export interface ActionCondition {
   stat?: Stat;
   targetKind?: "objective" | "threat";
   solo?: boolean;
-  /** Free-form tag a GM can require (e.g. "melee", "concealed"). */
+  /** Free-form narration tag the GM confirms, e.g. "ranged weapon", "melee", "explosives". */
   tag?: string;
 }
 
 export type SpecialTrigger =
   /** Fires when a critical is allocated to it; `requires` further gates it. */
   | { type: "crit"; requires?: ActionCondition }
-  /** Non-crit trigger (e.g. Nicole's Scavenger d6 restore) — engine/GM driven. */
+  /** Automatic / non-crit (e.g. passives, or "when you reduce a Threat to 0"). */
   | { type: "condition"; requires?: ActionCondition };
 
-export interface Special {
-  id: string;
-  name: string;
-  /** Rule-breaking effect text (shown to the table). */
-  text: string;
-  trigger: SpecialTrigger;
-  /** True when locked behind an Advance (drinking Übermensch blood). */
-  advanceGated?: boolean;
-}
-
-export interface Ability {
-  id: string;
-  name: string;
-  text: string;
-  /** Blood cost to use (RULES §7). */
-  bloodCost?: number;
-  /** Most abilities add a die; some don't (read text). */
-  addsDie: boolean;
-}
-
+/** Bonus requirement: narration tag → bonus dice (number of `+` symbols, 1–4). */
 export interface BonusRequirement {
-  /** Narration tag that satisfies it (GM-confirmed toggle), e.g. "elevated". */
   tag: string;
-  /** Number of `+` symbols → bonus dice granted (1–4). */
   plus: 1 | 2 | 3 | 4;
+}
+
+export type PowerMechanic =
+  /** Spend Blood to do a thing; adds a die when used (most abilities). */
+  | "active"
+  /** Rule-breaking SPECIAL, activated by allocating a critical (RULES p33). */
+  | "special"
+  /** Automatic effect (e.g. pre-discard passive). Engine handles by `id`. */
+  | "passive";
+
+/** Unified ability/advance entry. */
+export interface Power {
+  id: string;
+  name: string;
+  text: string;
+  mechanic: PowerMechanic;
+  /** Blood spent to activate (active powers; some specials). */
+  bloodCost?: number;
+  /** A (+tag) bonus requirement printed on the power itself. */
+  bonus?: BonusRequirement;
+  /** For specials/conditionals: when it fires and any gating condition. */
+  trigger?: SpecialTrigger;
 }
 
 export interface Equipment {
   id: string;
   name: string;
-  /** Uses remaining; undefined = unlimited (starter gear). */
+  /** Uses remaining; undefined = unlimited / starter gear with no use track. */
   uses?: number;
   /** Bonus dice unlocked when its requirement is narrated & GM-confirmed. */
   bonus?: BonusRequirement;
+  /** Nicole's weapons carry a [1]..[6] id for Scavenger matching. */
+  scavengerSlot?: number;
+  /** Free-form note for non-die effects (e.g. "mark to regain 2 Blood"). */
+  note?: string;
   /** True if it occupies the single active loot slot (RULES §11). */
   loot?: boolean;
+}
+
+export interface InjuryBox {
+  label: string;
+  /** Mechanical penalty (present on the 2nd box of a category). */
+  penalty?: string;
+}
+
+/** One injury category = 2 d6 faces + 2 boxes (RULES §5; sheets pp. 14–24). */
+export interface InjuryCategory {
+  faces: [number, number];
+  boxes: [InjuryBox, InjuryBox];
 }
 
 export interface CharacterSheet {
   id: string;
   name: string;
   blurb: string;
-  /** Base stat ratings (RULES §2). Pending rulebook transcription where 0. */
+  /** The character-concept hook lines from the sheet. */
+  hooks: string[];
   stats: Record<Stat, number>;
-  abilities: Ability[];
-  specials: Special[];
   equipment: Equipment[];
+  /** Available from the start (RULES §7). */
+  abilities: Power[];
+  /** Locked until the player drinks Übermensch blood (RULES §7). */
+  advances: Power[];
+  /** 3 categories × 2 boxes. */
+  injuries: [InjuryCategory, InjuryCategory, InjuryCategory];
+  lastStand: string;
 }
 
 /** True when `ctx` satisfies every present field of `cond`. */
@@ -80,8 +104,16 @@ export function conditionMet(cond: ActionCondition | undefined, ctx: ActionConte
   if (cond.stat !== undefined && cond.stat !== ctx.stat) return false;
   if (cond.targetKind !== undefined && cond.targetKind !== ctx.targetKind) return false;
   if (cond.solo !== undefined && cond.solo !== ctx.solo) return false;
-  // `tag` is GM-narration-driven; not derivable from ctx alone, so it never
-  // auto-passes here — the GM toggles it at the table.
-  if (cond.tag !== undefined) return false;
+  if (cond.tag !== undefined && !(ctx.tags ?? []).includes(cond.tag)) return false;
   return true;
+}
+
+/** All crit-activated SPECIALs on a sheet, tagged with whether they're advance-gated. */
+export function specialsOf(
+  character: CharacterSheet,
+): Array<{ power: Power; advanceGated: boolean }> {
+  return [
+    ...character.abilities.map((power) => ({ power, advanceGated: false })),
+    ...character.advances.map((power) => ({ power, advanceGated: true })),
+  ].filter(({ power }) => power.mechanic === "special");
 }

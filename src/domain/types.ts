@@ -50,8 +50,22 @@ export interface Threat {
   challenge?: number;
   /** Werhund etc.: challenge cannot be lowered. */
   unlowerableChallenge?: boolean;
-  /** RULES §8: Übermenschen/elites do NOT reinforce; at 0 they die permanently. */
+  /**
+   * Participates in end-of-round Attack escalation (+1, and +1 for zero successes
+   * — RULES §8). False for "Solo" enemies & most Übermenschen. Note Stahlsoldat is
+   * `reinforces: true` BUT `restoresAtZero: false` (escalates, yet dies at 0).
+   */
   reinforces: boolean;
+  /**
+   * When reduced to 0: true → regain 1d6 rating + half-Attack (standard threats);
+   * false → removed permanently (Übermenschen, Solo elites, Stahlsoldat).
+   * Defaults to `reinforces` when omitted at construction.
+   */
+  restoresAtZero: boolean;
+  /** Player discard threshold override (Rust-Witch raises it to 4). Default 3. */
+  discardThreshold?: number;
+  /** Named special rule keys the engine/GM applies (e.g. "painless", "anathema"). */
+  rules?: string[];
 }
 
 export type Target = Objective | Threat;
@@ -65,4 +79,6 @@ export interface ActionContext {
   solo: boolean;
   /** Threat ids this action is engaged with (RULES §3 engagement). */
   engagedThreatIds: string[];
+  /** GM-confirmed narration tags satisfied this action (e.g. "ranged weapon", "melee"). */
+  tags?: string[];
 }

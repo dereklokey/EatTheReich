@@ -45,46 +45,37 @@ export function reinforce(input: ReinforceInput): ReinforceResult {
   const log: ReinforceLogEntry[] = [];
 
   for (const t of input.threats) {
-    const reducedToZero = input.reducedToZeroThisRound.has(t.id);
+    const reducedToZero = input.reducedToZeroThisRound.has(t.id) || t.rating <= 0;
+    const attackBefore = t.attack;
 
-    // Übermenschen/elites: at 0 they die and are removed; otherwise unchanged.
-    if (!t.reinforces) {
-      if (t.rating <= 0) {
+    // Reduced to 0 (or already there): restore (1d6 + half-Attack) or remove.
+    if (reducedToZero) {
+      if (t.restoresAtZero) {
+        const restoreRoll = input.roller.roll(1)[0] as number;
+        out.push({ ...t, rating: t.rating + restoreRoll, attack: Math.floor(t.startingAttack / 2) });
+        log.push({
+          threatId: t.id,
+          restoreRoll,
+          attackBefore,
+          attackAfter: Math.floor(t.startingAttack / 2),
+          reason: `defeated this round → +${restoreRoll} rating, Attack reset to floor(${t.startingAttack}/2)`,
+        });
+      } else {
         log.push({
           threatId: t.id,
           removed: true,
-          attackBefore: t.attack,
+          attackBefore,
           attackAfter: 0,
-          reason: "elite defeated — removed permanently (no reinforcement)",
+          reason: "defeated → removed permanently (does not restore at 0)",
         });
-        continue;
       }
-      out.push({ ...t });
-      log.push({
-        threatId: t.id,
-        attackBefore: t.attack,
-        attackAfter: t.attack,
-        reason: "elite — does not reinforce",
-      });
       continue;
     }
 
-    const next: Threat = { ...t };
-    const attackBefore = t.attack;
-
-    if (reducedToZero) {
-      // Rule 1: restore rating by 1d6, halve starting Attack.
-      const restoreRoll = input.roller.roll(1)[0] as number;
-      next.rating = t.rating + restoreRoll;
-      next.attack = Math.floor(t.startingAttack / 2);
-      out.push(next);
-      log.push({
-        threatId: t.id,
-        restoreRoll,
-        attackBefore,
-        attackAfter: next.attack,
-        reason: `defeated this round → +${restoreRoll} rating, Attack reset to floor(${t.startingAttack}/2)`,
-      });
+    // Still in play. Solo enemies (reinforces:false) don't escalate.
+    if (!t.reinforces) {
+      out.push({ ...t });
+      log.push({ threatId: t.id, attackBefore, attackAfter: t.attack, reason: "Solo — does not reinforce" });
       continue;
     }
 
@@ -95,8 +86,7 @@ export function reinforce(input: ReinforceInput): ReinforceResult {
       attackAfter += 1;
       reason += "; zero successes against it → +1";
     }
-    next.attack = attackAfter;
-    out.push(next);
+    out.push({ ...t, attack: attackAfter });
     log.push({ threatId: t.id, attackBefore, attackAfter, reason });
   }
 

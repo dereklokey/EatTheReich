@@ -22,6 +22,9 @@ npm-debug.log*
 .env.*
 !.env.example
 
+# reference material (copyrighted rulebook — keep local, never commit)
+reference/
+
 # editor / os
 .DS_Store
 .idea/
