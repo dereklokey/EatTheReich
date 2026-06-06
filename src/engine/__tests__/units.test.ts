@@ -32,6 +32,24 @@ describe("buildPlayerPool", () => {
     ]);
   });
 
+  it("adds an ability's satisfied bonus dice (RULES §4 — gear/abilities both carry +tag bonuses)", () => {
+    const r = buildPlayerPool({
+      stat: { name: "TERRIFY", rating: 3 },
+      abilities: [
+        { label: "Dark Glamour", bonusPlus: 1, bonusSatisfied: true },
+        { label: "Night's Servants", bonusPlus: 1, bonusSatisfied: false },
+      ],
+    });
+    // 3 (stat) + 1 (Dark Glamour) + 1 (its bonus) + 1 (Night's Servants, bonus unclaimed) = 6
+    expect(r.total).toBe(6);
+    expect(r.sources.map((s) => s.label)).toEqual([
+      "TERRIFY",
+      "Dark Glamour",
+      "+Dark Glamour bonus",
+      "Night's Servants",
+    ]);
+  });
+
   it("adds Go Out With A Bang on the last use of an item", () => {
     const r = buildPlayerPool({
       stat: { name: "SHOOT", rating: 1 },

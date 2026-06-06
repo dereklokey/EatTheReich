@@ -48,6 +48,13 @@ export interface Power {
   mechanic: PowerMechanic;
   /** Blood spent to activate (active powers; some specials). */
   bloodCost?: number;
+  /**
+   * False for effect/stance/setup actives that add NO pool die — they reduce a
+   * Challenge, transform you, or buff a *future* action (RULES §4 "some abilities add
+   * no die"). Such powers are used from the sheet, not folded into the dice pool.
+   * Default true.
+   */
+  addsDie?: boolean;
   /** A (+tag) bonus requirement printed on the power itself. */
   bonus?: BonusRequirement;
   /** For specials/conditionals: when it fires and any gating condition. */
@@ -59,6 +66,12 @@ export interface Equipment {
   name: string;
   /** Uses remaining; undefined = unlimited / starter gear with no use track. */
   uses?: number;
+  /**
+   * False for reactive/economy items used OUTSIDE pool-building — at resolution
+   * (Chuck's hat → mark to ignore an Injury) or anytime (Iryna's cigarettes → regain
+   * Blood). These contribute no pool die and are used from the sheet. Default true.
+   */
+  addsDie?: boolean;
   /** Bonus dice unlocked when its requirement is narrated & GM-confirmed. */
   bonus?: BonusRequirement;
   /** Nicole's weapons carry a [1]..[6] id for Scavenger matching. */

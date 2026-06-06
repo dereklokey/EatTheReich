@@ -28,7 +28,13 @@ export interface PoolBuildInput {
     usesBefore?: number;
   }>;
   /** Abilities used this action (each adds a die unless addsDie === false). */
-  abilities?: Array<{ label: string; addsDie?: boolean }>;
+  abilities?: Array<{
+    label: string;
+    addsDie?: boolean;
+    /** +`bonusPlus` bonus dice if its requirement is satisfied (GM-confirmed). */
+    bonusPlus?: number;
+    bonusSatisfied?: boolean;
+  }>;
 }
 
 export interface PoolBuildResult {
@@ -59,7 +65,11 @@ export function buildPlayerPool(input: PoolBuildInput): PoolBuildResult {
   }
 
   for (const a of input.abilities ?? []) {
-    if (a.addsDie !== false) sources.push({ label: a.label, dice: 1 });
+    if (a.addsDie !== false) sources.push({ label: a.label, dice: 1 }); // +1 for using it
+
+    if (a.bonusSatisfied && a.bonusPlus && a.bonusPlus > 0) {
+      sources.push({ label: `+${a.label} bonus`, dice: a.bonusPlus });
+    }
   }
 
   const total = sources.reduce((sum, s) => sum + s.dice, 0);

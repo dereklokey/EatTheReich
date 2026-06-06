@@ -5,9 +5,10 @@ import type { CharId } from "@shared/events/types.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
 
 /**
- * DECLARE (RULES §4): the player names their stat, which Threats they're engaging,
- * and any narration tags the table agreed to (these satisfy weapon (+tag) bonuses).
- * Confirming sends `start_turn`; the theater then opens on the pool builder.
+ * DECLARE (RULES §4): the player names their *intent* — the stat they're using and
+ * which Threats they're engaging. Confirming sends `start_turn`; the theater then opens
+ * on the pool builder, where they pick their gear and claim each weapon's bonus inline
+ * (no typed narration tags — the condition is shown right on the weapon).
  */
 export function DeclareModal({
   seat,
@@ -17,13 +18,12 @@ export function DeclareModal({
 }: {
   seat: CharId;
   state: GameState;
-  onConfirm: (decl: { stat: Stat; engagedThreatIds: string[]; tags: string[] }) => void;
+  onConfirm: (decl: { stat: Stat; engagedThreatIds: string[] }) => void;
   onCancel: () => void;
 }) {
   const sheet = CHARACTERS_BY_ID[seat];
   const [stat, setStat] = useState<Stat>("SHOOT");
   const [engaged, setEngaged] = useState<string[]>([]);
-  const [tagText, setTagText] = useState("");
   const liveThreats = state.board.threats.filter((t) => t.rating > 0);
 
   const toggle = (id: string) =>
@@ -66,19 +66,10 @@ export function DeclareModal({
           )}
         </div>
 
-        <div className="mt-4">
-          <div className="mono text-xs text-paper-fade mb-1">Narration tags (comma-separated)</div>
-          <input
-            className="mono w-full px-2 py-1.5 bg-paper-shadow/40"
-            style={{ borderRadius: 2 }}
-            placeholder="e.g. elevated position, ranged weapon"
-            value={tagText}
-            onChange={(e) => setTagText(e.target.value)}
-          />
-          <p className="mono text-[0.65rem] text-paper-fade mt-1">
-            Tags unlock weapon bonuses. The GM confirms what's true in the fiction.
-          </p>
-        </div>
+        <p className="mono text-[0.65rem] text-paper-fade mt-4">
+          Next: build your pool — pick your weapons and tick each one's bonus when the
+          fiction makes it true.
+        </p>
 
         <div className="mt-5 flex gap-2 justify-end">
           <button className="mono text-sm underline text-paper-fade" onClick={onCancel}>
@@ -87,16 +78,7 @@ export function DeclareModal({
           <button
             className="display text-paper bg-blood px-4 py-1.5"
             style={{ borderRadius: 2 }}
-            onClick={() =>
-              onConfirm({
-                stat,
-                engagedThreatIds: engaged,
-                tags: tagText
-                  .split(",")
-                  .map((t) => t.trim())
-                  .filter(Boolean),
-              })
-            }
+            onClick={() => onConfirm({ stat, engagedThreatIds: engaged })}
           >
             Begin
           </button>

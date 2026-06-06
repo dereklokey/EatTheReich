@@ -4,7 +4,7 @@ import type { Allocation } from "@shared/engine/allocate.js";
 import type { PoolSource } from "@shared/engine/playerPool.js";
 import type { SeatId } from "@shared/events/types.js";
 import { seatName } from "@/game/seats";
-import { PoolBuilder } from "./PoolBuilder";
+import { PoolBuilder, type BloodSpend } from "./PoolBuilder";
 import { RollReveal } from "./RollReveal";
 import { AllocationTray } from "./AllocationTray";
 import "./theater.css";
@@ -35,8 +35,9 @@ export function Theater({
   const char = state.characters[turn.seat];
   const canDrive = mySeat === turn.seat || mySeat === "gm";
 
-  const onRoll = (dice: number, sources: PoolSource[], spendItemIds: string[]) => {
+  const onRoll = (dice: number, sources: PoolSource[], spendItemIds: string[], bloodSpends: BloodSpend[]) => {
     for (const itemId of spendItemIds) send({ kind: "use_equipment", seat: turn.seat, itemId });
+    for (const s of bloodSpends) send({ kind: "change_blood", seat: turn.seat, delta: -s.amount, reason: s.reason });
     send({ kind: "roll", playerPoolDice: dice, sources });
   };
 
@@ -77,7 +78,7 @@ export function Theater({
 
         <div className="mt-4">
           {!turn.playerDice ? (
-            <PoolBuilder turn={turn} char={char} canDrive={canDrive} onRoll={onRoll} />
+            <PoolBuilder turn={turn} char={char} canDrive={canDrive} isGM={mySeat === "gm"} onRoll={onRoll} />
           ) : !turn.survivors ? (
             <RollReveal turn={turn} canDrive={canDrive} onResolve={() => send({ kind: "resolve_discard" })} />
           ) : (

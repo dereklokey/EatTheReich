@@ -58,6 +58,25 @@ describe("character catalog integrity", () => {
   it("indexes by id", () => {
     expect(CHARACTERS_BY_ID["cosgrave"]?.name).toBe("Cosgrave");
   });
+
+  it("effect-only actives are flagged addsDie:false (no pool die); weapon-style actives are not", () => {
+    const noDie = ["iryna-hells-fire", "iryna-enervation", "iryna-mantle", "astrid-tethered-phantom", "flint-hellish-screech"];
+    const powerById = new Map(CHARACTERS.flatMap((c) => [...c.abilities, ...c.advances]).map((p) => [p.id, p]));
+    for (const id of noDie) expect(powerById.get(id)?.addsDie, id).toBe(false);
+    // A die-adding ability (Iryna's Dark Glamour) leaves the flag unset (defaults true).
+    expect(powerById.get("iryna-dark-glamour")?.addsDie).toBeUndefined();
+    // No active ability is both no-die AND carries a roll bonus (would be contradictory).
+    for (const p of powerById.values()) {
+      if (p.addsDie === false) expect(p.bonus, p.id).toBeUndefined();
+    }
+  });
+
+  it("reactive items are flagged addsDie:false; weapons are not", () => {
+    const eqById = new Map(CHARACTERS.flatMap((c) => c.equipment).map((e) => [e.id, e]));
+    expect(eqById.get("chuck-cowboy-hat")?.addsDie).toBe(false);
+    expect(eqById.get("iryna-cigarettes")?.addsDie).toBe(false);
+    expect(eqById.get("iryna-rifle")?.addsDie).toBeUndefined(); // a weapon: still a pool die
+  });
 });
 
 describe("crit-SPECIAL availability against real sheets", () => {

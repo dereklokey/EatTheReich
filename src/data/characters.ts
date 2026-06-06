@@ -54,7 +54,7 @@ export const IRYNA: CharacterSheet = {
     { id: "iryna-rifle", name: "Exquisite hunting rifle", uses: 3, bonus: { tag: "elevated position", plus: 1 } },
     { id: "iryna-sabre", name: "Magic cavalry sabre", uses: 3, bonus: { tag: "charge!", plus: 1 } },
     { id: "iryna-runes", name: "Explosive runes", uses: 2, bonus: { tag: "concealed", plus: 2 } },
-    { id: "iryna-cigarettes", name: "Cigarettes taken from the pockets of hanged men", uses: 1, note: "mark to regain 2 Blood" },
+    { id: "iryna-cigarettes", name: "Cigarettes taken from the pockets of hanged men", uses: 1, addsDie: false, note: "mark to regain 2 Blood" },
   ],
   abilities: [
     { id: "iryna-dark-glamour", name: "Dark Glamour", text: "Those nearby are mesmerised by your unearthly visage.", mechanic: "active", bloodCost: 1, bonus: { tag: "beautiful surroundings", plus: 1 } },
@@ -62,9 +62,9 @@ export const IRYNA: CharacterSheet = {
     { id: "iryna-deadeye-shot", name: "Deadeye Shot", text: "When you use a ranged weapon: reduce a Threat's Attack rating by 1.", mechanic: "special", trigger: { type: "crit", requires: { tag: "ranged weapon" } } },
   ],
   advances: [
-    { id: "iryna-hells-fire", name: "Hell's Ravenous Fire", text: "Ignore Challenge on your next action against a Threat.", mechanic: "active", bloodCost: 1 },
-    { id: "iryna-enervation", name: "Enervation of the Soul", text: "On your next roll, gain SPECIAL: inflict 4 damage to an Übermensch.", mechanic: "active", bloodCost: 1 },
-    { id: "iryna-mantle", name: "Mantle of the Fell Beast", text: "BRAWL and TERRIFY become 4, all other stats are set to 1, and you cannot use items. Lasts until the Objective is completed.", mechanic: "active", bloodCost: 2 },
+    { id: "iryna-hells-fire", name: "Hell's Ravenous Fire", text: "Ignore Challenge on your next action against a Threat.", mechanic: "active", bloodCost: 1, addsDie: false },
+    { id: "iryna-enervation", name: "Enervation of the Soul", text: "On your next roll, gain SPECIAL: inflict 4 damage to an Übermensch.", mechanic: "active", bloodCost: 1, addsDie: false },
+    { id: "iryna-mantle", name: "Mantle of the Fell Beast", text: "BRAWL and TERRIFY become 4, all other stats are set to 1, and you cannot use items. Lasts until the Objective is completed.", mechanic: "active", bloodCost: 2, addsDie: false },
   ],
   injuries: injuries(
     ["Can't use + dice", ["Suit Torn", "Abdominal Puncture"]],
@@ -161,7 +161,7 @@ export const CHUCK: CharacterSheet = {
   equipment: [
     { id: "chuck-revolvers", name: "Paired revolvers, Betsy and Maria", uses: 3, bonus: { tag: "duel", plus: 1 } },
     { id: "chuck-tool-belt", name: "Tool belt", uses: 3, bonus: { tag: "Jerry-rigging", plus: 1 } },
-    { id: "chuck-cowboy-hat", name: "Cowboy hat", uses: 1, note: "mark to ignore an Injury or being Downed; hat is destroyed" },
+    { id: "chuck-cowboy-hat", name: "Cowboy hat", uses: 1, addsDie: false, note: "mark to ignore an Injury or being Downed; hat is destroyed" },
   ],
   abilities: [
     { id: "chuck-acid-spit", name: "Acid Spit", text: "Hawk up a gutful of fierce acid.", mechanic: "active", bloodCost: 1, bonus: { tag: "vs metal", plus: 2 } },
@@ -205,7 +205,7 @@ export const ASTRID: CharacterSheet = {
   advances: [
     { id: "astrid-nightmare-regeneration", name: "Nightmare Regeneration", text: "Clear a marked Injury.", mechanic: "special", trigger: { type: "crit" } },
     { id: "astrid-spirit-storm", name: "Spirit Storm", text: "Hurl items like a poltergeist.", mechanic: "active", bloodCost: 1, bonus: { tag: "something sharp AND heavy", plus: 2 } },
-    { id: "astrid-tethered-phantom", name: "Tethered Phantom", text: "Reduce an Objective or Threat's Challenge by 1 until the end of the round.", mechanic: "active", bloodCost: 1 },
+    { id: "astrid-tethered-phantom", name: "Tethered Phantom", text: "Reduce an Objective or Threat's Challenge by 1 until the end of the round.", mechanic: "active", bloodCost: 1, addsDie: false },
   ],
   injuries: injuries(
     ["Can't trigger Specials", ["Spirits Cowed", "Spirits Cast Out"]],
@@ -236,7 +236,7 @@ export const FLINT: CharacterSheet = {
     { id: "flint-wings", name: "Wings", text: "You can fly.", mechanic: "active", bloodCost: 1, bonus: { tag: "aerial combat", plus: 1 } },
   ],
   advances: [
-    { id: "flint-hellish-screech", name: "Hellish Screech", text: "Reduce a Threat's Challenge by 1.", mechanic: "active", bloodCost: 2 },
+    { id: "flint-hellish-screech", name: "Hellish Screech", text: "Reduce a Threat's Challenge by 1.", mechanic: "active", bloodCost: 2, addsDie: false },
     { id: "bone-armour", name: "Bone Armour", text: "After you roll your dice pool, before you discard dice, reduce the GM's successful Attack dice by 1 for each 1 you rolled.", mechanic: "passive" },
     { id: "flint-ooze-form", name: "Ooze Form", text: "Squeeze through gaps, glop around, etc.", mechanic: "active", bloodCost: 1, bonus: { tag: "it's in the walls!", plus: 1 } },
   ],
