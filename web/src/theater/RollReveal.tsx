@@ -3,6 +3,7 @@ import type { TurnState } from "@shared/state/types.js";
 import type { DieFace } from "@shared/domain/types.js";
 import { Die, tiltFor, type DieVisualState } from "@/components/dice/Die";
 import { useEffects } from "@/effects/EffectsContext";
+import { useSound } from "@/effects/SoundContext";
 
 /**
  * ROLL → reveal (RULES §4, DESIGN.md §6). The dice land with a concussion (shake +
@@ -26,19 +27,30 @@ export function RollReveal({
   onResolve: () => void;
 }) {
   const { reduced } = useEffects();
+  const { play } = useSound();
   const [boom, setBoom] = useState(!reduced);
   const seen = useRef(false);
-
-  useEffect(() => {
-    if (seen.current || reduced) return;
-    seen.current = true;
-    const t = setTimeout(() => setBoom(false), 500);
-    return () => clearTimeout(t);
-  }, [reduced]);
 
   const player = turn.playerDice ?? [];
   const gm = turn.gmDice ?? [];
   const gmHits = gm.filter((f) => f >= 4).length;
+
+  useEffect(() => {
+    if (seen.current) return;
+    seen.current = true;
+    // The roll lands (sound is independent of reduce-effects — it has its own mute).
+    play("concussion");
+    play("clatter");
+    const anyCrit = player.includes(6);
+    const anySucc = player.some((f) => f >= 4);
+    const sting = setTimeout(() => play(anyCrit ? "crit" : anySucc ? "success" : "discard"), 460);
+    const settle = reduced ? undefined : setTimeout(() => setBoom(false), 500);
+    return () => {
+      clearTimeout(sting);
+      if (settle) clearTimeout(settle);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div>
@@ -66,7 +78,13 @@ export function RollReveal({
       </div>
 
       {canDrive && (
-        <button className="detonator mt-6" onClick={onResolve}>
+        <button
+          className="detonator mt-6"
+          onClick={() => {
+            play("discard");
+            onResolve();
+          }}
+        >
           Discard &amp; resolve
         </button>
       )}

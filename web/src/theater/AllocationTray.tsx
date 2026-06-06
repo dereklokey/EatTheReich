@@ -4,6 +4,8 @@ import type { Allocation } from "@shared/engine/allocate.js";
 import { applyOneAllocation, emptyAccumulator } from "@shared/engine/allocate.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
 import { Die, tiltFor } from "@/components/dice/Die";
+import { useSound } from "@/effects/SoundContext";
+import type { Cue } from "@/effects/sound";
 
 /**
  * ALLOCATE (RULES §4, DESIGN.md §6). Each surviving die is placed on a target —
@@ -27,10 +29,19 @@ export function AllocationTray({
   canDrive: boolean;
   onLockIn: (allocations: Allocation[]) => void;
 }) {
+  const { play } = useSound();
   const survivors = turn.survivors ?? [];
   const gmRemaining = turn.gmDiceRemaining ?? 0;
   const [assign, setAssign] = useState<Assignment[]>(() => survivors.map(() => null));
   const [picked, setPicked] = useState<number | null>(null);
+
+  const ALLOC_CUE: Record<Allocation["kind"], Cue> = {
+    advance: "stamp",
+    eliminate: "hit",
+    defend: "defend",
+    feed: "feed",
+    special: "crit",
+  };
 
   const sheet = CHARACTERS_BY_ID[turn.seat];
   const specials = [
@@ -50,6 +61,7 @@ export function AllocationTray({
     if (!die) return;
     setAssign((cur) => cur.map((a, i) => (i === picked ? { ...alloc, units: die.units } : a)));
     setPicked(null);
+    play(ALLOC_CUE[alloc.kind]);
   };
 
   const unassign = (i: number) => setAssign((cur) => cur.map((a, idx) => (idx === i ? null : a)));

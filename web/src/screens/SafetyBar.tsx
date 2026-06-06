@@ -3,6 +3,7 @@ import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
 import type { TrafficColor } from "@shared/events/types.js";
 import { SafetySetup } from "@/safety/SafetySetup";
+import { useSound } from "@/effects/SoundContext";
 
 /**
  * Safety tooling (CLAUDE.md §2, DESIGN.md §8). The deliberate exception to the
@@ -17,6 +18,7 @@ const TRAFFIC: { color: TrafficColor; label: string; css: string }[] = [
 
 export function SafetyBar({ state, send }: { state: GameState; send: (i: Intent) => void }) {
   const { traffic, lines, veils } = state.safety;
+  const { enabled: soundOn, toggle: toggleSound } = useSound();
   const [setupOpen, setSetupOpen] = useState(false);
   const noted = lines.length + veils.length;
 
@@ -48,7 +50,16 @@ export function SafetyBar({ state, send }: { state: GameState; send: (i: Intent)
         </div>
 
         <button
-          className="font-mono text-sm px-3 py-1.5 bg-night-top text-paper border border-paper-shadow/40 ml-auto"
+          className="font-mono text-sm px-2 py-1.5 bg-night-top text-paper border border-paper-shadow/40 ml-auto"
+          style={{ borderRadius: 3 }}
+          aria-label={soundOn ? "mute sound" : "enable sound"}
+          title={soundOn ? "mute sound" : "enable sound"}
+          onClick={toggleSound}
+        >
+          {soundOn ? "🔊" : "🔇"}
+        </button>
+        <button
+          className="font-mono text-sm px-3 py-1.5 bg-night-top text-paper border border-paper-shadow/40"
           style={{ borderRadius: 3 }}
           onClick={() => setSetupOpen(true)}
         >
