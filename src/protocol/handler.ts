@@ -37,8 +37,14 @@ export type EventInput = {
 export interface IntentDeps {
   roller: DiceRoller;
   now: number;
-  /** Who sent the intent (the connection's seat, or 'gm'). */
+  /** Who sent the intent (the connection's authenticated seat, or 'gm'). */
   actor: Actor;
+  /**
+   * For a `claim_seat` intent: the SHA-256 hash of the freshly-minted seat token,
+   * injected by the DO (which mints the raw token, hands it to the claimant, and
+   * keeps only this hash in the log — §3.6). Absent for every other intent.
+   */
+  seatTokenHash?: string;
 }
 
 export type IntentResult =
@@ -71,8 +77,13 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
     case "create_game":
       return ok([{ type: "GAME_CREATED", payload: { createdAt: deps.now } }]);
 
-    case "claim_seat":
-      return ok([{ type: "ROLE_CLAIMED", payload: { seat: intent.seat, ...(intent.seatTokenHash ? { seatTokenHash: intent.seatTokenHash } : {}) } }]);
+    case "claim_seat": {
+      // A claimed seat can only be re-occupied via the reclaim handshake (hello +
+      // matching token, handled in the DO) or after a GM release — never by a fresh
+      // claim, so two people can't hold the same character (§3.6).
+      if (state.seats[intent.seat]?.claimed) return err("seat already claimed");
+      return ok([{ type: "ROLE_CLAIMED", payload: { seat: intent.seat, ...(deps.seatTokenHash ? { seatTokenHash: deps.seatTokenHash } : {}) } }]);
+    }
     case "release_seat":
       return ok([{ type: "SEAT_RELEASED", payload: { seat: intent.seat } }]);
 

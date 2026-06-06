@@ -168,6 +168,30 @@ describe("processIntent — end of round reinforcements", () => {
   });
 });
 
+describe("processIntent — claiming seats", () => {
+  it("stamps the injected token hash into ROLE_CLAIMED and marks the seat claimed", () => {
+    const d = makeDriver();
+    const r = processIntent(d.state, { kind: "claim_seat", seat: "iryna" }, {
+      roller: sequenceRoller([]),
+      now: 0,
+      actor: "system",
+      seatTokenHash: "deadbeef",
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const claim = r.events[0];
+    expect(claim?.type).toBe("ROLE_CLAIMED");
+    expect(claim?.type === "ROLE_CLAIMED" && claim.payload).toEqual({ seat: "iryna", seatTokenHash: "deadbeef" });
+  });
+
+  it("rejects a fresh claim of an already-claimed seat", () => {
+    const d = makeDriver();
+    d.run({ kind: "claim_seat", seat: "iryna" });
+    const r = d.fail({ kind: "claim_seat", seat: "iryna" });
+    expect(r.ok).toBe(false);
+  });
+});
+
 describe("processIntent — safety & sessions", () => {
   it("raises the X-Card and resets flashbacks on a new session", () => {
     const d = makeDriver();

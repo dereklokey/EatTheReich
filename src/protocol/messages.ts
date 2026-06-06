@@ -13,7 +13,7 @@ import type { GameState } from "../state/types.js";
 /** A client's request to change the game. The server decides what events result. */
 export type Intent =
   | { kind: "create_game" }
-  | { kind: "claim_seat"; seat: SeatId; seatTokenHash?: string }
+  | { kind: "claim_seat"; seat: SeatId }
   | { kind: "release_seat"; seat: SeatId }
   | { kind: "start_session" }
   | { kind: "end_session" }
@@ -44,14 +44,28 @@ export type Intent =
   | { kind: "trigger_flashback"; seat: CharId; context: string; question: string }
   | { kind: "gm_override"; note?: string; patch?: { objectives?: Objective[]; threats?: Threat[] } };
 
-/** client → server. */
+/**
+ * client → server.
+ *
+ * `hello` is the reclaim handshake (§3.6/§3A): a returning client presents its seat
+ * plus the **raw** seatToken it stored in localStorage. The server hashes it and, on
+ * a match, auto-seats that connection. `actor` on an intent is advisory only — the
+ * server authorizes against the connection's authenticated seat, never this field.
+ */
 export type ClientMessage =
-  | { t: "hello"; seat?: SeatId; seatTokenHash?: string }
+  | { t: "hello"; seat?: SeatId; seatToken?: string }
   | { t: "heartbeat" }
   | { t: "intent"; intent: Intent; actor?: Actor };
 
-/** server → client. */
+/**
+ * server → client.
+ *
+ * `seat_granted` hands the freshly-minted raw seatToken to the claiming client (and
+ * only that client) so it can persist it for next week's reclaim; the log keeps only
+ * the hash. `presence` is transient online-status, never reduced from events (§3A).
+ */
 export type ServerMessage =
   | { t: "sync"; state: GameState; events: GameEvent[] }
+  | { t: "seat_granted"; seat: SeatId; seatToken: string }
   | { t: "presence"; online: SeatId[] }
   | { t: "error"; message: string };
