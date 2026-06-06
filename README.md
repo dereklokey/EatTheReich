@@ -21,8 +21,8 @@ Cloudflare yet, nothing deployed, $0**.
 | 1 | Data layer (characters, threats, locations, flashbacks) | ✅ fully transcribed from the rulebook |
 | 2 | Pure engine + golden tests | ✅ RULES §12 A–E pass; verified vs rulebook |
 | 3 | Event store + reducer + snapshots | ✅ taxonomy, reducer, Store (memory/file), snapshot+replay |
-| 4 | Durable Object room (Cloudflare) | ⏳ next |
-| 5 | Seats, sessions, presence | ⏳ |
+| 4 | Durable Object room (Cloudflare) | ✅ hibernatable WS DO, `/game/:id` Worker, DO-storage Store, intent handler |
+| 5 | Seats, sessions, presence | ⏳ next |
 | 6 | Frontend (React/Vite/Tailwind, per DESIGN.md) | ⏳ |
 | 7 | Safety tooling | ⏳ |
 | 8 | Polish | ⏳ |
@@ -44,11 +44,28 @@ src/
     __tests__/turn-replay.test.ts  §12-A turn driven entirely through the event log
   store/       Store interface + in-memory & file impls + snapshot/replay repository
     __tests__/store.test.ts  contract, snapshot-equivalence, restart durability
+  protocol/    wire messages + the server-authoritative intent handler (rolls dice)
+    __tests__/handler.test.ts  server rolls, passives, full turn, injury, reinforce
+  worker/      the Cloudflare layer (only this dir touches the platform)
+    index.ts   edge Worker — routes /game/:code WS upgrade to the room DO
+    room.ts    GameRoom Durable Object — hibernatable WebSockets, rebuild-on-wake
+    do-store.ts  Store backed by DO SQLite storage (tested via a Map-backed fake)
 ```
 
-The engine, reducer, and store are all Cloudflare-free pure code, proven offline.
-Step 4 (the Durable Object) implements `Store` against DO SQLite storage and rebuilds
-state on wake via exactly this snapshot + replay path — no rewrites needed.
+The engine, reducer, store, and intent handler are all Cloudflare-free pure code,
+proven offline. The Durable Object is a thin I/O shell over them: it implements the
+same `Store` interface against DO storage and rebuilds state on wake via the same
+snapshot + replay path — so the offline tests cover the real behaviour.
+
+## Run the worker locally (free)
+
+```bash
+npm run dev:worker     # wrangler dev — local DO + WebSockets, $0, no account needed
+npm run build:worker   # wrangler deploy --dry-run — bundle-check only, never deploys
+```
+
+`wrangler dev` serves `/game/<code>` as a WebSocket endpoint; clients send `intent`
+messages and receive `sync` snapshots. **No `wrangler deploy` is run without sign-off.**
 
 The engine is intentionally Cloudflare-free: it's `reduce`-able pure functions so it
 can be proven offline before the Durable Object (step 4) ever exists.

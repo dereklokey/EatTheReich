@@ -1,0 +1,184 @@
+import { describe, it, expect } from "vitest";
+import { processIntent } from "../handler.js";
+import type { EventInput } from "../handler.js";
+import type { Intent } from "../messages.js";
+import { initialState } from "../../state/init.js";
+import { applyEvent } from "../../state/reducer.js";
+import { makeEvent } from "../../events/types.js";
+import type { Actor, GameEvent } from "../../events/types.js";
+import { sequenceRoller } from "../../domain/dice.js";
+import type { DiceRoller } from "../../domain/dice.js";
+import type { Objective, Threat } from "../../domain/types.js";
+
+const objective: Objective = { id: "obj1", name: "Take cover", kind: "objective", rating: 6 };
+const threat: Threat = { id: "thr1", name: "Nazi Squad", kind: "threat", rating: 4, attack: 3, startingAttack: 3, reinforces: true, restoresAtZero: true };
+
+/** Minimal server harness: process an intent, fold its events back into state. */
+function makeDriver(gameId = "g") {
+  let seq = 0;
+  let state = initialState(gameId);
+  const emit = (events: EventInput[], actorDefault: Actor) => {
+    for (const ei of events) {
+      seq++;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const e = makeEvent({ id: `e${seq}`, gameId, seq, actor: ei.actor ?? actorDefault, ts: seq }, ei.type, ei.payload as any) as GameEvent;
+      state = applyEvent(state, e);
+    }
+  };
+  return {
+    get state() {
+      return state;
+    },
+    run(intent: Intent, roller: DiceRoller = sequenceRoller([]), actor: Actor = "gm") {
+      const r = processIntent(state, intent, { roller, now: seq * 1000, actor });
+      if (!r.ok) throw new Error(r.error);
+      emit(r.events, actor);
+      return r.events;
+    },
+    fail(intent: Intent, actor: Actor = "gm") {
+      return processIntent(state, intent, { roller: sequenceRoller([]), now: 0, actor });
+    },
+  };
+}
+
+describe("processIntent — server rolls the dice (anti-fudge)", () => {
+  it("builds the GM pool itself and emits the rolled results as events", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "iryna");
+
+    const events = d.run(
+      { kind: "roll", playerPoolDice: 6 },
+      sequenceRoller([6, 5, 4, 2, 2, 1, /* gm: */ 6, 4, 1]),
+      "iryna",
+    );
+
+    const byType = (t: string) => events.filter((e) => e.type === t);
+    expect(byType("POOL_BUILT").map((e) => e.payload)).toEqual([
+      { who: "player", dice: 6, sources: [] },
+      { who: "gm", dice: 3 }, // server computed from the engaged threat's Attack
+    ]);
+    const rolls = byType("DICE_ROLLED").map((e) => e.payload);
+    expect(rolls).toEqual([
+      { who: "player", results: [6, 5, 4, 2, 2, 1] },
+      { who: "gm", results: [6, 4, 1] },
+    ]);
+  });
+
+  it("rejects rolling with no turn in progress", () => {
+    const d = makeDriver();
+    const r = d.fail({ kind: "roll", playerPoolDice: 4 });
+    expect(r.ok).toBe(false);
+  });
+});
+
+describe("processIntent — full §12-A turn driven by intents", () => {
+  it("reduces the Objective 6 → 3 and takes no Injury", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: 6 }, sequenceRoller([6, 5, 4, 2, 2, 1, 6, 4, 1]), "iryna");
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
+    d.run(
+      {
+        kind: "allocate",
+        allocations: [
+          { kind: "advance", targetId: "obj1", units: 1 },
+          { kind: "advance", targetId: "obj1", units: 1 },
+          { kind: "defend", units: 2 },
+        ],
+      },
+      sequenceRoller([]),
+      "iryna",
+    );
+    // mid-allocation bonus die lands
+    d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), "iryna");
+    d.run({ kind: "commit" }, sequenceRoller([]), "iryna");
+
+    expect(d.state.board.objectives[0]?.rating).toBe(3);
+    expect(d.state.characters.iryna.injuries).toEqual([0, 0, 0]);
+    expect(d.state.actedThisRound).toEqual(["iryna"]);
+    expect(d.state.currentTurn).toBeNull();
+  });
+
+  it("commit marks an Injury when GM dice are left after Defend", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "astrid");
+    // player rolls two successes, GM rolls 6,6,4 = 3 successes
+    d.run({ kind: "roll", playerPoolDice: 3 }, sequenceRoller([5, 4, 2, 6, 6, 4]), "astrid");
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "astrid");
+    // allocate both successes to the objective (no Defend) → 3 GM dice remain
+    d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }, { kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), "astrid");
+    // 3 leftover → Downed; category from d6=5 → category 2
+    d.run({ kind: "commit" }, sequenceRoller([5]), "astrid");
+
+    expect(d.state.characters.astrid.downed).toBe(true);
+    expect(d.state.characters.astrid.injuries[2]).toBe(2); // all boxes in category 2
+  });
+});
+
+describe("processIntent — pre-discard passives", () => {
+  it("Corpse Eater (Chuck) grants +1 Blood on a rolled 1", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "chuck", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "chuck");
+    d.run({ kind: "roll", playerPoolDice: 3 }, sequenceRoller([1, 5, 4, 4, 4, 4]), "chuck");
+    const events = d.run({ kind: "resolve_discard" }, sequenceRoller([]), "chuck");
+
+    expect(events.some((e) => e.type === "PASSIVE_APPLIED" && e.payload.passiveId === "corpse-eater")).toBe(true);
+    expect(d.state.characters.chuck.blood).toBe(1);
+  });
+
+  it("Dead Man's Luck (Cosgrave) only reduces GM successes once the advance is unlocked", () => {
+    const setup = () => {
+      const d = makeDriver();
+      d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+      d.run({ kind: "start_turn", seat: "cosgrave", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "cosgrave");
+      d.run({ kind: "roll", playerPoolDice: 4 }, sequenceRoller([1, 1, 5, 6, 6, 4, 4]), "cosgrave");
+      return d;
+    };
+
+    const locked = setup();
+    const e1 = locked.run({ kind: "resolve_discard" }, sequenceRoller([]), "cosgrave");
+    const discard1 = e1.find((e) => e.type === "DICE_DISCARDED");
+    expect(discard1?.type === "DICE_DISCARDED" && discard1.payload.gmSuccessCount).toBe(3); // no reduction
+
+    const unlocked = setup();
+    unlocked.run({ kind: "unlock_advance", seat: "cosgrave", advanceId: "dead-mans-luck" }, sequenceRoller([]), "cosgrave");
+    const e2 = unlocked.run({ kind: "resolve_discard" }, sequenceRoller([]), "cosgrave");
+    const discard2 = e2.find((e) => e.type === "DICE_DISCARDED");
+    expect(discard2?.type === "DICE_DISCARDED" && discard2.payload.gmSuccessCount).toBe(1); // 3 − 2 ones
+  });
+});
+
+describe("processIntent — end of round reinforcements", () => {
+  it("server rolls the 1d6 restore and emits the new threat list", () => {
+    const squad: Threat = { id: "squad", name: "Infantry Squad", kind: "threat", rating: 0, attack: 0, startingAttack: 3, reinforces: true, restoresAtZero: true };
+    const police: Threat = { id: "police", name: "Police Patrol", kind: "threat", rating: 4, attack: 2, startingAttack: 2, reinforces: true, restoresAtZero: true };
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [], threats: [squad, police] });
+    d.run({ kind: "end_round", reducedToZeroThreatIds: ["squad"] }, sequenceRoller([4]));
+
+    const out = d.state.board.threats;
+    expect(out.find((t) => t.id === "squad")?.attack).toBe(1); // floor(3/2)
+    expect(out.find((t) => t.id === "squad")?.rating).toBe(4); // 0 + 1d6(4)
+    expect(out.find((t) => t.id === "police")?.attack).toBe(3); // +1 closing in
+    expect(d.state.round).toBe(2);
+  });
+});
+
+describe("processIntent — safety & sessions", () => {
+  it("raises the X-Card and resets flashbacks on a new session", () => {
+    const d = makeDriver();
+    d.run({ kind: "raise_xcard", anonymous: true });
+    expect(d.state.safety.xcardRaised).toBe(true);
+
+    d.run({ kind: "trigger_flashback", seat: "flint", context: "submarine", question: "q" }, sequenceRoller([]), "flint");
+    expect(d.state.characters.flint.flashbackUsedThisSession).toBe(true);
+
+    d.run({ kind: "start_session" });
+    expect(d.state.characters.flint.flashbackUsedThisSession).toBe(false);
+    expect(d.state.session).toEqual({ number: 1, active: true });
+  });
+});

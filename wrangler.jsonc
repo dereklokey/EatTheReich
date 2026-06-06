@@ -1,0 +1,20 @@
+{
+  // Cloudflare Worker + Durable Object config (CLAUDE.md §3.4).
+  // Runs on the Workers FREE plan; SQLite-backed DOs + hibernation keep idle cost $0.
+  // `wrangler dev` runs this locally for free. Do NOT `wrangler deploy` without sign-off.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "eat-the-reich",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2025-01-01",
+  "observability": { "enabled": true },
+  "durable_objects": {
+    "bindings": [{ "name": "GAME", "class_name": "GameRoom" }]
+  },
+  "migrations": [
+    {
+      // new_sqlite_classes (not new_classes) → SQLite-backed DO, available on Free.
+      "tag": "v1",
+      "new_sqlite_classes": ["GameRoom"]
+    }
+  ]
+}
