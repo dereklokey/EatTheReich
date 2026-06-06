@@ -6,16 +6,18 @@ import "./dice-arena.css";
 /**
  * The craps-table throw (issue #5, DESIGN.md §5/§6 — "rolling dice feels like setting off a
  * bomb"). A pool is hurled across the *live board* (this layer is transparent and sits over
- * the dossier, not inside the dark theater): the dice fly out from a low cup, ricochet off
- * the screen edges, and friction slides them to rest scattered across the felt — then their
- * faces flare (successes hazard-yellow, the crit crimson). Pure spectacle: the values are
- * the server's; only the *path* is local physics, so each client scatters its own way.
+ * the dossier, not inside the dark theater): the dice fly out from a low cup in a wide spray,
+ * ricochet off the screen edges *and off each other*, then friction grips them to rest where
+ * they fall — and the faces flare (successes hazard-yellow, the crit crimson). Pure spectacle:
+ * the values are the server's; only the *path* is local physics, so each client scatters its
+ * own way.
  *
- * A lightweight top-down 2D sim (friction + four-wall restitution, no die-die collision) per
- * DESIGN.md §7 — "the feel of weight is what matters." Bodies live in refs and are driven
- * imperatively (one transform write per die per frame); React only re-renders a die when it
- * settles, to swap its face from a motion blur to its true, coloured value. The rAF loop is
- * owned by a mount effect with a real cleanup so it survives React StrictMode's double-invoke.
+ * A lightweight top-down 2D sim per DESIGN.md §7 ("the feel of weight is what matters"):
+ * friction + four-wall restitution + equal-mass die-die collisions (a settled die is a fixed
+ * obstacle the others bounce off). Bodies live in refs and are driven imperatively (one
+ * transform write per die per frame); React only re-renders a die when it settles, to swap
+ * its face from a motion blur to its true, coloured value. The rAF loop is owned by a mount
+ * effect with a real cleanup so it survives React StrictMode's double-invoke.
  */
 
 export interface ThrowSpec {
@@ -46,17 +48,19 @@ interface Body {
   ageMs: number;
 }
 
-// Top-down felt, not a side wall: no gravity. Dice are flung out, ricochet off all four
-// edges, and a velocity-proportional friction slides them to rest scattered across the
-// whole screen (a craps table), rather than piling along one edge.
-const FRICTION_RATE = 2.4; // per-second exponential velocity decay (higher = grippier felt)
-const WALL_REST = 0.55; // energy retained on an edge bounce
+// Top-down felt, not a side wall: no gravity. Dice are flung out fast, ricochet off the four
+// edges and off each other, and friction grips them to a stop scattered across the screen.
+const FRICTION_RATE = 1.7; // per-second exponential velocity decay
+const WALL_REST = 0.74; // energy retained on an edge bounce (lively ricochets)
+const DIE_REST = 0.85; // energy retained when two dice collide (elastic — they knock each
+//                        other and clatter, but keep their momentum and reach the walls)
+const LAUNCH_GRACE = 95; // ms before a die can collide — lets the cluster clear the cup first
 const EDGE = 16; // side inset
 const TOP_INSET = 64; // keep dice clear of the sticky top bar
 const BOTTOM_INSET = 92; // keep dice clear of the always-on safety bar (footer)
-const SETTLE_SPEED = 48; // px/s below which a die is "coming to rest" (grips, no long creep)
-const SETTLE_MS = 80; // how long it must idle before it counts as rested
-const FAILSAFE_MS = 3600; // hard cap so a die ALWAYS settles (never strands the turn)
+const SETTLE_SPEED = 55; // px/s below which a die starts to grip (cuts the long end-slide)
+const SETTLE_MS = 105; // how long it must idle before it counts as rested
+const FAILSAFE_MS = 4000; // hard cap so a die ALWAYS settles (never strands the turn)
 
 function playerVisual(face: DieFace): DieVisualState {
   if (face === 6) return "critical";
@@ -113,27 +117,22 @@ export function DiceArena({
       t.dice.forEach((face, i) => {
         const key = `${t.id}-${i}`;
         const size = t.kind === "player" ? 56 : 46;
-        // Flung from a low cup (above the footer), but aimed at a random spot across the
-        // whole felt: with exponential friction a die's travel ≈ v0 / FRICTION_RATE, so we
-        // set the launch speed from the distance to that spot (± a little overshoot). This
-        // keeps the scatter full and even no matter how grippy the felt is — and the dice
-        // still ricochet off the walls and spin on the way, just without a long end-slide.
-        const startX = w * (0.5 + (Math.random() - 0.5) * 0.3);
-        const startY = h - size - BOTTOM_INSET;
-        const targetX = EDGE + Math.random() * (w - 2 * EDGE - size);
-        const targetY = TOP_INSET + Math.random() * (startY - TOP_INSET);
-        const dx = targetX - startX;
-        const dy = targetY - startY;
-        const dist = Math.hypot(dx, dy) || 1;
-        const speed = dist * FRICTION_RATE * (0.9 + Math.random() * 0.5);
+        // A handful flung hard from a low cup (above the footer) in a wide upward spray, so
+        // they cross the felt and ricochet off the walls and each other before settling. The
+        // cup is given a little spread (and a collision grace, below) so the dice don't just
+        // bonk each other dead on the way out — they fly far, then clatter.
+        const startX = w * (0.5 + (Math.random() - 0.5) * 0.34);
+        const startY = h - size - BOTTOM_INSET - Math.random() * 56;
+        const angle = (-90 + (Math.random() - 0.5) * 168) * (Math.PI / 180); // upward fan ±84°
+        const speed = 2500 + Math.random() * 1300;
         bodies.current.set(key, {
           throwId: t.id,
           x: startX,
           y: startY,
-          vx: (dx / dist) * speed,
-          vy: (dy / dist) * speed,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
           rot: Math.random() * 360,
-          vrot: (Math.random() - 0.5) * 1800,
+          vrot: (Math.random() - 0.5) * 1900,
           size,
           settled: false,
           restMs: 0,
@@ -148,7 +147,7 @@ export function DiceArena({
 
   // The physics loop — runs continuously while mounted and picks up new bodies as they're
   // launched. A mount effect with a real cleanup, so StrictMode's setup→cleanup→setup leaves
-  // exactly one live rAF (the previous gated/ref design stranded itself on the second mount).
+  // exactly one live rAF.
   useEffect(() => {
     let frame = 0;
     let last: number | null = null;
@@ -157,56 +156,113 @@ export function DiceArena({
       const h = window.innerHeight;
       const dt = last == null ? 1 / 60 : Math.min(0.033, (t - last) / 1000);
       last = t;
+      const arr = Array.from(bodies.current.values());
 
+      // 1) Integrate + bounce off the four edges.
+      for (const b of arr) {
+        if (b.settled) continue;
+        b.ageMs += dt * 1000;
+        const damp = Math.exp(-FRICTION_RATE * dt);
+        b.vx *= damp;
+        b.vy *= damp;
+        b.vrot *= damp;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        b.rot += b.vrot * dt;
+
+        const rightWall = w - b.size - EDGE;
+        const bottomWall = h - b.size - BOTTOM_INSET;
+        if (b.x <= EDGE) {
+          b.x = EDGE;
+          b.vx = Math.abs(b.vx) * WALL_REST;
+          b.vrot *= 0.86;
+        } else if (b.x >= rightWall) {
+          b.x = rightWall;
+          b.vx = -Math.abs(b.vx) * WALL_REST;
+          b.vrot *= 0.86;
+        }
+        if (b.y <= TOP_INSET) {
+          b.y = TOP_INSET;
+          b.vy = Math.abs(b.vy) * WALL_REST;
+          b.vrot *= 0.86;
+        } else if (b.y >= bottomWall) {
+          b.y = bottomWall;
+          b.vy = -Math.abs(b.vy) * WALL_REST;
+          b.vrot *= 0.86;
+        }
+      }
+
+      // 2) Die-die collisions (equal mass; a settled die is a fixed obstacle).
+      for (let i = 0; i < arr.length; i++) {
+        for (let j = i + 1; j < arr.length; j++) {
+          const a = arr[i]!;
+          const b = arr[j]!;
+          if (a.settled && b.settled) continue;
+          // Grace: a freshly-launched die ignores collisions until it has cleared the cup,
+          // so the cluster sprays apart instead of cancelling its own momentum at the start.
+          if (a.ageMs < LAUNCH_GRACE || b.ageMs < LAUNCH_GRACE) continue;
+          const ar = a.size / 2;
+          const br = b.size / 2;
+          const dx = b.x + br - (a.x + ar);
+          const dy = b.y + br - (a.y + ar);
+          const d = Math.hypot(dx, dy);
+          const minD = (ar + br) * 0.98;
+          if (d >= minD || d === 0) continue;
+
+          const nx = dx / d;
+          const ny = dy / d;
+          const overlap = minD - d;
+          // Push apart so they never rest overlapping.
+          if (a.settled) {
+            b.x += nx * overlap;
+            b.y += ny * overlap;
+          } else if (b.settled) {
+            a.x -= nx * overlap;
+            a.y -= ny * overlap;
+          } else {
+            a.x -= (nx * overlap) / 2;
+            a.y -= (ny * overlap) / 2;
+            b.x += (nx * overlap) / 2;
+            b.y += (ny * overlap) / 2;
+          }
+
+          const rvn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+          if (rvn < 0) {
+            if (a.settled) {
+              const jImp = -(1 + DIE_REST) * rvn;
+              b.vx += jImp * nx;
+              b.vy += jImp * ny;
+            } else if (b.settled) {
+              const jImp = -(1 + DIE_REST) * rvn;
+              a.vx -= jImp * nx;
+              a.vy -= jImp * ny;
+            } else {
+              const jImp = (-(1 + DIE_REST) * rvn) / 2;
+              a.vx -= jImp * nx;
+              a.vy -= jImp * ny;
+              b.vx += jImp * nx;
+              b.vy += jImp * ny;
+            }
+            // A knock sends a little spin through the dice — the craps clatter.
+            if (!a.settled) a.vrot += (Math.random() - 0.5) * 220;
+            if (!b.settled) b.vrot += (Math.random() - 0.5) * 220;
+          }
+        }
+      }
+
+      // 3) Settle detection (after collisions) + the imperative transform write.
       let viewDirty = false;
       bodies.current.forEach((b, key) => {
         if (!b.settled) {
-          b.ageMs += dt * 1000;
-
-          const damp = Math.exp(-FRICTION_RATE * dt);
-          b.vx *= damp;
-          b.vy *= damp;
-          b.vrot *= damp;
-
-          b.x += b.vx * dt;
-          b.y += b.vy * dt;
-          b.rot += b.vrot * dt;
-
-          const leftWall = EDGE;
-          const rightWall = w - b.size - EDGE;
-          const topWall = TOP_INSET;
-          const bottomWall = h - b.size - BOTTOM_INSET;
-
-          if (b.x <= leftWall) {
-            b.x = leftWall;
-            b.vx = Math.abs(b.vx) * WALL_REST;
-            b.vrot *= 0.85;
-          } else if (b.x >= rightWall) {
-            b.x = rightWall;
-            b.vx = -Math.abs(b.vx) * WALL_REST;
-            b.vrot *= 0.85;
-          }
-          if (b.y <= topWall) {
-            b.y = topWall;
-            b.vy = Math.abs(b.vy) * WALL_REST;
-            b.vrot *= 0.85;
-          } else if (b.y >= bottomWall) {
-            b.y = bottomWall;
-            b.vy = -Math.abs(b.vy) * WALL_REST;
-            b.vrot *= 0.85;
-          }
-
           const speed = Math.hypot(b.vx, b.vy);
-          if (speed < SETTLE_SPEED && Math.abs(b.vrot) < 60) b.restMs += dt * 1000;
+          if (speed < SETTLE_SPEED && Math.abs(b.vrot) < 80) b.restMs += dt * 1000;
           else b.restMs = 0;
-
           if (b.restMs >= SETTLE_MS || b.ageMs >= FAILSAFE_MS) {
             b.settled = true;
             b.vx = b.vy = b.vrot = 0;
             viewDirty = true;
           }
         }
-
         const el = els.current.get(key);
         if (el) el.style.transform = `translate3d(${b.x}px, ${b.y}px, 0) rotate(${b.rot}deg)`;
       });
