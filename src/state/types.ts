@@ -5,7 +5,7 @@ import type {
   Stat,
   DieFace,
 } from "../domain/types.js";
-import type { InjuryTrack } from "../engine/injury.js";
+import type { InjuryTrack, InjuryOutcome } from "../engine/injury.js";
 import type { PlayerDie } from "../engine/dice.js";
 import type { PoolSource } from "../engine/playerPool.js";
 import type { Allocation } from "../engine/allocate.js";
@@ -101,4 +101,10 @@ export interface TurnState {
   challengeConsumed: Record<string, number>;
   /** GM Attack dice still live after Defend allocations (drives INJURY_CHECK). */
   gmDiceRemaining?: number;
+  /**
+   * Set at commit when a GM die got through: the rolled injury d6 + resolved outcome,
+   * awaiting `resolve_injury` (RULES §4 INJURY_CHECK). While present the theater shows
+   * the injury beat — the reveal + any reactive-gear window — instead of closing.
+   */
+  pendingInjury?: { face: DieFace; outcome: InjuryOutcome };
 }

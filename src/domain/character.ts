@@ -78,6 +78,12 @@ export interface Equipment {
   scavengerSlot?: number;
   /** Free-form note for non-die effects (e.g. "mark to regain 2 Blood"). */
   note?: string;
+  /**
+   * Resolution-time reactive effect (RULES §5; surfaced in the INJURY_CHECK window).
+   * `ignoreInjury` lets the item be marked to shrug off a pending Injury/Downed (Chuck's
+   * hat). `blood` is regained automatically when the item is used (Iryna's cigarettes).
+   */
+  reactive?: { ignoreInjury?: boolean; blood?: number };
   /** True if it occupies the single active loot slot (RULES §11). */
   loot?: boolean;
 }

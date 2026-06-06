@@ -36,27 +36,33 @@ export type InjuryOutcome =
     }
   | { kind: "death" }; // all 6 boxes already marked → Last Stand (RULES §5)
 
+export interface InjuryOpts {
+  categoryFromD6?: (face: number) => 0 | 1 | 2;
+  /** GM-set rescue objective rating for a Downed result. Default 3 (RULES §5: 2–4). */
+  rescueObjectiveRating?: number;
+}
+
 /**
- * INJURY_CHECK (RULES §4) on the GM Attack dice left after Defend:
+ * INJURY_CHECK (RULES §4) on the GM Attack dice left after Defend, given an
+ * ALREADY-ROLLED category d6 — the roll-free core. The server rolls the d6 itself so
+ * it can park the result for the table to see (and react to with reactive gear) before
+ * the box is actually marked; replay then re-derives the same outcome from the stored
+ * face. `injuryCheck` below is the convenience wrapper that rolls and delegates here.
  *   0 leftover → none · 1–2 → one Injury · 3+ → Downed.
  *
- * Mutates a COPY of the track is not done here; callers pass the current track and
- * receive the resolved category/box so the event layer can record the mutation.
+ * No track mutation happens here; callers pass the current track and receive the
+ * resolved category/box so the event layer can record the mutation.
  */
-export function injuryCheck(
+export function resolveInjury(
   leftoverGmDice: number,
   track: InjuryTrack,
-  roller: DiceRoller,
-  opts: {
-    categoryFromD6?: (face: number) => 0 | 1 | 2;
-    /** GM-set rescue objective rating for a Downed result. Default 3 (RULES §5: 2–4). */
-    rescueObjectiveRating?: number;
-  } = {},
+  face: number,
+  opts: InjuryOpts = {},
 ): InjuryOutcome {
   if (leftoverGmDice <= 0) return { kind: "none" };
 
   const mapCategory = opts.categoryFromD6 ?? defaultCategoryFromD6;
-  const category = mapCategory(roller.roll(1)[0] as number);
+  const category = mapCategory(face);
 
   if (leftoverGmDice >= 3) {
     return {
@@ -75,6 +81,22 @@ export function injuryCheck(
     box: resolved.box,
     penaltyTriggered: resolved.box === 2,
   };
+}
+
+/**
+ * Roll the category d6 and resolve the INJURY_CHECK in one step (RULES §4). Only draws
+ * from the roller when there's actually a leftover GM die, so an injury-free turn costs
+ * no RNG (keeps replay/test dice sequences tight).
+ */
+export function injuryCheck(
+  leftoverGmDice: number,
+  track: InjuryTrack,
+  roller: DiceRoller,
+  opts: InjuryOpts = {},
+): InjuryOutcome {
+  if (leftoverGmDice <= 0) return { kind: "none" };
+  const face = roller.roll(1)[0] as number;
+  return resolveInjury(leftoverGmDice, track, face, opts);
 }
 
 export interface MarkResult {

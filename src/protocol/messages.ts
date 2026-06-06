@@ -37,6 +37,8 @@ export type Intent =
   | { kind: "resolve_discard" }
   | { kind: "allocate"; allocations: Allocation[] }
   | { kind: "commit" }
+  /** Resolve the parked INJURY_CHECK: apply the rolled injury, or `ignore` it (Chuck's hat). */
+  | { kind: "resolve_injury"; ignore?: boolean }
   /** Last Stand (RULES §5): roll the final 8d6, then allocate them and retire. */
   | { kind: "last_stand_roll" }
   | { kind: "last_stand_commit"; allocations: Allocation[] }

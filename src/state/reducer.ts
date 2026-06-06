@@ -204,6 +204,16 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
       return { ...s, currentTurn: null, activeSeat: null, actedThisRound: acted };
     }
 
+    case "INJURY_PENDING":
+      // Park the rolled-but-unapplied injury on the turn (RULES §4 INJURY_CHECK). The
+      // box isn't marked until INJURY_MARKED/DOWNED/DEATH_LAST_STAND fire on resolve —
+      // this just opens the reveal/reaction window without closing the turn.
+      if (!s.currentTurn) return s;
+      return withTurn(s, {
+        ...s.currentTurn,
+        phase: "INJURY_CHECK",
+        pendingInjury: { face: e.payload.face, outcome: e.payload.outcome },
+      });
     case "INJURY_MARKED":
       return updateChar(s, e.payload.seat, (c) => {
         const injuries = [...c.injuries] as CharacterRuntime["injuries"];

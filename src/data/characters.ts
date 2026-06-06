@@ -54,7 +54,7 @@ export const IRYNA: CharacterSheet = {
     { id: "iryna-rifle", name: "Exquisite hunting rifle", uses: 3, bonus: { tag: "elevated position", plus: 1 } },
     { id: "iryna-sabre", name: "Magic cavalry sabre", uses: 3, bonus: { tag: "charge!", plus: 1 } },
     { id: "iryna-runes", name: "Explosive runes", uses: 2, bonus: { tag: "concealed", plus: 2 } },
-    { id: "iryna-cigarettes", name: "Cigarettes taken from the pockets of hanged men", uses: 1, addsDie: false, note: "mark to regain 2 Blood" },
+    { id: "iryna-cigarettes", name: "Cigarettes taken from the pockets of hanged men", uses: 1, addsDie: false, note: "mark to regain 2 Blood", reactive: { blood: 2 } },
   ],
   abilities: [
     { id: "iryna-dark-glamour", name: "Dark Glamour", text: "Those nearby are mesmerised by your unearthly visage.", mechanic: "active", bloodCost: 1, bonus: { tag: "beautiful surroundings", plus: 1 } },
@@ -161,7 +161,7 @@ export const CHUCK: CharacterSheet = {
   equipment: [
     { id: "chuck-revolvers", name: "Paired revolvers, Betsy and Maria", uses: 3, bonus: { tag: "duel", plus: 1 } },
     { id: "chuck-tool-belt", name: "Tool belt", uses: 3, bonus: { tag: "Jerry-rigging", plus: 1 } },
-    { id: "chuck-cowboy-hat", name: "Cowboy hat", uses: 1, addsDie: false, note: "mark to ignore an Injury or being Downed; hat is destroyed" },
+    { id: "chuck-cowboy-hat", name: "Cowboy hat", uses: 1, addsDie: false, note: "mark to ignore an Injury or being Downed; hat is destroyed", reactive: { ignoreInjury: true } },
   ],
   abilities: [
     { id: "chuck-acid-spit", name: "Acid Spit", text: "Hawk up a gutful of fierce acid.", mechanic: "active", bloodCost: 1, bonus: { tag: "vs metal", plus: 2 } },

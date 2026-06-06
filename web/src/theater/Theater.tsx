@@ -7,6 +7,7 @@ import { seatName } from "@/game/seats";
 import { PoolBuilder, type BloodSpend } from "./PoolBuilder";
 import { RollReveal } from "./RollReveal";
 import { AllocationTray } from "./AllocationTray";
+import { InjuryCheck } from "./InjuryCheck";
 import "./theater.css";
 
 /**
@@ -77,7 +78,9 @@ export function Theater({
         </div>
 
         <div className="mt-4">
-          {!turn.playerDice ? (
+          {turn.pendingInjury ? (
+            <InjuryCheck turn={turn} state={state} canDrive={canDrive} send={send} />
+          ) : !turn.playerDice ? (
             <PoolBuilder turn={turn} char={char} canDrive={canDrive} isGM={mySeat === "gm"} onRoll={onRoll} />
           ) : !turn.survivors ? (
             <RollReveal turn={turn} canDrive={canDrive} onResolve={() => send({ kind: "resolve_discard" })} />

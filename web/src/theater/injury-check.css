@@ -1,0 +1,69 @@
+/* INJURY_CHECK beat (RULES §4/§5, DESIGN.md §6). The category die lands, then the
+   wound's name stamps in like a coroner's rubber stamp. Reactive gear can still cheat it. */
+
+.injury-check { text-align: center; }
+
+.injury-check__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 8.5rem;
+}
+
+.injury-check__die { filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55)); }
+
+/* The verdict — a hard, slightly-crooked stamp that slams down and settles. */
+@keyframes verdict-stamp {
+  0%   { opacity: 0; transform: scale(1.6) rotate(-7deg); }
+  24%  { opacity: 1; transform: scale(0.96) rotate(-3deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-3deg); }
+}
+.injury-check__verdict { animation: verdict-stamp 480ms var(--ease-impact) both; }
+
+.injury-check__headline {
+  font-family: var(--font-gothic);
+  font-size: clamp(1.8rem, 6vw, 3rem);
+  line-height: 0.95;
+  color: var(--blood-bright);
+  text-shadow: 0 0 18px rgba(255, 45, 74, 0.7), 0 2px 0 #5e0a18;
+}
+.injury-check__sub { color: var(--paper-fade); margin-top: 0.35rem; }
+
+/* Downed / Death raise the stakes: deeper crimson, a heavier glow. */
+.injury-check--downed .injury-check__headline,
+.injury-check--death .injury-check__headline {
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 26px rgba(255, 45, 74, 0.9), 0 3px 0 #5e0a18;
+}
+.injury-check--death .injury-check__sub { color: var(--blood); }
+
+.injury-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* Reactive-gear options sit beside the detonator as lighter, optional escapes. */
+.injury-react {
+  font-family: var(--font-display);
+  letter-spacing: 0.03em;
+  font-size: 0.8rem;
+  padding: 0.5rem 0.85rem;
+  color: var(--paper);
+  background: var(--dusk-mauve);
+  border: 1px solid rgba(232, 220, 192, 0.25);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 120ms ease, transform 80ms ease;
+}
+.injury-react:hover { background: #4a3052; }
+.injury-react:active { transform: translateY(1px); }
+.injury-react--shrug {
+  background: transparent;
+  border-color: var(--hazard);
+  color: var(--hazard);
+}
+.injury-react--shrug:hover { background: rgba(242, 192, 20, 0.12); }

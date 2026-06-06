@@ -14,11 +14,12 @@ import {
   countOnes,
   reduceGmSuccessesPerOne,
   corpseEaterBlood,
-  injuryCheck,
+  resolveInjury,
   reinforce,
   LAST_STAND_DICE,
 } from "../engine/index.js";
 import { CHARACTERS_BY_ID } from "../data/characters.js";
+import type { Equipment } from "../domain/character.js";
 
 /**
  * The server-authoritative command handler (CLAUDE.md §3.1). Pure: given the
@@ -71,6 +72,14 @@ function activePassiveIds(seat: CharId, state: GameState): Set<string> {
 /** The penalty label for a character's 2nd injury box in a category. */
 function penaltyLabel(seat: CharId, category: 0 | 1 | 2): string | undefined {
   return CHARACTERS_BY_ID[seat]?.injuries[category]?.boxes[1]?.penalty;
+}
+
+/** Find an item by id across the character's sheet equipment and earned loot. */
+function findEquipment(state: GameState, seat: CharId, itemId: string): Equipment | undefined {
+  return (
+    CHARACTERS_BY_ID[seat]?.equipment.find((e) => e.id === itemId) ??
+    state.characters[seat]?.loot.find((l) => l.id === itemId)
+  );
 }
 
 export function processIntent(state: GameState, intent: Intent, deps: IntentDeps): IntentResult {
@@ -192,24 +201,39 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
     case "commit": {
       const turn = state.currentTurn;
       if (!turn) return err("no turn in progress");
-      const events: EventInput[] = [];
       const leftover = turn.gmDiceRemaining ?? 0;
-      let death = false;
-      if (leftover > 0) {
-        const outcome = injuryCheck(leftover, state.characters[turn.seat].injuries, deps.roller);
-        if (outcome.kind === "injury") {
-          events.push({ type: "INJURY_MARKED", payload: { seat: turn.seat, category: outcome.category, box: outcome.box, ...(outcome.penaltyTriggered ? { penalty: penaltyLabel(turn.seat, outcome.category) } : {}) }, actor: turn.seat });
-        } else if (outcome.kind === "downed") {
-          events.push({ type: "DOWNED", payload: { seat: turn.seat, category: outcome.category }, actor: turn.seat });
-        } else if (outcome.kind === "death") {
-          // Death opens a Last Stand instead of ending the turn — the dying vampire gets
-          // one final 8d6 (RULES §5). DEATH_LAST_STAND replaces the turn with a Last
-          // Stand; we skip ALLOCATION_COMMITTED so the seat isn't retired prematurely.
-          death = true;
-          events.push({ type: "DEATH_LAST_STAND", payload: { seat: turn.seat }, actor: turn.seat });
+      // No GM die got through → no INJURY_CHECK; the turn just closes (no window flashes).
+      if (leftover <= 0) return ok([{ type: "ALLOCATION_COMMITTED", payload: {}, actor: turn.seat }]);
+
+      // A die got through → roll the injury d6 now (server-authoritative) but PARK it:
+      // the table sees the reveal and can react (Chuck's hat) before INJURY_CHECK marks a
+      // box. `resolve_injury` applies or shrugs it off. The face is stored so replay
+      // re-derives the same outcome without re-rolling.
+      const face = deps.roller.roll(1)[0]!;
+      const outcome = resolveInjury(leftover, state.characters[turn.seat].injuries, face);
+      return ok([{ type: "INJURY_PENDING", payload: { seat: turn.seat, face, outcome }, actor: turn.seat }]);
+    }
+
+    case "resolve_injury": {
+      const turn = state.currentTurn;
+      const pending = turn?.pendingInjury;
+      if (!turn || !pending) return err("no pending injury to resolve");
+      const events: EventInput[] = [];
+      // `ignore` (Chuck's hat, RULES §5) shrugs the whole thing off — the item was burned
+      // via a separate use_equipment, so here we just commit with no injury marked.
+      if (!intent.ignore) {
+        const o = pending.outcome;
+        if (o.kind === "injury") {
+          events.push({ type: "INJURY_MARKED", payload: { seat: turn.seat, category: o.category, box: o.box, ...(o.penaltyTriggered ? { penalty: penaltyLabel(turn.seat, o.category) } : {}) }, actor: turn.seat });
+        } else if (o.kind === "downed") {
+          events.push({ type: "DOWNED", payload: { seat: turn.seat, category: o.category }, actor: turn.seat });
+        } else if (o.kind === "death") {
+          // Death opens a Last Stand (RULES §5) — DEATH_LAST_STAND replaces the turn, so we
+          // skip ALLOCATION_COMMITTED to avoid retiring the seat before the final 8d6.
+          return ok([{ type: "DEATH_LAST_STAND", payload: { seat: turn.seat }, actor: turn.seat }]);
         }
       }
-      if (!death) events.push({ type: "ALLOCATION_COMMITTED", payload: {}, actor: turn.seat });
+      events.push({ type: "ALLOCATION_COMMITTED", payload: {}, actor: turn.seat });
       return ok(events);
     }
 
@@ -252,8 +276,19 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       return ok([{ type: "BLOOD_SHARED", payload: { from: intent.from, to: intent.to, amount: intent.amount }, actor: intent.from }]);
     case "heal":
       return ok([{ type: "HEALED", payload: { seat: intent.seat, category: intent.category, box: intent.box }, actor: intent.seat }]);
-    case "use_equipment":
-      return ok([{ type: "EQUIPMENT_USED", payload: { seat: intent.seat, itemId: intent.itemId }, actor: intent.seat }]);
+    case "use_equipment": {
+      const events: EventInput[] = [{ type: "EQUIPMENT_USED", payload: { seat: intent.seat, itemId: intent.itemId }, actor: intent.seat }];
+      // Reactive economy gear (Iryna's cigarettes → +Blood) applies its effect here, not
+      // manually — so the use grants the Blood wherever it's fired (sheet or injury beat).
+      // Only when a use is actually available, so a depleted item can't mint free Blood.
+      const item = findEquipment(state, intent.seat, intent.itemId);
+      const remaining = state.characters[intent.seat]?.equipmentUses[intent.itemId];
+      const usable = remaining === undefined || remaining > 0;
+      if (usable && item?.reactive?.blood) {
+        events.push({ type: "BLOOD_CHANGED", payload: { seat: intent.seat, delta: item.reactive.blood, reason: item.name }, actor: intent.seat });
+      }
+      return ok(events);
+    }
     case "loot_add":
       return ok([{ type: "LOOT_ADDED", payload: { seat: intent.seat, item: intent.item }, actor: intent.seat }]);
     case "loot_activate":

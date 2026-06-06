@@ -77,6 +77,13 @@ describe("character catalog integrity", () => {
     expect(eqById.get("iryna-cigarettes")?.addsDie).toBe(false);
     expect(eqById.get("iryna-rifle")?.addsDie).toBeUndefined(); // a weapon: still a pool die
   });
+
+  it("reactive effects (hat ignores an injury; cigarettes regain Blood) are encoded for the INJURY_CHECK window", () => {
+    const eqById = new Map(CHARACTERS.flatMap((c) => c.equipment).map((e) => [e.id, e]));
+    expect(eqById.get("chuck-cowboy-hat")?.reactive).toEqual({ ignoreInjury: true });
+    expect(eqById.get("iryna-cigarettes")?.reactive).toEqual({ blood: 2 });
+    expect(eqById.get("iryna-rifle")?.reactive).toBeUndefined(); // a weapon has no reactive effect
+  });
 });
 
 describe("crit-SPECIAL availability against real sheets", () => {

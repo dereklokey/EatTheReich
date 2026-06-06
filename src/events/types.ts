@@ -8,6 +8,7 @@ import type {
 import type { Equipment } from "../domain/character.js";
 import type { AllocationKind } from "../engine/allocate.js";
 import type { PoolSource } from "../engine/playerPool.js";
+import type { InjuryOutcome } from "../engine/injury.js";
 
 /**
  * Event taxonomy (CLAUDE.md §3.2). State = reduce(events). Every mutation is an
@@ -87,6 +88,13 @@ export interface EventPayloads {
   };
   ALLOCATION_COMMITTED: Record<string, never>;
 
+  /**
+   * The injury d6 has been rolled but NOT yet applied (RULES §4 INJURY_CHECK). Parks
+   * the rolled face + resolved outcome on the turn so the table sees the reveal and can
+   * react (Chuck's hat to shrug it off) before `resolve_injury` marks the box. `outcome`
+   * is never `none` here — commit only parks when a GM die got through.
+   */
+  INJURY_PENDING: { seat: CharId; face: DieFace; outcome: InjuryOutcome };
   INJURY_MARKED: { seat: CharId; category: 0 | 1 | 2; box: 1 | 2; penalty?: string };
   DOWNED: { seat: CharId; category: 0 | 1 | 2; rescueObjectiveId?: string };
   HEALED: { seat: CharId; category: 0 | 1 | 2; box: 1 | 2 };

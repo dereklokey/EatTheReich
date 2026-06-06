@@ -105,7 +105,7 @@ describe("processIntent — full §12-A turn driven by intents", () => {
     expect(d.state.currentTurn).toBeNull();
   });
 
-  it("commit marks an Injury when GM dice are left after Defend", () => {
+  it("commit parks the injury for the INJURY_CHECK window; resolve_injury then applies it", () => {
     const d = makeDriver();
     d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
     d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "astrid");
@@ -114,11 +114,20 @@ describe("processIntent — full §12-A turn driven by intents", () => {
     d.run({ kind: "resolve_discard" }, sequenceRoller([]), "astrid");
     // allocate both successes to the objective (no Defend) → 3 GM dice remain
     d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }, { kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), "astrid");
-    // 3 leftover → Downed; category from d6=5 → category 2
-    d.run({ kind: "commit" }, sequenceRoller([5]), "astrid");
+    // 3 leftover → Downed; category from d6=5 → category 2. Commit only PARKS it now.
+    const parked = d.run({ kind: "commit" }, sequenceRoller([5]), "astrid");
+    expect(parked.map((e) => e.type)).toEqual(["INJURY_PENDING"]);
+    expect(d.state.characters.astrid.downed).toBe(false); // not applied yet — the window is open
+    expect(d.state.currentTurn?.pendingInjury).toMatchObject({ face: 5, outcome: { kind: "downed", category: 2 } });
+    expect(d.state.actedThisRound).toEqual([]); // turn hasn't closed
 
+    // Resolving applies the box and closes the turn.
+    const resolved = d.run({ kind: "resolve_injury" }, sequenceRoller([]), "astrid");
+    expect(resolved.map((e) => e.type)).toEqual(["DOWNED", "ALLOCATION_COMMITTED"]);
     expect(d.state.characters.astrid.downed).toBe(true);
     expect(d.state.characters.astrid.injuries[2]).toBe(2); // all boxes in category 2
+    expect(d.state.currentTurn).toBeNull();
+    expect(d.state.actedThisRound).toEqual(["astrid"]);
   });
 });
 
@@ -136,8 +145,11 @@ describe("processIntent — Last Stand (RULES §5)", () => {
     d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 4, 6, 2, 2]), "iryna");
     d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
     d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), "iryna"); // no Defend → 1 GM die left
-    const ev = d.run({ kind: "commit" }, sequenceRoller([3]), "iryna"); // 1 leftover → injury → nowhere free → death
+    const parked = d.run({ kind: "commit" }, sequenceRoller([3]), "iryna"); // 1 leftover → injury → nowhere free → death
+    expect(parked.map((e) => e.type)).toEqual(["INJURY_PENDING"]);
+    expect(d.state.currentTurn?.pendingInjury?.outcome.kind).toBe("death");
 
+    const ev = d.run({ kind: "resolve_injury" }, sequenceRoller([]), "iryna");
     expect(ev.map((e) => e.type)).toContain("DEATH_LAST_STAND");
     expect(ev.map((e) => e.type)).not.toContain("ALLOCATION_COMMITTED"); // not retired yet
     expect(d.state.characters.iryna.dead).toBe(false);
@@ -177,6 +189,72 @@ describe("processIntent — Last Stand (RULES §5)", () => {
   it("rejects rolling a Last Stand when none is open", () => {
     const d = makeDriver();
     expect(d.fail({ kind: "last_stand_roll" }, "iryna").ok).toBe(false);
+  });
+});
+
+describe("processIntent — INJURY_CHECK window + reactive gear (RULES §4/§5)", () => {
+  /** Drive a turn up to a parked single-box Injury for `seat` (d6=1 → category 0). */
+  function parkAnInjury(seat: "astrid" | "chuck") {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat, stat: "BRAWL", engagedThreatIds: ["thr1"] }, sequenceRoller([]), seat);
+    d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 4, 6, 2, 2]), seat); // player 2 succ; GM (3 dice) 1 succ
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), seat);
+    d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }, { kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), seat); // no Defend → 1 GM left
+    d.run({ kind: "commit" }, sequenceRoller([1]), seat); // 1 leftover → injury, d6=1 → category 0
+    return d;
+  }
+
+  it("resolve_injury marks the rolled box and closes the turn", () => {
+    const d = parkAnInjury("astrid");
+    expect(d.state.characters.astrid.injuries).toEqual([0, 0, 0]); // parked, not yet marked
+    expect(d.state.currentTurn?.pendingInjury).toMatchObject({ face: 1, outcome: { kind: "injury", category: 0, box: 1 } });
+
+    const resolved = d.run({ kind: "resolve_injury" }, sequenceRoller([]), "astrid");
+    expect(resolved.map((e) => e.type)).toEqual(["INJURY_MARKED", "ALLOCATION_COMMITTED"]);
+    expect(d.state.characters.astrid.injuries[0]).toBe(1);
+    expect(d.state.currentTurn).toBeNull();
+    expect(d.state.actedThisRound).toEqual(["astrid"]);
+  });
+
+  it("Chuck shrugs off the injury with the cowboy hat (use + ignore)", () => {
+    const d = parkAnInjury("chuck");
+    // Burn the hat, then ignore the pending injury.
+    d.run({ kind: "use_equipment", seat: "chuck", itemId: "chuck-cowboy-hat" }, sequenceRoller([]), "chuck");
+    const resolved = d.run({ kind: "resolve_injury", ignore: true }, sequenceRoller([]), "chuck");
+
+    expect(resolved.map((e) => e.type)).toEqual(["ALLOCATION_COMMITTED"]); // no INJURY_MARKED
+    expect(d.state.characters.chuck.injuries).toEqual([0, 0, 0]); // shrugged off
+    expect(d.state.characters.chuck.equipmentUses["chuck-cowboy-hat"]).toBe(0); // hat destroyed
+    expect(d.state.currentTurn).toBeNull();
+    expect(d.state.actedThisRound).toEqual(["chuck"]); // still counts as the turn
+  });
+
+  it("rejects resolve_injury when nothing is pending", () => {
+    const d = makeDriver();
+    expect(d.fail({ kind: "resolve_injury" }).ok).toBe(false);
+  });
+
+  it("using Iryna's cigarettes regains 2 Blood automatically (and only while a use remains)", () => {
+    const d = makeDriver();
+    expect(d.state.characters.iryna.blood).toBe(0);
+
+    const ev = d.run({ kind: "use_equipment", seat: "iryna", itemId: "iryna-cigarettes" }, sequenceRoller([]), "iryna");
+    expect(ev.map((e) => e.type)).toEqual(["EQUIPMENT_USED", "BLOOD_CHANGED"]);
+    expect(d.state.characters.iryna.blood).toBe(2);
+    expect(d.state.characters.iryna.equipmentUses["iryna-cigarettes"]).toBe(0);
+
+    // Depleted now → using again no longer mints Blood.
+    const ev2 = d.run({ kind: "use_equipment", seat: "iryna", itemId: "iryna-cigarettes" }, sequenceRoller([]), "iryna");
+    expect(ev2.map((e) => e.type)).toEqual(["EQUIPMENT_USED"]);
+    expect(d.state.characters.iryna.blood).toBe(2);
+  });
+
+  it("a weapon use grants no Blood (only reactive items do)", () => {
+    const d = makeDriver();
+    const ev = d.run({ kind: "use_equipment", seat: "iryna", itemId: "iryna-sabre" }, sequenceRoller([]), "iryna");
+    expect(ev.map((e) => e.type)).toEqual(["EQUIPMENT_USED"]);
+    expect(d.state.characters.iryna.blood).toBe(0);
   });
 });
 

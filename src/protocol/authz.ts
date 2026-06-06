@@ -48,6 +48,7 @@ const TURN_INTENTS = new Set<Intent["kind"]>([
   "resolve_discard",
   "allocate",
   "commit",
+  "resolve_injury",
   "cancel_turn",
   "last_stand_roll",
   "last_stand_commit",
