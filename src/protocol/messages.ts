@@ -1,4 +1,5 @@
 import type { Objective, Threat, SecondaryObjective, Stat } from "../domain/types.js";
+import type { Equipment } from "../domain/character.js";
 import type { Allocation } from "../engine/allocate.js";
 import type { PoolSource } from "../engine/playerPool.js";
 import type { Actor, CharId, GameEvent, SeatId, TrafficColor } from "../events/types.js";
@@ -40,6 +41,8 @@ export type Intent =
   | { kind: "share_blood"; from: CharId; to: CharId; amount: number }
   | { kind: "heal"; seat: CharId; category: 0 | 1 | 2; box: 1 | 2 }
   | { kind: "use_equipment"; seat: CharId; itemId: string }
+  | { kind: "loot_add"; seat: CharId; item: Equipment }
+  | { kind: "loot_activate"; seat: CharId; itemId: string }
   | { kind: "unlock_advance"; seat: CharId; advanceId: string }
   | { kind: "trigger_flashback"; seat: CharId; context: string; question: string }
   | { kind: "gm_override"; note?: string; patch?: { objectives?: Objective[]; threats?: Threat[] } };

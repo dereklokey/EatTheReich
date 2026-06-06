@@ -7,6 +7,8 @@ import { SafetyBar, XCardOverlay } from "./SafetyBar";
 import { Theater } from "@/theater/Theater";
 import { TurnControls } from "@/theater/TurnControls";
 import { GMPanel } from "@/gm/GMPanel";
+import { CharacterSheet } from "@/sheet/CharacterSheet";
+import { CHAR_IDS, type CharId } from "@shared/events/types.js";
 
 /**
  * In-game shell: connects to the room, then routes to seat-pick (until this device
@@ -18,7 +20,9 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
   const game = useGame(code);
   const { reduced, toggle } = useEffects();
   const isGm = game.mySeat === "gm";
+  const ownChar = game.mySeat && CHAR_IDS.includes(game.mySeat as CharId) ? (game.mySeat as CharId) : null;
   const [gmOpen, setGmOpen] = useState(false);
+  const [sheetSeat, setSheetSeat] = useState<CharId | null>(null);
 
   return (
     <div className="min-h-full">
@@ -29,6 +33,7 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
         reduced={reduced}
         isGm={isGm}
         onOpenGm={() => setGmOpen(true)}
+        onOpenSheet={ownChar ? () => setSheetSeat(ownChar) : undefined}
         onToggleEffects={toggle}
         onExit={onExit}
       />
@@ -50,12 +55,21 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
       ) : (
         <>
           <TurnControls state={game.state} send={game.send} mySeat={game.mySeat} />
-          <Board state={game.state} online={game.online} />
+          <Board state={game.state} online={game.online} onOpenSheet={setSheetSeat} />
         </>
       )}
 
       {game.state?.currentTurn && <Theater state={game.state} send={game.send} mySeat={game.mySeat} />}
       {game.state && isGm && gmOpen && <GMPanel state={game.state} send={game.send} onClose={() => setGmOpen(false)} />}
+      {game.state && sheetSeat && (
+        <CharacterSheet
+          seat={sheetSeat}
+          state={game.state}
+          send={game.send}
+          canEdit={game.mySeat === sheetSeat || isGm}
+          onClose={() => setSheetSeat(null)}
+        />
+      )}
       {game.state && <SafetyBar state={game.state} send={game.send} />}
       {game.state && <XCardOverlay state={game.state} send={game.send} />}
 
@@ -79,6 +93,7 @@ function TopBar({
   reduced,
   isGm,
   onOpenGm,
+  onOpenSheet,
   onToggleEffects,
   onExit,
 }: {
@@ -88,6 +103,7 @@ function TopBar({
   reduced: boolean;
   isGm: boolean;
   onOpenGm: () => void;
+  onOpenSheet?: () => void;
   onToggleEffects: () => void;
   onExit: () => void;
 }) {
@@ -104,7 +120,12 @@ function TopBar({
             GM
           </button>
         )}
-        <button className={`mono text-xs text-paper-fade underline ${isGm ? "" : "ml-auto"}`} onClick={onToggleEffects}>
+        {onOpenSheet && (
+          <button className={`display text-paper bg-dusk-mauve px-2 py-0.5 text-sm ${isGm ? "" : "ml-auto"}`} style={{ borderRadius: 2 }} onClick={onOpenSheet}>
+            Sheet
+          </button>
+        )}
+        <button className={`mono text-xs text-paper-fade underline ${isGm || onOpenSheet ? "" : "ml-auto"}`} onClick={onToggleEffects}>
           effects: {reduced ? "reduced" : "full"}
         </button>
         <button className="mono text-xs text-paper-fade underline" onClick={onExit}>

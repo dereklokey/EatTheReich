@@ -220,6 +220,10 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       return ok([{ type: "HEALED", payload: { seat: intent.seat, category: intent.category, box: intent.box }, actor: intent.seat }]);
     case "use_equipment":
       return ok([{ type: "EQUIPMENT_USED", payload: { seat: intent.seat, itemId: intent.itemId }, actor: intent.seat }]);
+    case "loot_add":
+      return ok([{ type: "LOOT_ADDED", payload: { seat: intent.seat, item: intent.item }, actor: intent.seat }]);
+    case "loot_activate":
+      return ok([{ type: "LOOT_ACTIVATED", payload: { seat: intent.seat, itemId: intent.itemId }, actor: intent.seat }]);
     case "unlock_advance":
       return ok([{ type: "ADVANCE_UNLOCKED", payload: { seat: intent.seat, advanceId: intent.advanceId }, actor: intent.seat }]);
     case "trigger_flashback":

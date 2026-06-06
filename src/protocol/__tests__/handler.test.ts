@@ -192,6 +192,17 @@ describe("processIntent — claiming seats", () => {
   });
 });
 
+describe("processIntent — loot", () => {
+  it("grants loot then activates a slot", () => {
+    const d = makeDriver();
+    d.run({ kind: "loot_add", seat: "nicole", item: { id: "car", name: "Speedster", loot: true } });
+    expect(d.state.characters.nicole.loot.map((l) => l.id)).toEqual(["car"]);
+
+    d.run({ kind: "loot_activate", seat: "nicole", itemId: "car" });
+    expect(d.state.characters.nicole.activeLootSlot).toBe("car");
+  });
+});
+
 describe("processIntent — safety & sessions", () => {
   it("raises the X-Card and resets flashbacks on a new session", () => {
     const d = makeDriver();

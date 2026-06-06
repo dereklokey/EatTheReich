@@ -53,6 +53,11 @@ describe("authorizeIntent — a seated player", () => {
 
     expect(authorizeIntent(s, "iryna", { kind: "change_blood", seat: "nicole", delta: 1 }).ok).toBe(false);
     expect(authorizeIntent(s, "iryna", { kind: "share_blood", from: "nicole", to: "iryna", amount: 1 }).ok).toBe(false);
+
+    // Loot: the owner may activate their own; granting loot is GM-only.
+    expect(authorizeIntent(s, "iryna", { kind: "loot_activate", seat: "iryna", itemId: "x" }).ok).toBe(true);
+    expect(authorizeIntent(s, "iryna", { kind: "loot_activate", seat: "nicole", itemId: "x" }).ok).toBe(false);
+    expect(authorizeIntent(s, "iryna", { kind: "loot_add", seat: "iryna", item: { id: "x", name: "X" } }).ok).toBe(false);
   });
 
   it("may use the safety tools", () => {

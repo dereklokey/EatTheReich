@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { GameState, CharacterRuntime } from "@shared/state/types.js";
-import type { SeatId } from "@shared/events/types.js";
+import type { SeatId, CharId } from "@shared/events/types.js";
 import { CHAR_IDS } from "@shared/events/types.js";
 import { seatName } from "@/game/seats";
 
@@ -9,7 +9,15 @@ import { seatName } from "@/game/seats";
  * visible to everyone, read-only here (the resolution theater + GM panel that drive
  * it are the next increment). This is the calm dossier layer; no ambient motion.
  */
-export function Board({ state, online }: { state: GameState; online: SeatId[] }) {
+export function Board({
+  state,
+  online,
+  onOpenSheet,
+}: {
+  state: GameState;
+  online: SeatId[];
+  onOpenSheet?: (id: CharId) => void;
+}) {
   return (
     <div className="substrate grain min-h-full p-4 pb-20 mx-auto max-w-5xl">
       <BoardHeader state={state} />
@@ -58,6 +66,7 @@ export function Board({ state, online }: { state: GameState; online: SeatId[] })
               claimed={state.seats[id]?.claimed ?? false}
               online={online.includes(id)}
               active={state.activeSeat === id}
+              onOpen={onOpenSheet ? () => onOpenSheet(id) : undefined}
             />
           ))}
         </div>
@@ -93,17 +102,21 @@ function CharCard({
   claimed,
   online,
   active,
+  onOpen,
 }: {
   id: string;
   char: CharacterRuntime;
   claimed: boolean;
   online: boolean;
   active: boolean;
+  onOpen?: () => void;
 }) {
   return (
     <div
-      className={`paper ${char.dead ? "opacity-40" : char.downed ? "opacity-70 -rotate-1" : ""}`}
+      className={`paper ${onOpen ? "cursor-pointer" : ""} ${char.dead ? "opacity-40" : char.downed ? "opacity-70 -rotate-1" : ""}`}
       style={active ? { boxShadow: "0 0 0 2px var(--hazard), 0 10px 22px rgba(0,0,0,0.5)" } : undefined}
+      onClick={onOpen}
+      title={onOpen ? "open sheet" : undefined}
     >
       <div className="flex items-center justify-between">
         <span className="display text-lg">{seatName(id as SeatId)}</span>

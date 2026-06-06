@@ -51,6 +51,7 @@ function subjectSeat(intent: Intent): SeatId | undefined {
     case "change_blood":
     case "heal":
     case "use_equipment":
+    case "loot_activate": // the owner activates their own loot; granting (loot_add) is GM-only
     case "unlock_advance":
     case "trigger_flashback":
       return intent.seat;
