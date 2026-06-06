@@ -3,8 +3,10 @@ import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
 import type { Objective, Threat } from "@shared/domain/types.js";
 import { CHAR_IDS, type CharId, type SeatId, type GameEvent } from "@shared/events/types.js";
+import type { DieFace } from "@shared/domain/types.js";
 import { LOCATIONS_BY_SECTOR, type Sector, type LootRef } from "@shared/data/locations.js";
 import { seatName } from "@/game/seats";
+import { Die } from "@/components/dice/Die";
 import { THREAT_CATALOG, LOOT_CATALOG, loadLocation, newObjective, newLoot, rescueObjective } from "./catalog";
 
 /**
@@ -39,7 +41,7 @@ export function GMPanel({
           <button className="mono text-sm underline text-paper-fade" onClick={onClose}>close</button>
         </div>
 
-        <SessionSection state={state} send={send} />
+        <SessionSection state={state} send={send} events={events} />
         <LocationSection send={send} hasBoard={state.board.objectives.length + state.board.threats.length > 0} />
         <ObjectivesSection state={state} send={send} />
         <ThreatsSection state={state} send={send} />
@@ -98,7 +100,9 @@ function Stepper({ value, onChange, min = 0, max = 20 }: { value: number; onChan
   );
 }
 
-function SessionSection({ state, send }: { state: GameState; send: (i: Intent) => void }) {
+function SessionSection({ state, send, events }: { state: GameState; send: (i: Intent) => void; events: GameEvent[] }) {
+  const lastReinforce = [...events].reverse().find((e) => e.type === "REINFORCEMENTS_APPLIED");
+  const log = lastReinforce?.type === "REINFORCEMENTS_APPLIED" ? lastReinforce.payload.log : undefined;
   return (
     <Section title="Session & round">
       <div className="paper paper-tight flex flex-wrap items-center gap-2 mono text-sm">
@@ -120,6 +124,32 @@ function SessionSection({ state, send }: { state: GameState; send: (i: Intent) =
       >
         End round → reinforcements
       </button>
+
+      {log && log.length > 0 && (
+        <div className="mt-2 paper paper-tight">
+          <div className="mono text-[0.65rem] text-paper-fade mb-1.5">Last reinforcements — the dice it rolled</div>
+          <div className="flex flex-col gap-1.5">
+            {log.map((l) => (
+              <div key={l.threatId} className="flex items-center gap-2 mono text-xs" title={l.reason}>
+                {l.restoreRoll !== undefined ? (
+                  <Die kind="gm" value={l.restoreRoll as DieFace} state="success" size="1.4rem" title={`restore roll: ${l.restoreRoll}`} />
+                ) : (
+                  <span className="inline-block w-[1.4rem] text-center text-paper-fade">·</span>
+                )}
+                <span className="flex-1 truncate">{l.name}</span>
+                {l.removed ? (
+                  <span className="text-paper-fade italic">removed</span>
+                ) : (
+                  <span className="text-blood">
+                    ATK {l.attackBefore}
+                    {l.attackAfter !== l.attackBefore && <> → {l.attackAfter}</>}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Section>
   );
 }

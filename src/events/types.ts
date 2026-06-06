@@ -9,6 +9,7 @@ import type { Equipment } from "../domain/character.js";
 import type { AllocationKind } from "../engine/allocate.js";
 import type { PoolSource } from "../engine/playerPool.js";
 import type { InjuryOutcome } from "../engine/injury.js";
+import type { ReinforceLogEntry } from "../engine/reinforcements.js";
 
 /**
  * Event taxonomy (CLAUDE.md §3.2). State = reduce(events). Every mutation is an
@@ -120,7 +121,8 @@ export interface EventPayloads {
 
   FLASHBACK_TRIGGERED: { seat: CharId; context: string; question: string };
   ROUND_ENDED: Record<string, never>;
-  REINFORCEMENTS_APPLIED: { threats: Threat[]; note?: string };
+  /** `log` is the per-threat breakdown (incl. each restore's 1d6) for "shown with the dice it rolled" (CLAUDE.md §4). */
+  REINFORCEMENTS_APPLIED: { threats: Threat[]; log?: ReinforceLogEntry[]; note?: string };
 
   /** Explicit, always-logged override (CLAUDE.md §0/§3.2). */
   GM_OVERRIDE: {

@@ -280,9 +280,9 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
     case "end_round": {
       const reducedToZero = new Set(intent.reducedToZeroThreatIds ?? state.board.threats.filter((t) => t.rating <= 0).map((t) => t.id));
       const zeroSuccess = new Set(intent.zeroSuccessThreatIds ?? []);
-      const { threats } = reinforce({ threats: state.board.threats, reducedToZeroThisRound: reducedToZero, zeroSuccessThisRound: zeroSuccess, roller: deps.roller });
+      const { threats, log } = reinforce({ threats: state.board.threats, reducedToZeroThisRound: reducedToZero, zeroSuccessThisRound: zeroSuccess, roller: deps.roller });
       return ok([
-        { type: "REINFORCEMENTS_APPLIED", payload: { threats } },
+        { type: "REINFORCEMENTS_APPLIED", payload: { threats, log } },
         { type: "ROUND_ENDED", payload: {} },
       ]);
     }

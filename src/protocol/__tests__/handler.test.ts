@@ -355,6 +355,18 @@ describe("processIntent — end of round reinforcements", () => {
     expect(out.find((t) => t.id === "police")?.attack).toBe(3); // +1 closing in
     expect(d.state.round).toBe(2);
   });
+
+  it("emits the per-threat breakdown with the restore die it rolled (shown with the dice)", () => {
+    const squad: Threat = { id: "squad", name: "Infantry Squad", kind: "threat", rating: 0, attack: 0, startingAttack: 3, reinforces: true, restoresAtZero: true };
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [], threats: [squad] });
+    const events = d.run({ kind: "end_round", reducedToZeroThreatIds: ["squad"] }, sequenceRoller([4]));
+
+    const applied = events.find((e) => e.type === "REINFORCEMENTS_APPLIED");
+    expect(applied?.type === "REINFORCEMENTS_APPLIED" && applied.payload.log).toEqual([
+      { threatId: "squad", name: "Infantry Squad", restoreRoll: 4, attackBefore: 0, attackAfter: 1, reason: "defeated this round → +4 rating, Attack reset to floor(3/2)" },
+    ]);
+  });
 });
 
 describe("processIntent — cancelling a turn", () => {

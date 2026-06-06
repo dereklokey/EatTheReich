@@ -33,6 +33,8 @@ export interface ReinforceResult {
 
 export interface ReinforceLogEntry {
   threatId: string;
+  /** Threat name at reinforcement time — carried so the GM-confirm UI can show removed ones. */
+  name: string;
   removed?: boolean; // übermensch killed
   restoreRoll?: number; // 1d6 applied to rating
   attackBefore: number;
@@ -55,6 +57,7 @@ export function reinforce(input: ReinforceInput): ReinforceResult {
         out.push({ ...t, rating: t.rating + restoreRoll, attack: Math.floor(t.startingAttack / 2) });
         log.push({
           threatId: t.id,
+          name: t.name,
           restoreRoll,
           attackBefore,
           attackAfter: Math.floor(t.startingAttack / 2),
@@ -63,6 +66,7 @@ export function reinforce(input: ReinforceInput): ReinforceResult {
       } else {
         log.push({
           threatId: t.id,
+          name: t.name,
           removed: true,
           attackBefore,
           attackAfter: 0,
@@ -75,7 +79,7 @@ export function reinforce(input: ReinforceInput): ReinforceResult {
     // Still in play. Solo enemies (reinforces:false) don't escalate.
     if (!t.reinforces) {
       out.push({ ...t });
-      log.push({ threatId: t.id, attackBefore, attackAfter: t.attack, reason: "Solo — does not reinforce" });
+      log.push({ threatId: t.id, name: t.name, attackBefore, attackAfter: t.attack, reason: "Solo — does not reinforce" });
       continue;
     }
 
@@ -87,7 +91,7 @@ export function reinforce(input: ReinforceInput): ReinforceResult {
       reason += "; zero successes against it → +1";
     }
     out.push({ ...t, attack: attackAfter });
-    log.push({ threatId: t.id, attackBefore, attackAfter, reason });
+    log.push({ threatId: t.id, name: t.name, attackBefore, attackAfter, reason });
   }
 
   return { threats: out, log };
