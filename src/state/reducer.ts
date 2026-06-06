@@ -91,15 +91,9 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
           objectives: e.payload.objectives,
           threats: e.payload.threats,
           secondaryObjectives: e.payload.secondaryObjectives ?? [],
-          scene: e.payload.scene ?? null,
           ...(e.payload.locationId ? { locationId: e.payload.locationId } : {}),
         },
       };
-    case "SCENE_SET":
-      return withBoard(s, {
-        ...s.board,
-        scene: e.payload.title.trim() ? { title: e.payload.title.trim(), ...(e.payload.note?.trim() ? { note: e.payload.note.trim() } : {}) } : null,
-      });
     case "OBJECTIVE_ADDED":
       return withBoard(s, { ...s.board, objectives: [...s.board.objectives, e.payload.objective] });
     case "OBJECTIVE_UPDATED":

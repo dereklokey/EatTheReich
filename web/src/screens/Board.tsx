@@ -74,12 +74,11 @@ export function Board({
     return () => clearTimeout(t);
   }, [arc]);
 
-  const scene = state.board.scene;
   const secondary = state.board.secondaryObjectives;
   const loc = state.board.locationId ? LOCATIONS_BY_ID[state.board.locationId] : undefined;
   const sceneLoot = loc?.loot ?? [];
   const empty =
-    !scene &&
+    !loc &&
     state.board.objectives.length === 0 &&
     state.board.threats.length === 0 &&
     secondary.length === 0;
@@ -87,11 +86,10 @@ export function Board({
     <div className="substrate grain min-h-full p-4 pb-20 mx-auto max-w-5xl">
       <BoardHeader state={state} />
 
-      {scene && (
+      {loc && (
         <div className="paper mt-3">
           <div className="mono text-[0.6rem] uppercase tracking-wide text-paper-fade">Scene</div>
-          <p className="display text-2xl leading-tight">{scene.title}</p>
-          {scene.note && <p className="mono text-xs text-paper-fade mt-1 whitespace-pre-wrap">{scene.note}</p>}
+          <p className="display text-2xl leading-tight">{loc.name}</p>
         </div>
       )}
 

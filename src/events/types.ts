@@ -60,13 +60,9 @@ export interface EventPayloads {
     objectives: Objective[];
     threats: Threat[];
     secondaryObjectives?: SecondaryObjective[];
-    /** The scene's narrative framing (set when loading a location → its name). */
-    scene?: { title: string; note?: string };
-    /** The reference location this board came from, for surfacing its special loot. */
+    /** The reference location this board came from — names the scene + surfaces its loot. */
     locationId?: string;
   };
-  /** GM types/edits the scene's title & note (independent of loading a location). */
-  SCENE_SET: { title: string; note?: string };
   OBJECTIVE_ADDED: { objective: Objective };
   OBJECTIVE_UPDATED: { id: string; patch: Partial<Objective> };
   OBJECTIVE_COMPLETED: { id: string; narratedBy?: CharId };

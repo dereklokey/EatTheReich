@@ -22,8 +22,7 @@ export type Intent =
   | { kind: "raise_xcard"; anonymous?: boolean; note?: string }
   | { kind: "clear_xcard"; changeRequested?: string }
   | { kind: "traffic_signal"; color: TrafficColor }
-  | { kind: "frame_scene"; objectives: Objective[]; threats: Threat[]; secondaryObjectives?: SecondaryObjective[]; scene?: { title: string; note?: string }; locationId?: string }
-  | { kind: "set_scene"; title: string; note?: string }
+  | { kind: "frame_scene"; objectives: Objective[]; threats: Threat[]; secondaryObjectives?: SecondaryObjective[]; locationId?: string }
   | { kind: "add_objective"; objective: Objective }
   | { kind: "update_objective"; id: string; patch: Partial<Objective> }
   | { kind: "complete_objective"; id: string; narratedBy?: CharId }

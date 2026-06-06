@@ -54,20 +54,12 @@ export interface SeatState {
   seatTokenHash?: string;
 }
 
-/** The narrative framing of the current scene (CLAUDE.md §4 "frame scenes"). */
-export interface SceneFrame {
-  title: string;
-  note?: string;
-}
-
 export interface BoardSnapshot {
   objectives: Objective[];
   threats: Threat[];
   secondaryObjectives: SecondaryObjective[];
-  /** What/where this scene is — shown on the board, saved across weeks. Null = unframed. */
-  scene: SceneFrame | null;
-  /** The reference location last loaded (data/locations.ts), so the GM panel/board can
-   *  surface that scene's special loot. Undefined when the board was hand-built. */
+  /** The reference location last loaded (data/locations.ts). Names the current scene on
+   *  the board and surfaces that location's special loot. Undefined for a hand-built board. */
   locationId?: string;
 }
 

@@ -92,27 +92,11 @@ describe("reducer — board & blood", () => {
     expect(s.board.threats).toHaveLength(0);
   });
 
-  it("SCENE_FRAMED carries scene + locationId; SCENE_SET edits and clears the scene (issue #4)", () => {
+  it("SCENE_FRAMED records the locationId (names the scene + surfaces its loot, issue #4)", () => {
     const { ev, all } = log();
-    ev("SCENE_FRAMED", {
-      objectives: [],
-      threats: [],
-      scene: { title: "The German Technology Pavilion" },
-      locationId: "german-technology-pavilion",
-    });
-    let s = reduce(all);
-    expect(s.board.scene).toEqual({ title: "The German Technology Pavilion" });
+    ev("SCENE_FRAMED", { objectives: [], threats: [], locationId: "german-technology-pavilion" });
+    const s = reduce(all);
     expect(s.board.locationId).toBe("german-technology-pavilion");
-
-    // A manual edit keeps the title and adds a note.
-    s = applyEvent(s, ev("SCENE_SET", { title: "Pavilion — second floor", note: "alarms blaring" }));
-    expect(s.board.scene).toEqual({ title: "Pavilion — second floor", note: "alarms blaring" });
-    // locationId survives a manual scene edit.
-    expect(s.board.locationId).toBe("german-technology-pavilion");
-
-    // An empty title clears the scene.
-    s = applyEvent(s, ev("SCENE_SET", { title: "   " }));
-    expect(s.board.scene).toBeNull();
   });
 
   it("secondary objectives: ADDED / UPDATED / COMPLETED(reward) / REMOVED (issue #4)", () => {

@@ -120,9 +120,7 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       return ok([{ type: "TRAFFIC_SIGNAL", payload: { color: intent.color } }]);
 
     case "frame_scene":
-      return ok([{ type: "SCENE_FRAMED", payload: { objectives: intent.objectives, threats: intent.threats, ...(intent.secondaryObjectives ? { secondaryObjectives: intent.secondaryObjectives } : {}), ...(intent.scene ? { scene: intent.scene } : {}), ...(intent.locationId ? { locationId: intent.locationId } : {}) } }]);
-    case "set_scene":
-      return ok([{ type: "SCENE_SET", payload: { title: intent.title, ...(intent.note ? { note: intent.note } : {}) } }]);
+      return ok([{ type: "SCENE_FRAMED", payload: { objectives: intent.objectives, threats: intent.threats, ...(intent.secondaryObjectives ? { secondaryObjectives: intent.secondaryObjectives } : {}), ...(intent.locationId ? { locationId: intent.locationId } : {}) } }]);
     case "add_objective":
       return ok([{ type: "OBJECTIVE_ADDED", payload: { objective: intent.objective } }]);
     case "update_objective":

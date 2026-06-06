@@ -46,7 +46,7 @@ export function initialState(gameId: string): GameState {
     round: 1,
     safety: { lines: [], veils: [], calibration: [], traffic: null, xcardRaised: false },
     seats,
-    board: { objectives: [], threats: [], secondaryObjectives: [], scene: null },
+    board: { objectives: [], threats: [], secondaryObjectives: [] },
     characters,
     currentTurn: null,
     activeSeat: null,

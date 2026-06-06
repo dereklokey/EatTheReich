@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
 import type { Objective, Threat, SecondaryObjective } from "@shared/domain/types.js";
@@ -43,8 +43,7 @@ export function GMPanel({
         </div>
 
         <SessionSection state={state} send={send} events={events} />
-        <SceneSection state={state} send={send} />
-        <LocationSection send={send} hasBoard={state.board.objectives.length + state.board.threats.length > 0} />
+        <LocationSection state={state} send={send} hasBoard={state.board.objectives.length + state.board.threats.length > 0} />
         <ObjectivesSection state={state} send={send} />
         <SecondaryObjectivesSection state={state} send={send} />
         <ThreatsSection state={state} send={send} />
@@ -158,62 +157,13 @@ function SessionSection({ state, send, events }: { state: GameState; send: (i: I
 }
 
 /**
- * The scene's narrative framing (issue #4): a title + optional note the GM types, saved
- * to the board and shown to everyone. Distinct from "Load a location" (which fills in the
- * objectives/threats) — this is the "where are we, what's happening" line.
+ * Load a location's suggested board (CLAUDE.md §4) and name the scene. The picked
+ * location is seeded from `board.locationId`, so the selection is maintained across
+ * panel open/close, and its name is what shows on the shared board (issue #4) — no
+ * separate scene textbox needed.
  */
-function SceneSection({ state, send }: { state: GameState; send: (i: Intent) => void }) {
-  const scene = state.board.scene;
-  const [title, setTitle] = useState(scene?.title ?? "");
-  const [note, setNote] = useState(scene?.note ?? "");
-  // Re-seed the inputs whenever the saved scene changes (e.g. a location load set it).
-  const seeded = useRef<string | undefined>(undefined);
-  const key = `${scene?.title ?? ""} ${scene?.note ?? ""}`;
-  if (seeded.current !== key) {
-    seeded.current = key;
-    if ((scene?.title ?? "") !== title) setTitle(scene?.title ?? "");
-    if ((scene?.note ?? "") !== note) setNote(scene?.note ?? "");
-  }
-  const dirty = title !== (scene?.title ?? "") || note !== (scene?.note ?? "");
-  return (
-    <Section title="Frame a scene">
-      <p className="mono text-[0.65rem] text-paper-fade mb-2">
-        Set where the crew is and what’s happening. Shows on everyone’s board.
-      </p>
-      <input
-        className="mono w-full px-2 py-1.5 bg-paper text-paper-ink"
-        placeholder="scene title, e.g. The German Technology Pavilion"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-      />
-      <textarea
-        className="mono w-full mt-2 px-2 py-1.5 bg-paper text-paper-ink resize-none"
-        rows={2}
-        placeholder="what’s happening (optional)"
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-      />
-      <div className="mt-2 flex items-center gap-2">
-        <button
-          className="display bg-blood text-paper px-3 py-1 text-sm disabled:opacity-40"
-          style={{ borderRadius: 2 }}
-          disabled={!dirty}
-          onClick={() => send({ kind: "set_scene", title: title.trim(), note: note.trim() || undefined })}
-        >
-          {scene ? "Save scene" : "Frame it"}
-        </button>
-        {scene && (
-          <button className="mono text-xs underline text-paper-fade" onClick={() => { setTitle(""); setNote(""); send({ kind: "set_scene", title: "" }); }}>
-            clear
-          </button>
-        )}
-      </div>
-    </Section>
-  );
-}
-
-function LocationSection({ send, hasBoard }: { send: (i: Intent) => void; hasBoard: boolean }) {
-  const [sel, setSel] = useState("");
+function LocationSection({ state, send, hasBoard }: { state: GameState; send: (i: Intent) => void; hasBoard: boolean }) {
+  const [sel, setSel] = useState(state.board.locationId ?? "");
   const load = () => {
     const loc = LOCATIONS_BY_ID[sel];
     if (!loc) return;
@@ -223,16 +173,15 @@ function LocationSection({ send, hasBoard }: { send: (i: Intent) => void; hasBoa
       objectives: board.objectives,
       threats: board.threats,
       secondaryObjectives: board.secondaryObjectives,
-      scene: { title: loc.name },
       locationId: loc.id,
     });
   };
   return (
     <Section title="Load a location">
       <p className="mono text-[0.65rem] text-paper-fade mb-2">
-        Drops in a scene’s suggested objectives, threats &amp; secondary objectives — all editable. Sets the scene title and surfaces that location’s special loot.
+        Drops in a scene’s suggested objectives, threats &amp; secondary objectives — all editable. Its name shows on the board and surfaces that location’s special loot.
       </p>
-      <select className="mono w-full px-2 py-1.5 bg-paper text-paper-ink" value={sel} onChange={(e) => setSel(e.target.value)}>
+      <select className="mono w-full min-w-0 px-2 py-1.5 bg-paper text-paper-ink" value={sel} onChange={(e) => setSel(e.target.value)}>
         <option value="">— pick a location —</option>
         {SECTORS.map((s) => (
           <optgroup key={s} label={`Sector ${s}`}>
@@ -254,10 +203,10 @@ function LocationSection({ send, hasBoard }: { send: (i: Intent) => void; hasBoa
   );
 }
 
+const NEW_OBJECTIVE_RATING = 6;
+
 function ObjectivesSection({ state, send }: { state: GameState; send: (i: Intent) => void }) {
   const [name, setName] = useState("");
-  const [rating, setRating] = useState(6);
-  const [challenge, setChallenge] = useState(0);
   const patch = (id: string, p: Partial<Objective>) => send({ kind: "update_objective", id, patch: p });
   return (
     <Section title="Objectives">
@@ -276,17 +225,14 @@ function ObjectivesSection({ state, send }: { state: GameState; send: (i: Intent
           </div>
         ))}
       </div>
-      <div className="mt-2">
-        <input className="mono w-full px-2 py-1 bg-paper text-paper-ink" placeholder="new objective" value={name} onChange={(e) => setName(e.target.value)} />
-        <div className="mt-1.5 flex items-center gap-3 text-xs mono">
-          <span className="flex items-center gap-1">rating <Stepper value={rating} onChange={setRating} /></span>
-          <span className="flex items-center gap-1">chal <Stepper value={challenge} onChange={setChallenge} /></span>
-          <button
-            className="display bg-blood text-paper px-3 py-0.5 ml-auto disabled:opacity-40" style={{ borderRadius: 2 }}
-            disabled={!name.trim()}
-            onClick={() => { send({ kind: "add_objective", objective: newObjective(name.trim(), rating, challenge || undefined) }); setName(""); setChallenge(0); }}
-          >add</button>
-        </div>
+      {/* Add with a default rating, then tune rating/challenge on the card above. */}
+      <div className="mt-2 flex gap-1.5">
+        <input className="mono flex-1 min-w-0 px-2 py-1 bg-paper text-paper-ink" placeholder="new objective" value={name} onChange={(e) => setName(e.target.value)} />
+        <button
+          className="display bg-blood text-paper px-3 text-sm disabled:opacity-40" style={{ borderRadius: 2 }}
+          disabled={!name.trim()}
+          onClick={() => { send({ kind: "add_objective", objective: newObjective(name.trim(), NEW_OBJECTIVE_RATING) }); setName(""); }}
+        >add</button>
       </div>
     </Section>
   );
@@ -298,9 +244,10 @@ function ObjectivesSection({ state, send }: { state: GameState; send: (i: Intent
  * (the player picks a reward from the p38 menu), and clear them. Progress is manual
  * (the rating stepper), matching the "suggest, don't enforce" model for objectives.
  */
+const NEW_SECONDARY_RATING = 4;
+
 function SecondaryObjectivesSection({ state, send }: { state: GameState; send: (i: Intent) => void }) {
   const [name, setName] = useState("");
-  const [rating, setRating] = useState(4);
   const list = state.board.secondaryObjectives;
   return (
     <Section title="Secondary objectives">
@@ -314,16 +261,14 @@ function SecondaryObjectivesSection({ state, send }: { state: GameState; send: (
           {list.map((o) => <SecondaryRow key={o.id} o={o} send={send} />)}
         </div>
       )}
-      <div className="mt-2">
-        <input className="mono w-full px-2 py-1 bg-paper text-paper-ink" placeholder="new secondary objective" value={name} onChange={(e) => setName(e.target.value)} />
-        <div className="mt-1.5 flex items-center gap-3 text-xs mono">
-          <span className="flex items-center gap-1">rating <Stepper value={rating} onChange={setRating} /></span>
-          <button
-            className="display bg-blood text-paper px-3 py-0.5 ml-auto disabled:opacity-40" style={{ borderRadius: 2 }}
-            disabled={!name.trim()}
-            onClick={() => { send({ kind: "add_secondary_objective", objective: newSecondaryObjective(name.trim(), rating) }); setName(""); }}
-          >add</button>
-        </div>
+      {/* Add with a default rating, then tune rating/challenge on the card above. */}
+      <div className="mt-2 flex gap-1.5">
+        <input className="mono flex-1 min-w-0 px-2 py-1 bg-paper text-paper-ink" placeholder="new secondary objective" value={name} onChange={(e) => setName(e.target.value)} />
+        <button
+          className="display bg-blood text-paper px-3 text-sm disabled:opacity-40" style={{ borderRadius: 2 }}
+          disabled={!name.trim()}
+          onClick={() => { send({ kind: "add_secondary_objective", objective: newSecondaryObjective(name.trim(), NEW_SECONDARY_RATING) }); setName(""); }}
+        >add</button>
       </div>
     </Section>
   );
