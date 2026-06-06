@@ -56,6 +56,8 @@ export class GameRoom implements DurableObject {
    * heartbeating after a wake. A seat renders online if seen within PRESENCE_WINDOW_MS.
    */
   private lastSeen = new Map<SeatId, number>();
+  /** Serializes webSocket message handling (see webSocketMessage). */
+  private tail: Promise<void> = Promise.resolve();
 
   constructor(private ctx: DurableObjectState, _env: Env) {
     this.storage = ctx.storage;
@@ -102,7 +104,20 @@ export class GameRoom implements DurableObject {
     return new Response(null, { status: 101, webSocket: client });
   }
 
+  /**
+   * Serialize ALL message handling through one promise chain. Two intents sent
+   * back-to-back (e.g. the allocation tray's `allocate` then `commit`) arrive as two
+   * `webSocketMessage` invocations; without this they could interleave at their
+   * `await` points and collide on seq assignment, so the second append throws and its
+   * effect (clearing the turn) is lost. The queue guarantees strict one-at-a-time
+   * processing — the server-authoritative, append-in-order contract (§3.1).
+   */
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    this.tail = this.tail.then(() => this.handleMessage(ws, message)).catch(() => {});
+    return this.tail;
+  }
+
+  private async handleMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     let msg: ClientMessage;
     try {
       msg = JSON.parse(typeof message === "string" ? message : new TextDecoder().decode(message)) as ClientMessage;
