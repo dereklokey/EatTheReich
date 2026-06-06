@@ -5,6 +5,7 @@ import { SeatPick } from "./SeatPick";
 import { Board } from "./Board";
 import { SafetyBar, XCardOverlay } from "./SafetyBar";
 import { Theater } from "@/theater/Theater";
+import { LastStand } from "@/theater/LastStand";
 import { TurnControls } from "@/theater/TurnControls";
 import { GMPanel } from "@/gm/GMPanel";
 import { CharacterSheet } from "@/sheet/CharacterSheet";
@@ -73,17 +74,19 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
         </>
       )}
 
-      {game.state?.currentTurn && !theaterMin && (
+      {game.state?.currentTurn?.lastStand ? (
+        // The Last Stand is its own full-screen moment — never minimizable (RULES §5).
+        <LastStand state={game.state} send={game.send} mySeat={game.mySeat} />
+      ) : game.state?.currentTurn && !theaterMin ? (
         <Theater state={game.state} send={game.send} mySeat={game.mySeat} onMinimize={() => setTheaterMin(true)} />
-      )}
-      {game.state?.currentTurn && theaterMin && (
+      ) : game.state?.currentTurn && theaterMin ? (
         <button
           className="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 detonator text-base"
           onClick={() => setTheaterMin(false)}
         >
           ▴ Resume {seatName(turnSeat!)}’s turn
         </button>
-      )}
+      ) : null}
       {game.state && isGm && gmOpen && (
         <GMPanel state={game.state} send={game.send} events={game.events} onRewind={game.rewind} onClose={() => setGmOpen(false)} />
       )}

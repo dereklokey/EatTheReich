@@ -13,7 +13,8 @@
     rgba(13, 10, 28, 0.97);
   overflow-y: auto;
 }
-.theater__inner { margin: auto; width: 100%; max-width: 56rem; padding: 1.25rem; }
+/* padding-bottom clears the always-on-top safety bar (§2) so it never covers controls. */
+.theater__inner { margin: auto; width: 100%; max-width: 56rem; padding: 1.25rem; padding-bottom: 4.5rem; }
 
 .theater__phase { font-family: var(--font-display); letter-spacing: 0.12em; color: var(--paper-fade); }
 

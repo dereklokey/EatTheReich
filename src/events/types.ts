@@ -90,7 +90,9 @@ export interface EventPayloads {
   INJURY_MARKED: { seat: CharId; category: 0 | 1 | 2; box: 1 | 2; penalty?: string };
   DOWNED: { seat: CharId; category: 0 | 1 | 2; rescueObjectiveId?: string };
   HEALED: { seat: CharId; category: 0 | 1 | 2; box: 1 | 2 };
-  DEATH_LAST_STAND: { seat: CharId };
+  DEATH_LAST_STAND: { seat: CharId }; // all 6 boxes marked → opens the Last Stand (RULES §5)
+  LAST_STAND_ROLLED: { seat: CharId; dice: DieFace[] }; // the final 8d6
+  LAST_STAND_ENDED: { seat: CharId }; // final sacrifice allocated → the vampire retires (dead)
   BLOOD_CHANGED: { seat: CharId; delta: number; reason?: string };
   BLOOD_SHARED: { from: CharId; to: CharId; amount: number };
 

@@ -127,5 +127,10 @@ export function markDowned(track: InjuryTrack, category: 0 | 1 | 2): InjuryTrack
   return next;
 }
 
-/** Last Stand pool (RULES §5): all 6 boxes marked → roll 8d6, allocate freely. */
+/**
+ * Last Stand pool (RULES §5, rulebook p36): all 6 boxes marked → "roll 8D6. Apply them
+ * to the current Objectives and Threats however you like." No GM pool, no discard, no
+ * threshold — *every* die counts (a 6 is still a critical worth 2). The reducer maps the
+ * rolled faces straight to survivors.
+ */
 export const LAST_STAND_DICE = 8;

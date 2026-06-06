@@ -49,6 +49,8 @@ const TURN_INTENTS = new Set<Intent["kind"]>([
   "allocate",
   "commit",
   "cancel_turn",
+  "last_stand_roll",
+  "last_stand_commit",
 ]);
 
 /** The seat an intent acts upon, if it's self-scoped; otherwise undefined. */

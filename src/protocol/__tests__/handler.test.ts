@@ -38,6 +38,10 @@ function makeDriver(gameId = "g") {
     fail(intent: Intent, actor: Actor = "gm") {
       return processIntent(state, intent, { roller: sequenceRoller([]), now: 0, actor });
     },
+    /** Fold raw events straight into state (test setup that has no intent path). */
+    seed(events: EventInput[], actor: Actor = "gm") {
+      emit(events, actor);
+    },
   };
 }
 
@@ -115,6 +119,64 @@ describe("processIntent — full §12-A turn driven by intents", () => {
 
     expect(d.state.characters.astrid.downed).toBe(true);
     expect(d.state.characters.astrid.injuries[2]).toBe(2); // all boxes in category 2
+  });
+});
+
+describe("processIntent — Last Stand (RULES §5)", () => {
+  const allSixMarked = ([0, 1, 2] as const).flatMap((category) =>
+    ([1, 2] as const).map((box) => ({ type: "INJURY_MARKED" as const, payload: { seat: "iryna" as const, category, box } })),
+  );
+
+  it("a 7th injury overflows to death → opens a Last Stand instead of retiring", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.seed(allSixMarked); // all 6 boxes already marked, but not yet dead
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "iryna");
+    // player 5,4 (2 successes); GM 6,2,2 (1 success)
+    d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 4, 6, 2, 2]), "iryna");
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), "iryna"); // no Defend → 1 GM die left
+    const ev = d.run({ kind: "commit" }, sequenceRoller([3]), "iryna"); // 1 leftover → injury → nowhere free → death
+
+    expect(ev.map((e) => e.type)).toContain("DEATH_LAST_STAND");
+    expect(ev.map((e) => e.type)).not.toContain("ALLOCATION_COMMITTED"); // not retired yet
+    expect(d.state.characters.iryna.dead).toBe(false);
+    expect(d.state.currentTurn?.lastStand).toBe(true);
+    expect(d.state.characters.iryna.injuries).toEqual([2, 2, 2]);
+  });
+
+  it("rolls 8d6 (every die counts), then committing hits the board and retires the vampire", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.seed([{ type: "DEATH_LAST_STAND", payload: { seat: "iryna" } }]); // open a Last Stand directly
+    expect(d.state.currentTurn?.lastStand).toBe(true);
+
+    const rolled = d.run({ kind: "last_stand_roll" }, sequenceRoller([1, 2, 3, 4, 5, 6, 6, 4]), "iryna");
+    expect(rolled.find((e) => e.type === "LAST_STAND_ROLLED")?.payload).toMatchObject({ seat: "iryna", dice: [1, 2, 3, 4, 5, 6, 6, 4] });
+    expect(d.state.currentTurn?.survivors).toHaveLength(8); // no discard — all 8 are usable
+
+    const ended = d.run(
+      {
+        kind: "last_stand_commit",
+        allocations: [
+          { kind: "advance", targetId: "obj1", units: 2 }, // a crit
+          { kind: "eliminate", targetId: "thr1", units: 1 },
+        ],
+      },
+      sequenceRoller([]),
+      "iryna",
+    );
+
+    expect(ended.map((e) => e.type)).toEqual(["DIE_ALLOCATED", "DIE_ALLOCATED", "LAST_STAND_ENDED"]);
+    expect(d.state.characters.iryna.dead).toBe(true);
+    expect(d.state.currentTurn).toBeNull();
+    expect(d.state.board.objectives[0]!.rating).toBe(4); // 6 − 2
+    expect(d.state.board.threats[0]!.rating).toBe(3); // 4 − 1
+  });
+
+  it("rejects rolling a Last Stand when none is open", () => {
+    const d = makeDriver();
+    expect(d.fail({ kind: "last_stand_roll" }, "iryna").ok).toBe(false);
   });
 });
 

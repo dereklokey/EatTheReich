@@ -84,6 +84,9 @@ export function Board({
               claimed={state.seats[id]?.claimed ?? false}
               online={online.includes(id)}
               active={state.activeSeat === id}
+              // Whose turn (§6): the active vampire takes a warm spotlight; the rest
+              // recede while someone holds the floor. A state change, not ambient motion.
+              recede={!!state.activeSeat && state.activeSeat !== id && (state.seats[id]?.claimed ?? false)}
               onOpen={onOpenSheet ? () => onOpenSheet(id) : undefined}
             />
           ))}
@@ -120,6 +123,7 @@ function CharCard({
   claimed,
   online,
   active,
+  recede,
   onOpen,
 }: {
   id: string;
@@ -127,12 +131,21 @@ function CharCard({
   claimed: boolean;
   online: boolean;
   active: boolean;
+  recede: boolean;
   onOpen?: () => void;
 }) {
+  const spotlight = active
+    ? {
+        transform: "translateY(-3px) scale(1.02)",
+        boxShadow: "0 0 0 2px var(--hazard-warm), 0 0 28px rgba(232,148,28,0.35), 0 14px 28px rgba(0,0,0,0.55)",
+      }
+    : recede
+      ? { opacity: 0.62 }
+      : undefined;
   return (
     <div
       className={`paper ${onOpen ? "cursor-pointer" : ""} ${char.dead ? "opacity-40" : char.downed ? "opacity-70 -rotate-1" : ""}`}
-      style={active ? { boxShadow: "0 0 0 2px var(--hazard), 0 10px 22px rgba(0,0,0,0.5)" } : undefined}
+      style={{ transition: "transform 220ms var(--ease-impact), box-shadow 220ms, opacity 220ms", ...spotlight }}
       onClick={onOpen}
       title={onOpen ? "open sheet" : undefined}
     >

@@ -82,6 +82,9 @@ export interface CharacterRuntime {
 export interface TurnState {
   seat: CharId;
   phase: TurnPhase;
+  /** A Last Stand (RULES §5): the dying vampire's final 8d6, allocated freely, then
+   *  they retire. Skips the GM pool, discard, and injury check; not a normal turn. */
+  lastStand?: boolean;
   stat?: Stat;
   engagedThreatIds: string[];
   tags: string[];

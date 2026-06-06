@@ -23,7 +23,7 @@ export function SafetyBar({ state, send }: { state: GameState; send: (i: Intent)
   const noted = lines.length + veils.length;
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-40 bg-night-deep/95 border-t border-paper-shadow/30">
+    <div className="fixed bottom-0 inset-x-0 z-[100] bg-night-deep/95 border-t border-paper-shadow/30">
       <div className="mx-auto max-w-5xl flex items-center gap-3 px-4 py-2">
         <button
           className="font-mono text-sm font-bold px-3 py-1.5 bg-paper text-paper-ink"
@@ -76,7 +76,7 @@ export function SafetyBar({ state, send }: { state: GameState; send: (i: Intent)
 export function XCardOverlay({ state, send }: { state: GameState; send: (i: Intent) => void }) {
   if (!state.safety.xcardRaised) return null;
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-night-deep/96">
+    <div className="fixed inset-0 z-[90] grid place-items-center bg-night-deep/96">
       <div className="text-center max-w-sm px-6">
         <p className="font-mono text-2xl text-paper">Paused</p>
         <p className="font-mono text-sm text-paper-fade mt-3">

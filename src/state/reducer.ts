@@ -224,8 +224,38 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
         injuries[e.payload.category] = Math.max(0, e.payload.box - 1);
         return { ...c, injuries, downed: injuries.some((n) => n === 2) ? c.downed : false };
       });
-    case "DEATH_LAST_STAND":
-      return updateChar(s, e.payload.seat, (c) => ({ ...c, dead: true }));
+    case "DEATH_LAST_STAND": {
+      // All 6 boxes marked → open the Last Stand (RULES §5). NOT dead yet: the vampire
+      // gets one final 8d6 first. Replaces the normal turn with a Last Stand turn.
+      const marked = updateChar(s, e.payload.seat, (c) => ({ ...c, injuries: [2, 2, 2] as CharacterRuntime["injuries"] }));
+      return {
+        ...marked,
+        activeSeat: e.payload.seat,
+        currentTurn: {
+          seat: e.payload.seat,
+          phase: "DONE",
+          lastStand: true,
+          engagedThreatIds: [],
+          tags: [],
+          allocations: [],
+          challengeConsumed: {},
+          gmDiceRemaining: 0,
+        },
+      };
+    }
+    case "LAST_STAND_ROLLED":
+      if (!s.currentTurn?.lastStand) return s;
+      return withTurn(s, {
+        ...s.currentTurn,
+        playerDice: e.payload.dice,
+        survivors: survivorsFromFaces(e.payload.dice), // every die counts — no discard
+      });
+    case "LAST_STAND_ENDED":
+      return {
+        ...updateChar(s, e.payload.seat, (c) => ({ ...c, dead: true })),
+        currentTurn: null,
+        activeSeat: null,
+      };
     case "BLOOD_CHANGED":
       return updateChar(s, e.payload.seat, (c) => ({ ...c, blood: clampBlood(c.blood + e.payload.delta) }));
     case "BLOOD_SHARED": {

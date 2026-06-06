@@ -16,6 +16,7 @@ import {
   corpseEaterBlood,
   injuryCheck,
   reinforce,
+  LAST_STAND_DICE,
 } from "../engine/index.js";
 import { CHARACTERS_BY_ID } from "../data/characters.js";
 
@@ -193,6 +194,7 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       if (!turn) return err("no turn in progress");
       const events: EventInput[] = [];
       const leftover = turn.gmDiceRemaining ?? 0;
+      let death = false;
       if (leftover > 0) {
         const outcome = injuryCheck(leftover, state.characters[turn.seat].injuries, deps.roller);
         if (outcome.kind === "injury") {
@@ -200,10 +202,37 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
         } else if (outcome.kind === "downed") {
           events.push({ type: "DOWNED", payload: { seat: turn.seat, category: outcome.category }, actor: turn.seat });
         } else if (outcome.kind === "death") {
+          // Death opens a Last Stand instead of ending the turn — the dying vampire gets
+          // one final 8d6 (RULES §5). DEATH_LAST_STAND replaces the turn with a Last
+          // Stand; we skip ALLOCATION_COMMITTED so the seat isn't retired prematurely.
+          death = true;
           events.push({ type: "DEATH_LAST_STAND", payload: { seat: turn.seat }, actor: turn.seat });
         }
       }
-      events.push({ type: "ALLOCATION_COMMITTED", payload: {}, actor: turn.seat });
+      if (!death) events.push({ type: "ALLOCATION_COMMITTED", payload: {}, actor: turn.seat });
+      return ok(events);
+    }
+
+    case "last_stand_roll": {
+      const turn = state.currentTurn;
+      if (!turn?.lastStand) return err("not in a Last Stand");
+      if (turn.playerDice) return err("the Last Stand dice are already cast");
+      return ok([
+        { type: "LAST_STAND_ROLLED", payload: { seat: turn.seat, dice: deps.roller.roll(LAST_STAND_DICE) }, actor: turn.seat },
+      ]);
+    }
+
+    case "last_stand_commit": {
+      const turn = state.currentTurn;
+      if (!turn?.lastStand) return err("not in a Last Stand");
+      // Apply the final dice to the board (DIE_ALLOCATED mutates Objectives/Threats the
+      // same way a normal turn does), then the vampire retires.
+      const events: EventInput[] = intent.allocations.map((a) => ({
+        type: "DIE_ALLOCATED" as const,
+        payload: { kind: a.kind, units: a.units, ...(a.targetId ? { targetId: a.targetId } : {}), ...(a.specialId ? { specialId: a.specialId } : {}) },
+        actor: turn.seat,
+      }));
+      events.push({ type: "LAST_STAND_ENDED", payload: { seat: turn.seat }, actor: turn.seat });
       return ok(events);
     }
 
