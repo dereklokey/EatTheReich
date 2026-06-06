@@ -92,6 +92,45 @@ describe("reducer — board & blood", () => {
     expect(s.board.threats).toHaveLength(0);
   });
 
+  it("SCENE_FRAMED carries scene + locationId; SCENE_SET edits and clears the scene (issue #4)", () => {
+    const { ev, all } = log();
+    ev("SCENE_FRAMED", {
+      objectives: [],
+      threats: [],
+      scene: { title: "The German Technology Pavilion" },
+      locationId: "german-technology-pavilion",
+    });
+    let s = reduce(all);
+    expect(s.board.scene).toEqual({ title: "The German Technology Pavilion" });
+    expect(s.board.locationId).toBe("german-technology-pavilion");
+
+    // A manual edit keeps the title and adds a note.
+    s = applyEvent(s, ev("SCENE_SET", { title: "Pavilion — second floor", note: "alarms blaring" }));
+    expect(s.board.scene).toEqual({ title: "Pavilion — second floor", note: "alarms blaring" });
+    // locationId survives a manual scene edit.
+    expect(s.board.locationId).toBe("german-technology-pavilion");
+
+    // An empty title clears the scene.
+    s = applyEvent(s, ev("SCENE_SET", { title: "   " }));
+    expect(s.board.scene).toBeNull();
+  });
+
+  it("secondary objectives: ADDED / UPDATED / COMPLETED(reward) / REMOVED (issue #4)", () => {
+    const { ev, all } = log();
+    ev("SECONDARY_OBJECTIVE_ADDED", { objective: { id: "s1", name: "Power up the platform", kind: "secondary", rating: 5 } });
+    let s = reduce(all);
+    expect(s.board.secondaryObjectives).toHaveLength(1);
+
+    s = applyEvent(s, ev("SECONDARY_OBJECTIVE_UPDATED", { id: "s1", patch: { rating: 3, challenge: 1 } }));
+    expect(s.board.secondaryObjectives[0]).toMatchObject({ rating: 3, challenge: 1 });
+
+    s = applyEvent(s, ev("SECONDARY_OBJECTIVE_COMPLETED", { id: "s1", rewardChoice: "gain-blood-d6" }));
+    expect(s.board.secondaryObjectives[0]).toMatchObject({ rating: 0, rewardChoice: "gain-blood-d6" });
+
+    s = applyEvent(s, ev("SECONDARY_OBJECTIVE_REMOVED", { id: "s1" }));
+    expect(s.board.secondaryObjectives).toHaveLength(0);
+  });
+
   it("BLOOD_CHANGED clamps 0–10; BLOOD_SHARED transfers within the cap", () => {
     const { ev, all } = log();
     ev("BLOOD_CHANGED", { seat: "flint", delta: 8 }, "flint");

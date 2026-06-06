@@ -120,7 +120,9 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       return ok([{ type: "TRAFFIC_SIGNAL", payload: { color: intent.color } }]);
 
     case "frame_scene":
-      return ok([{ type: "SCENE_FRAMED", payload: { objectives: intent.objectives, threats: intent.threats, ...(intent.secondaryObjectives ? { secondaryObjectives: intent.secondaryObjectives } : {}) } }]);
+      return ok([{ type: "SCENE_FRAMED", payload: { objectives: intent.objectives, threats: intent.threats, ...(intent.secondaryObjectives ? { secondaryObjectives: intent.secondaryObjectives } : {}), ...(intent.scene ? { scene: intent.scene } : {}), ...(intent.locationId ? { locationId: intent.locationId } : {}) } }]);
+    case "set_scene":
+      return ok([{ type: "SCENE_SET", payload: { title: intent.title, ...(intent.note ? { note: intent.note } : {}) } }]);
     case "add_objective":
       return ok([{ type: "OBJECTIVE_ADDED", payload: { objective: intent.objective } }]);
     case "update_objective":
@@ -135,8 +137,12 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       return ok([{ type: "THREAT_REMOVED", payload: { id: intent.id } }]);
     case "add_secondary_objective":
       return ok([{ type: "SECONDARY_OBJECTIVE_ADDED", payload: { objective: intent.objective } }]);
+    case "update_secondary_objective":
+      return ok([{ type: "SECONDARY_OBJECTIVE_UPDATED", payload: { id: intent.id, patch: intent.patch } }]);
     case "complete_secondary_objective":
       return ok([{ type: "SECONDARY_OBJECTIVE_COMPLETED", payload: { id: intent.id, ...(intent.rewardChoice ? { rewardChoice: intent.rewardChoice } : {}) } }]);
+    case "remove_secondary_objective":
+      return ok([{ type: "SECONDARY_OBJECTIVE_REMOVED", payload: { id: intent.id } }]);
 
     case "start_turn":
       return ok([{ type: "TURN_STARTED", payload: { seat: intent.seat, stat: intent.stat, engagedThreatIds: intent.engagedThreatIds, ...(intent.tags ? { tags: intent.tags } : {}) }, actor: intent.seat }]);

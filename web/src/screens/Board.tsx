@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import type { GameState, CharacterRuntime } from "@shared/state/types.js";
 import type { SeatId, CharId, GameEvent } from "@shared/events/types.js";
 import { CHAR_IDS } from "@shared/events/types.js";
+import { LOCATIONS_BY_ID } from "@shared/data/locations.js";
 import { seatName } from "@/game/seats";
 import { useEffects } from "@/effects/EffectsContext";
 import { useSound } from "@/effects/SoundContext";
@@ -73,10 +74,26 @@ export function Board({
     return () => clearTimeout(t);
   }, [arc]);
 
-  const empty = state.board.objectives.length === 0 && state.board.threats.length === 0;
+  const scene = state.board.scene;
+  const secondary = state.board.secondaryObjectives;
+  const loc = state.board.locationId ? LOCATIONS_BY_ID[state.board.locationId] : undefined;
+  const sceneLoot = loc?.loot ?? [];
+  const empty =
+    !scene &&
+    state.board.objectives.length === 0 &&
+    state.board.threats.length === 0 &&
+    secondary.length === 0;
   return (
     <div className="substrate grain min-h-full p-4 pb-20 mx-auto max-w-5xl">
       <BoardHeader state={state} />
+
+      {scene && (
+        <div className="paper mt-3">
+          <div className="mono text-[0.6rem] uppercase tracking-wide text-paper-fade">Scene</div>
+          <p className="display text-2xl leading-tight">{scene.title}</p>
+          {scene.note && <p className="mono text-xs text-paper-fade mt-1 whitespace-pre-wrap">{scene.note}</p>}
+        </div>
+      )}
 
       {empty && onFrameScene && (
         <div className="paper mt-4 text-center">
@@ -95,7 +112,7 @@ export function Board({
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <section>
           <h2 className="display text-paper text-xl mb-2">Objectives</h2>
-          {state.board.objectives.length === 0 && <Empty>No scene framed yet.</Empty>}
+          {state.board.objectives.length === 0 && <Empty>No objectives yet.</Empty>}
           <div className="grid gap-2">
             {state.board.objectives.map((o) => (
               <div key={o.id} className="paper paper-tight">
@@ -103,9 +120,33 @@ export function Board({
                   <span className="mono font-bold">{o.name}</span>
                   <RatingPips n={o.rating} tone="hazard" />
                 </div>
+                {o.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {o.challenge}</div> : null}
               </div>
             ))}
           </div>
+
+          {secondary.length > 0 && (
+            <div className="mt-3">
+              <h3 className="mono text-[0.7rem] uppercase tracking-wide text-paper-fade mb-1.5">Secondary objectives</h3>
+              <div className="grid gap-2">
+                {secondary.map((o) => {
+                  const done = o.rating <= 0;
+                  return (
+                    <div key={o.id} className={`paper paper-tight ${done ? "opacity-60" : ""}`}>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className={`mono ${done ? "line-through" : ""}`}>
+                          {o.name}
+                          {o.rescueFor && <span className="text-blood"> (rescue)</span>}
+                        </span>
+                        {done ? <span className="mono text-[0.6rem] text-hazard">done</span> : <RatingPips n={o.rating} tone="hazard" />}
+                      </div>
+                      {!done && o.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {o.challenge}</div> : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </section>
 
         <section>
@@ -119,9 +160,26 @@ export function Board({
                   <span className="mono text-xs text-blood">ATK {t.attack}</span>
                 </div>
                 <RatingPips n={t.rating} tone="blood" />
+                {t.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {t.challenge}</div> : null}
               </div>
             ))}
           </div>
+
+          {sceneLoot.length > 0 && (
+            <div className="mt-3">
+              <h3 className="mono text-[0.7rem] uppercase tracking-wide text-paper-fade mb-1.5">Loot within reach</h3>
+              <div className="grid gap-2">
+                {sceneLoot.map((l, i) => (
+                  <div key={i} className="paper paper-tight">
+                    <div className="mono font-bold text-sm">{l.name}</div>
+                    {l.bonus && <div className="mono text-[0.65rem] text-blood">{l.bonus}</div>}
+                    {l.note && <div className="mono text-[0.65rem] text-paper-fade italic">{l.note}</div>}
+                  </div>
+                ))}
+              </div>
+              <p className="mono text-[0.6rem] text-paper-fade mt-1">The GM hands these out as you earn them (rulebook p39).</p>
+            </div>
+          )}
         </section>
       </div>
 

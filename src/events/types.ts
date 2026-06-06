@@ -60,7 +60,13 @@ export interface EventPayloads {
     objectives: Objective[];
     threats: Threat[];
     secondaryObjectives?: SecondaryObjective[];
+    /** The scene's narrative framing (set when loading a location → its name). */
+    scene?: { title: string; note?: string };
+    /** The reference location this board came from, for surfacing its special loot. */
+    locationId?: string;
   };
+  /** GM types/edits the scene's title & note (independent of loading a location). */
+  SCENE_SET: { title: string; note?: string };
   OBJECTIVE_ADDED: { objective: Objective };
   OBJECTIVE_UPDATED: { id: string; patch: Partial<Objective> };
   OBJECTIVE_COMPLETED: { id: string; narratedBy?: CharId };
@@ -118,7 +124,9 @@ export interface EventPayloads {
   ADVANCE_UNLOCKED: { seat: CharId; advanceId: string };
 
   SECONDARY_OBJECTIVE_ADDED: { objective: SecondaryObjective };
+  SECONDARY_OBJECTIVE_UPDATED: { id: string; patch: Partial<SecondaryObjective> };
   SECONDARY_OBJECTIVE_COMPLETED: { id: string; rewardChoice?: string };
+  SECONDARY_OBJECTIVE_REMOVED: { id: string };
 
   FLASHBACK_TRIGGERED: { seat: CharId; context: string; question: string };
   ROUND_ENDED: Record<string, never>;

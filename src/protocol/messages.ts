@@ -22,7 +22,8 @@ export type Intent =
   | { kind: "raise_xcard"; anonymous?: boolean; note?: string }
   | { kind: "clear_xcard"; changeRequested?: string }
   | { kind: "traffic_signal"; color: TrafficColor }
-  | { kind: "frame_scene"; objectives: Objective[]; threats: Threat[]; secondaryObjectives?: SecondaryObjective[] }
+  | { kind: "frame_scene"; objectives: Objective[]; threats: Threat[]; secondaryObjectives?: SecondaryObjective[]; scene?: { title: string; note?: string }; locationId?: string }
+  | { kind: "set_scene"; title: string; note?: string }
   | { kind: "add_objective"; objective: Objective }
   | { kind: "update_objective"; id: string; patch: Partial<Objective> }
   | { kind: "complete_objective"; id: string; narratedBy?: CharId }
@@ -30,7 +31,9 @@ export type Intent =
   | { kind: "update_threat"; id: string; patch: Partial<Threat> }
   | { kind: "remove_threat"; id: string }
   | { kind: "add_secondary_objective"; objective: SecondaryObjective }
+  | { kind: "update_secondary_objective"; id: string; patch: Partial<SecondaryObjective> }
   | { kind: "complete_secondary_objective"; id: string; rewardChoice?: string }
+  | { kind: "remove_secondary_objective"; id: string }
   | { kind: "start_turn"; seat: CharId; stat: Stat; engagedThreatIds: string[]; tags?: string[] }
   | { kind: "cancel_turn" }
   | { kind: "roll"; playerPoolDice: number; sources?: PoolSource[] }

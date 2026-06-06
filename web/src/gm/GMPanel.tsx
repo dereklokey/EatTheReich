@@ -1,13 +1,14 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
-import type { Objective, Threat } from "@shared/domain/types.js";
+import type { Objective, Threat, SecondaryObjective } from "@shared/domain/types.js";
 import { CHAR_IDS, type CharId, type SeatId, type GameEvent } from "@shared/events/types.js";
 import type { DieFace } from "@shared/domain/types.js";
-import { LOCATIONS_BY_SECTOR, type Sector, type LootRef } from "@shared/data/locations.js";
+import { LOCATIONS_BY_SECTOR, LOCATIONS_BY_ID, type Sector, type LootRef } from "@shared/data/locations.js";
+import { SECONDARY_OBJECTIVE_REWARDS } from "@shared/data/rewards.js";
 import { seatName } from "@/game/seats";
 import { Die } from "@/components/dice/Die";
-import { THREAT_CATALOG, LOOT_CATALOG, loadLocation, newObjective, newLoot, rescueObjective } from "./catalog";
+import { THREAT_CATALOG, LOOT_CATALOG, loadLocation, newObjective, newLoot, newSecondaryObjective, rescueObjective } from "./catalog";
 
 /**
  * GM panel (CLAUDE.md §4) — the only GM-only surface. Frame scenes / quick-load a
@@ -42,8 +43,10 @@ export function GMPanel({
         </div>
 
         <SessionSection state={state} send={send} events={events} />
+        <SceneSection state={state} send={send} />
         <LocationSection send={send} hasBoard={state.board.objectives.length + state.board.threats.length > 0} />
         <ObjectivesSection state={state} send={send} />
+        <SecondaryObjectivesSection state={state} send={send} />
         <ThreatsSection state={state} send={send} />
         <RescueSection state={state} send={send} />
         <GrantLootSection state={state} send={send} />
@@ -154,20 +157,81 @@ function SessionSection({ state, send, events }: { state: GameState; send: (i: I
   );
 }
 
+/**
+ * The scene's narrative framing (issue #4): a title + optional note the GM types, saved
+ * to the board and shown to everyone. Distinct from "Load a location" (which fills in the
+ * objectives/threats) — this is the "where are we, what's happening" line.
+ */
+function SceneSection({ state, send }: { state: GameState; send: (i: Intent) => void }) {
+  const scene = state.board.scene;
+  const [title, setTitle] = useState(scene?.title ?? "");
+  const [note, setNote] = useState(scene?.note ?? "");
+  // Re-seed the inputs whenever the saved scene changes (e.g. a location load set it).
+  const seeded = useRef<string | undefined>(undefined);
+  const key = `${scene?.title ?? ""} ${scene?.note ?? ""}`;
+  if (seeded.current !== key) {
+    seeded.current = key;
+    if ((scene?.title ?? "") !== title) setTitle(scene?.title ?? "");
+    if ((scene?.note ?? "") !== note) setNote(scene?.note ?? "");
+  }
+  const dirty = title !== (scene?.title ?? "") || note !== (scene?.note ?? "");
+  return (
+    <Section title="Frame a scene">
+      <p className="mono text-[0.65rem] text-paper-fade mb-2">
+        Set where the crew is and what’s happening. Shows on everyone’s board.
+      </p>
+      <input
+        className="mono w-full px-2 py-1.5 bg-paper text-paper-ink"
+        placeholder="scene title, e.g. The German Technology Pavilion"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+      />
+      <textarea
+        className="mono w-full mt-2 px-2 py-1.5 bg-paper text-paper-ink resize-none"
+        rows={2}
+        placeholder="what’s happening (optional)"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+      />
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          className="display bg-blood text-paper px-3 py-1 text-sm disabled:opacity-40"
+          style={{ borderRadius: 2 }}
+          disabled={!dirty}
+          onClick={() => send({ kind: "set_scene", title: title.trim(), note: note.trim() || undefined })}
+        >
+          {scene ? "Save scene" : "Frame it"}
+        </button>
+        {scene && (
+          <button className="mono text-xs underline text-paper-fade" onClick={() => { setTitle(""); setNote(""); send({ kind: "set_scene", title: "" }); }}>
+            clear
+          </button>
+        )}
+      </div>
+    </Section>
+  );
+}
+
 function LocationSection({ send, hasBoard }: { send: (i: Intent) => void; hasBoard: boolean }) {
   const [sel, setSel] = useState("");
   const load = () => {
-    for (const list of Object.values(LOCATIONS_BY_SECTOR)) {
-      const loc = list.find((l) => l.id === sel);
-      if (loc) {
-        const board = loadLocation(loc);
-        send({ kind: "frame_scene", objectives: board.objectives, threats: board.threats, secondaryObjectives: board.secondaryObjectives });
-        return;
-      }
-    }
+    const loc = LOCATIONS_BY_ID[sel];
+    if (!loc) return;
+    const board = loadLocation(loc);
+    send({
+      kind: "frame_scene",
+      objectives: board.objectives,
+      threats: board.threats,
+      secondaryObjectives: board.secondaryObjectives,
+      scene: { title: loc.name },
+      locationId: loc.id,
+    });
   };
   return (
-    <Section title="Frame a scene">
+    <Section title="Load a location">
+      <p className="mono text-[0.65rem] text-paper-fade mb-2">
+        Drops in a scene’s suggested objectives, threats &amp; secondary objectives — all editable. Sets the scene title and surfaces that location’s special loot.
+      </p>
       <select className="mono w-full px-2 py-1.5 bg-paper text-paper-ink" value={sel} onChange={(e) => setSel(e.target.value)}>
         <option value="">— pick a location —</option>
         {SECTORS.map((s) => (
@@ -193,28 +257,118 @@ function LocationSection({ send, hasBoard }: { send: (i: Intent) => void; hasBoa
 function ObjectivesSection({ state, send }: { state: GameState; send: (i: Intent) => void }) {
   const [name, setName] = useState("");
   const [rating, setRating] = useState(6);
+  const [challenge, setChallenge] = useState(0);
   const patch = (id: string, p: Partial<Objective>) => send({ kind: "update_objective", id, patch: p });
   return (
     <Section title="Objectives">
       <div className="flex flex-col gap-1.5">
         {state.board.objectives.map((o) => (
-          <div key={o.id} className="paper paper-tight flex items-center gap-2 mono text-sm">
-            <span className="flex-1">{o.name}</span>
-            <Stepper value={o.rating} onChange={(v) => patch(o.id, { rating: v })} />
-            {o.rating > 0 && <button className="text-xs underline text-hazard" onClick={() => send({ kind: "complete_objective", id: o.id })}>done</button>}
+          <div key={o.id} className="paper paper-tight mono text-sm">
+            <div className="flex items-center gap-2">
+              <span className="flex-1">{o.name}</span>
+              {o.rating > 0 && <button className="text-xs underline text-hazard" onClick={() => send({ kind: "complete_objective", id: o.id })}>done</button>}
+            </div>
+            <div className="flex items-center gap-3 mt-1 text-xs">
+              {/* Rating and Challenge are independent (RULES §6) — both editable here. */}
+              <span className="flex items-center gap-1">rating <Stepper value={o.rating} onChange={(v) => patch(o.id, { rating: v })} /></span>
+              <span className="flex items-center gap-1">chal <Stepper value={o.challenge ?? 0} onChange={(v) => patch(o.id, { challenge: v })} /></span>
+            </div>
           </div>
         ))}
       </div>
-      <div className="mt-2 flex gap-1.5">
-        <input className="mono flex-1 px-2 py-1 bg-paper text-paper-ink" placeholder="new objective" value={name} onChange={(e) => setName(e.target.value)} />
-        <Stepper value={rating} onChange={setRating} />
-        <button
-          className="display bg-blood text-paper px-2 text-sm" style={{ borderRadius: 2 }}
-          disabled={!name.trim()}
-          onClick={() => { send({ kind: "add_objective", objective: newObjective(name.trim(), rating) }); setName(""); }}
-        >add</button>
+      <div className="mt-2">
+        <input className="mono w-full px-2 py-1 bg-paper text-paper-ink" placeholder="new objective" value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="mt-1.5 flex items-center gap-3 text-xs mono">
+          <span className="flex items-center gap-1">rating <Stepper value={rating} onChange={setRating} /></span>
+          <span className="flex items-center gap-1">chal <Stepper value={challenge} onChange={setChallenge} /></span>
+          <button
+            className="display bg-blood text-paper px-3 py-0.5 ml-auto disabled:opacity-40" style={{ borderRadius: 2 }}
+            disabled={!name.trim()}
+            onClick={() => { send({ kind: "add_objective", objective: newObjective(name.trim(), rating, challenge || undefined) }); setName(""); setChallenge(0); }}
+          >add</button>
+        </div>
       </div>
     </Section>
+  );
+}
+
+/**
+ * Secondary objectives (issue #4 / rulebook p38) — optional side-goals. They were
+ * loaded from locations but never shown anywhere; now the GM can see, tune, complete
+ * (the player picks a reward from the p38 menu), and clear them. Progress is manual
+ * (the rating stepper), matching the "suggest, don't enforce" model for objectives.
+ */
+function SecondaryObjectivesSection({ state, send }: { state: GameState; send: (i: Intent) => void }) {
+  const [name, setName] = useState("");
+  const [rating, setRating] = useState(4);
+  const list = state.board.secondaryObjectives;
+  return (
+    <Section title="Secondary objectives">
+      <p className="mono text-[0.65rem] text-paper-fade mb-2">
+        Optional side-goals. Complete one and the player chooses a reward (rulebook p38).
+      </p>
+      {list.length === 0 ? (
+        <p className="mono text-xs text-paper-fade italic">None in play. Load a location or add one below.</p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {list.map((o) => <SecondaryRow key={o.id} o={o} send={send} />)}
+        </div>
+      )}
+      <div className="mt-2">
+        <input className="mono w-full px-2 py-1 bg-paper text-paper-ink" placeholder="new secondary objective" value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="mt-1.5 flex items-center gap-3 text-xs mono">
+          <span className="flex items-center gap-1">rating <Stepper value={rating} onChange={setRating} /></span>
+          <button
+            className="display bg-blood text-paper px-3 py-0.5 ml-auto disabled:opacity-40" style={{ borderRadius: 2 }}
+            disabled={!name.trim()}
+            onClick={() => { send({ kind: "add_secondary_objective", objective: newSecondaryObjective(name.trim(), rating) }); setName(""); }}
+          >add</button>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function SecondaryRow({ o, send }: { o: SecondaryObjective; send: (i: Intent) => void }) {
+  const [reward, setReward] = useState("");
+  const done = o.rating <= 0;
+  const rewardLabel = (id?: string) => SECONDARY_OBJECTIVE_REWARDS.find((r) => r.id === id)?.label;
+  const patch = (p: Partial<SecondaryObjective>) => send({ kind: "update_secondary_objective", id: o.id, patch: p });
+  return (
+    <div className="paper paper-tight mono text-sm">
+      <div className="flex items-center gap-2">
+        <span className={`flex-1 ${done ? "line-through text-paper-fade" : ""}`}>{o.name}</span>
+        {o.rescueFor && <span className="stamp text-[0.55rem]">rescue</span>}
+        <button className="text-xs underline text-blood" onClick={() => send({ kind: "remove_secondary_objective", id: o.id })}>remove</button>
+      </div>
+      {done ? (
+        <div className="mono text-[0.65rem] text-hazard mt-1">
+          ✓ complete{o.rewardChoice ? ` — reward: ${rewardLabel(o.rewardChoice) ?? o.rewardChoice}` : ""}
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-3 mt-1 text-xs">
+            <span className="flex items-center gap-1">rating <Stepper value={o.rating} onChange={(v) => patch({ rating: v })} /></span>
+            <span className="flex items-center gap-1">chal <Stepper value={o.challenge ?? 0} onChange={(v) => patch({ challenge: v })} /></span>
+          </div>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            {/* Rescue secondaries have a fixed reward (the rescued vampire); others draw the p38 menu. */}
+            {!o.rescueFor && (
+              <select className="mono text-xs flex-1 min-w-0 px-1 py-0.5 bg-paper-shadow/40" value={reward} onChange={(e) => setReward(e.target.value)}>
+                <option value="">reward on completion…</option>
+                {SECONDARY_OBJECTIVE_REWARDS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+              </select>
+            )}
+            <button
+              className="display bg-dusk-mauve text-paper px-3 py-0.5 text-xs ml-auto" style={{ borderRadius: 2 }}
+              onClick={() => send({ kind: "complete_secondary_objective", id: o.id, ...(reward ? { rewardChoice: reward } : {}) })}
+            >
+              {o.rescueFor ? "rescued" : "complete"}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -292,27 +446,45 @@ function GrantLootSection({ state, send }: { state: GameState; send: (i: Intent)
     setNote("");
   };
 
+  // The special loot the book lists for the currently-loaded scene (issue #4): surfaced
+  // here so it's reachable per-scene, not buried in the global suggestions list.
+  const loc = state.board.locationId ? LOCATIONS_BY_ID[state.board.locationId] : undefined;
+  const sceneLoot = loc?.loot ?? [];
+
   return (
     <Section title="Grant loot">
       <p className="mono text-[0.65rem] text-paper-fade mb-2">
         Looted gear becomes equipment with 3 uses and one bonus requirement (rulebook p39). It lands in the character’s Loot, ready to activate.
       </p>
       <div className="flex flex-col gap-1.5">
+        {/* min-w-0 + full-width rows keep long item names from forcing the panel to side-scroll (issue #4). */}
+        <select className="mono w-full min-w-0 px-2 py-1 bg-paper text-paper-ink" value={seat} onChange={(e) => setSeat(e.target.value as CharId)} title="who receives it">
+          {CHAR_IDS.map((id) => (
+            <option key={id} value={id}>{seatName(id)}{state.seats[id]?.claimed ? "" : " (unclaimed)"}</option>
+          ))}
+        </select>
+
+        {sceneLoot.length > 0 && (
+          <div className="paper paper-tight">
+            <div className="mono text-[0.6rem] text-paper-fade mb-1">Special loot in {loc!.name} — tap to prefill</div>
+            <div className="flex flex-wrap gap-1">
+              {sceneLoot.map((l, i) => (
+                <button key={i} className="mono text-[0.65rem] underline text-blood text-left" title={l.bonus} onClick={() => pickSuggestion(l)}>
+                  {l.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <select className="mono w-full min-w-0 px-2 py-1 bg-paper text-paper-ink" value="" onChange={(e) => pickSuggestion(LOOT_CATALOG[Number(e.target.value)])} title="prefill from any location's loot in the book">
+          <option value="">all special loot (suggestions)…</option>
+          {LOOT_CATALOG.map((l, i) => <option key={i} value={i}>{l.name}</option>)}
+        </select>
+        <input className="mono w-full min-w-0 px-2 py-1 bg-paper text-paper-ink" placeholder="item name" value={name} onChange={(e) => setName(e.target.value)} />
         <div className="flex gap-1.5">
-          <select className="mono flex-1 px-2 py-1 bg-paper text-paper-ink" value={seat} onChange={(e) => setSeat(e.target.value as CharId)} title="who receives it">
-            {CHAR_IDS.map((id) => (
-              <option key={id} value={id}>{seatName(id)}{state.seats[id]?.claimed ? "" : " (unclaimed)"}</option>
-            ))}
-          </select>
-          <select className="mono flex-1 px-2 py-1 bg-paper text-paper-ink" value="" onChange={(e) => pickSuggestion(LOOT_CATALOG[Number(e.target.value)])} title="prefill from a known location's loot">
-            <option value="">suggestions…</option>
-            {LOOT_CATALOG.map((l, i) => <option key={i} value={i}>{l.name}</option>)}
-          </select>
-        </div>
-        <input className="mono px-2 py-1 bg-paper text-paper-ink" placeholder="item name" value={name} onChange={(e) => setName(e.target.value)} />
-        <div className="flex gap-1.5">
-          <input className="mono flex-1 px-2 py-1 bg-paper text-paper-ink" placeholder="bonus, e.g. ++anti-tank" value={bonus} onChange={(e) => setBonus(e.target.value)} title="leading +'s set the bonus die count" />
-          <input className="mono flex-1 px-2 py-1 bg-paper text-paper-ink" placeholder="note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+          <input className="mono flex-1 min-w-0 px-2 py-1 bg-paper text-paper-ink" placeholder="bonus, e.g. ++anti-tank" value={bonus} onChange={(e) => setBonus(e.target.value)} title="leading +'s set the bonus die count" />
+          <input className="mono flex-1 min-w-0 px-2 py-1 bg-paper text-paper-ink" placeholder="note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
         <button
           className="display bg-blood text-paper px-2 py-1 text-sm disabled:opacity-40 self-start"

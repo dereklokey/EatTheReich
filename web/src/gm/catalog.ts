@@ -82,6 +82,10 @@ export function rescueObjective(seatName: string, seat: string): SecondaryObject
   return { id: uuid(), name: `Rescue ${seatName}`, kind: "secondary", rating: 4, rescueFor: seat };
 }
 
+export function newSecondaryObjective(name: string, rating: number, challenge?: number): SecondaryObjective {
+  return { id: uuid(), name, kind: "secondary", rating, ...(challenge ? { challenge } : {}) };
+}
+
 /** The loot named across all locations, de-duped — quick-pick suggestions for granting. */
 export const LOOT_CATALOG: LootRef[] = (() => {
   const seen = new Set<string>();

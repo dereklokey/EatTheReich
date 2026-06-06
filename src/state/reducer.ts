@@ -91,8 +91,15 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
           objectives: e.payload.objectives,
           threats: e.payload.threats,
           secondaryObjectives: e.payload.secondaryObjectives ?? [],
+          scene: e.payload.scene ?? null,
+          ...(e.payload.locationId ? { locationId: e.payload.locationId } : {}),
         },
       };
+    case "SCENE_SET":
+      return withBoard(s, {
+        ...s.board,
+        scene: e.payload.title.trim() ? { title: e.payload.title.trim(), ...(e.payload.note?.trim() ? { note: e.payload.note.trim() } : {}) } : null,
+      });
     case "OBJECTIVE_ADDED":
       return withBoard(s, { ...s.board, objectives: [...s.board.objectives, e.payload.objective] });
     case "OBJECTIVE_UPDATED":
@@ -319,6 +326,11 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
 
     case "SECONDARY_OBJECTIVE_ADDED":
       return withBoard(s, { ...s.board, secondaryObjectives: [...s.board.secondaryObjectives, e.payload.objective] });
+    case "SECONDARY_OBJECTIVE_UPDATED":
+      return withBoard(s, {
+        ...s.board,
+        secondaryObjectives: s.board.secondaryObjectives.map((o) => (o.id === e.payload.id ? { ...o, ...e.payload.patch } : o)),
+      });
     case "SECONDARY_OBJECTIVE_COMPLETED":
       return withBoard(s, {
         ...s.board,
@@ -326,6 +338,8 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
           o.id === e.payload.id ? { ...o, rating: 0, ...(e.payload.rewardChoice ? { rewardChoice: e.payload.rewardChoice } : {}) } : o,
         ),
       });
+    case "SECONDARY_OBJECTIVE_REMOVED":
+      return withBoard(s, { ...s.board, secondaryObjectives: s.board.secondaryObjectives.filter((o) => o.id !== e.payload.id) });
 
     case "FLASHBACK_TRIGGERED":
       return updateChar(s, e.payload.seat, (c) => ({ ...c, flashbackUsedThisSession: true }));
