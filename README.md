@@ -20,8 +20,8 @@ Cloudflare yet, nothing deployed, $0**.
 | --- | --- | --- |
 | 1 | Data layer (characters, threats, locations, flashbacks) | ✅ fully transcribed from the rulebook |
 | 2 | Pure engine + golden tests | ✅ RULES §12 A–E pass; verified vs rulebook |
-| 3 | Event store + reducer + snapshots | ⏳ next |
-| 4 | Durable Object room (Cloudflare) | ⏳ |
+| 3 | Event store + reducer + snapshots | ✅ taxonomy, reducer, Store (memory/file), snapshot+replay |
+| 4 | Durable Object room (Cloudflare) | ⏳ next |
 | 5 | Seats, sessions, presence | ⏳ |
 | 6 | Frontend (React/Vite/Tailwind, per DESIGN.md) | ⏳ |
 | 7 | Safety tooling | ⏳ |
@@ -39,7 +39,16 @@ src/
     __tests__/units.test.ts    supporting coverage
   data/        characters.ts · threats.ts · locations.ts · flashbacks.ts · rewards.ts
     __tests__/catalog.test.ts  catalog integrity + reinforcement variants
+  events/      the event taxonomy (CLAUDE.md §3.2) — typed payloads + envelope
+  state/       GameState + pure reducer (state = reduce(events)) + initial state
+    __tests__/turn-replay.test.ts  §12-A turn driven entirely through the event log
+  store/       Store interface + in-memory & file impls + snapshot/replay repository
+    __tests__/store.test.ts  contract, snapshot-equivalence, restart durability
 ```
+
+The engine, reducer, and store are all Cloudflare-free pure code, proven offline.
+Step 4 (the Durable Object) implements `Store` against DO SQLite storage and rebuilds
+state on wake via exactly this snapshot + replay path — no rewrites needed.
 
 The engine is intentionally Cloudflare-free: it's `reduce`-able pure functions so it
 can be proven offline before the Durable Object (step 4) ever exists.

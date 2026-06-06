@@ -34,84 +34,120 @@ export interface BoardState {
   threats: Threat[];
 }
 
-export interface AllocationResult {
+/**
+ * Running state while allocating a single turn's dice. Held by the caller (engine
+ * batch, or the reducer across DIE_ALLOCATED events) so Challenge (RULES §6) can
+ * deplete per-target across the turn and reset next turn.
+ */
+export interface AllocationAccumulator {
   board: BoardState;
-  /** GM Attack dice remaining after Defend allocations (drives INJURY_CHECK). */
+  /** GM Attack dice remaining after Defend (drives INJURY_CHECK). */
   gmDiceRemaining: number;
-  /** Net Blood gained this turn from Feed allocations. */
+  /** Net Blood gained from Feed this turn. */
   bloodGained: number;
+  /** Challenge units already absorbed per target id this turn. */
+  challengeConsumed: Record<string, number>;
   /** SPECIAL ids activated (crit allocations to `special`). */
   specialsActivated: string[];
 }
 
-const clone = (b: BoardState): BoardState => ({
+export interface AllocationResult {
+  board: BoardState;
+  gmDiceRemaining: number;
+  bloodGained: number;
+  specialsActivated: string[];
+}
+
+const cloneBoard = (b: BoardState): BoardState => ({
   objectives: b.objectives.map((o) => ({ ...o })),
   threats: b.threats.map((t) => ({ ...t })),
 });
 
+export function emptyAccumulator(
+  board: BoardState,
+  gmDiceCount: number,
+): AllocationAccumulator {
+  return {
+    board: cloneBoard(board),
+    gmDiceRemaining: gmDiceCount,
+    bloodGained: 0,
+    challengeConsumed: {},
+    specialsActivated: [],
+  };
+}
+
 /**
- * Apply a turn's allocations to the board.
- *
- * Challenge (RULES §6) is per-target, per-vampire, per-turn: it negates up to
- * `challenge` units across this turn's allocations to that target before its
- * rating drops. We track a per-target absorb budget that depletes within the turn
- * and resets next turn (callers invoke this once per turn).
- *
- * `gmDiceCount` is the number of GM successful Attack dice going into ALLOCATE.
+ * Apply ONE allocation to an accumulator, returning a NEW accumulator. Pure; the
+ * reducer calls this per DIE_ALLOCATED event, the engine batch calls it in a fold.
  */
+export function applyOneAllocation(
+  acc: AllocationAccumulator,
+  a: Allocation,
+): AllocationAccumulator {
+  const next: AllocationAccumulator = {
+    board: cloneBoard(acc.board),
+    gmDiceRemaining: acc.gmDiceRemaining,
+    bloodGained: acc.bloodGained,
+    challengeConsumed: { ...acc.challengeConsumed },
+    specialsActivated: [...acc.specialsActivated],
+  };
+
+  const absorbChallenge = (id: string, declared: number | undefined, units: number): number => {
+    const cap = declared ?? 0;
+    const used = next.challengeConsumed[id] ?? 0;
+    const absorb = Math.min(units, Math.max(0, cap - used));
+    next.challengeConsumed[id] = used + absorb;
+    return absorb;
+  };
+
+  switch (a.kind) {
+    case "advance": {
+      const obj = a.targetId ? next.board.objectives.find((o) => o.id === a.targetId) : undefined;
+      if (obj) {
+        const absorb = absorbChallenge(obj.id, obj.challenge, a.units);
+        obj.rating = Math.max(0, obj.rating - (a.units - absorb));
+      }
+      break;
+    }
+    case "eliminate": {
+      const thr = a.targetId ? next.board.threats.find((t) => t.id === a.targetId) : undefined;
+      if (thr) {
+        const absorb = absorbChallenge(thr.id, thr.challenge, a.units);
+        thr.rating = Math.max(0, thr.rating - (a.units - absorb));
+        if (thr.rating === 0) thr.attack = 0; // RULES §3: rating 0 → Attack 0
+      }
+      break;
+    }
+    case "defend":
+      next.gmDiceRemaining = Math.max(0, next.gmDiceRemaining - a.units);
+      break;
+    case "feed":
+      next.bloodGained += a.units;
+      break;
+    case "special":
+      if (a.specialId) next.specialsActivated.push(a.specialId);
+      break;
+  }
+
+  return next;
+}
+
+/** Apply a whole turn's allocations at once (engine batch path / tests). */
 export function applyAllocations(
   board: BoardState,
   allocations: readonly Allocation[],
   gmDiceCount: number,
 ): AllocationResult {
-  const next = clone(board);
-  const objectivesById = new Map(next.objectives.map((o) => [o.id, o]));
-  const threatsById = new Map(next.threats.map((t) => [t.id, t]));
-
-  // Remaining challenge buffer per target for THIS turn.
-  const challengeLeft = new Map<string, number>();
-  const challengeFor = (id: string, declared: number | undefined): number => {
-    if (!challengeLeft.has(id)) challengeLeft.set(id, declared ?? 0);
-    return challengeLeft.get(id) ?? 0;
+  const acc = allocations.reduce(
+    (a, alloc) => applyOneAllocation(a, alloc),
+    emptyAccumulator(board, gmDiceCount),
+  );
+  return {
+    board: acc.board,
+    gmDiceRemaining: acc.gmDiceRemaining,
+    bloodGained: acc.bloodGained,
+    specialsActivated: acc.specialsActivated,
   };
-
-  let gmDiceRemaining = gmDiceCount;
-  let bloodGained = 0;
-  const specialsActivated: string[] = [];
-
-  for (const a of allocations) {
-    switch (a.kind) {
-      case "advance": {
-        const obj = a.targetId ? objectivesById.get(a.targetId) : undefined;
-        if (!obj) break;
-        const absorb = Math.min(a.units, challengeFor(obj.id, obj.challenge));
-        challengeLeft.set(obj.id, challengeFor(obj.id, obj.challenge) - absorb);
-        obj.rating = Math.max(0, obj.rating - (a.units - absorb));
-        break;
-      }
-      case "eliminate": {
-        const thr = a.targetId ? threatsById.get(a.targetId) : undefined;
-        if (!thr) break;
-        const absorb = Math.min(a.units, challengeFor(thr.id, thr.challenge));
-        challengeLeft.set(thr.id, challengeFor(thr.id, thr.challenge) - absorb);
-        thr.rating = Math.max(0, thr.rating - (a.units - absorb));
-        if (thr.rating === 0) thr.attack = 0; // RULES §3: rating 0 → Attack 0
-        break;
-      }
-      case "defend":
-        // Removes GM Attack dice: 1 per success unit, 2 per crit (units carries it).
-        gmDiceRemaining = Math.max(0, gmDiceRemaining - a.units);
-        break;
-      case "feed":
-        bloodGained += a.units; // cap applied by caller against current Blood
-        break;
-      case "special":
-        if (a.specialId) specialsActivated.push(a.specialId);
-        break;
-    }
-  }
-
-  return { board: next, gmDiceRemaining, bloodGained, specialsActivated };
 }
 
 /** Clamp a Blood total to the 0–10 range (RULES §5). */

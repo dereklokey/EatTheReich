@@ -68,6 +68,23 @@ export interface Threat {
   rules?: string[];
 }
 
+/**
+ * A Secondary Objective (RULES §5 rescue; rulebook p38). Rated ~half the main
+ * Objective. A rescue one is tied to a Downed character; others grant a reward on
+ * completion (see data/rewards.ts).
+ */
+export interface SecondaryObjective {
+  id: string;
+  name: string;
+  kind: "secondary";
+  rating: number;
+  challenge?: number;
+  /** Set when this is a Downed-rescue objective. */
+  rescueFor?: string;
+  /** Chosen reward id once completed. */
+  rewardChoice?: string;
+}
+
 export type Target = Objective | Threat;
 
 /** Context for a declared action — drives GM pool, SPECIAL gating, etc. */
