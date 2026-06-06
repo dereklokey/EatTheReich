@@ -1,0 +1,73 @@
+/* The craps-table throw layer (issue #5). Transparent and full-viewport so the dice
+   bounce over the live board, not inside the dark theater. Sits above the board/topbar
+   but below the safety bar (z-100) and X-Card (z-90); pointer-events:none so nothing it
+   covers — including the safety controls — is ever blocked. */
+.dice-arena {
+  position: fixed;
+  inset: 0;
+  z-index: 68;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 600ms ease;
+}
+.dice-arena--fading {
+  opacity: 0;
+}
+
+/* Each die is absolutely placed; the physics writes its transform every frame. */
+.dice-arena__die {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
+/* A die in flight is tumbling too fast to read — a slight motion blur sells the throw;
+   it resolves to a crisp, coloured face only once it has come to rest. */
+.dice-arena__flying {
+  filter: blur(0.7px) brightness(1.05);
+}
+
+/* The thin staging chrome that rides over the board during the throw (whose turn, and the
+   GM's "Roll the Reich" trigger). Above the dice; the controls re-enable pointer events. */
+.roll-stage__head {
+  position: fixed;
+  top: 3.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 69;
+  pointer-events: none;
+  font-family: var(--font-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.95rem;
+  color: var(--paper);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  text-align: center;
+}
+.roll-stage__head small {
+  display: block;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-size: 0.7rem;
+  color: var(--paper-fade);
+  margin-top: 0.15rem;
+}
+
+.roll-stage__control {
+  position: fixed;
+  left: 50%;
+  bottom: 5rem; /* clear the always-on safety bar */
+  transform: translateX(-50%);
+  z-index: 69;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+.roll-stage__control .mono {
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
+}

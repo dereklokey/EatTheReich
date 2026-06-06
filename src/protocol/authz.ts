@@ -42,7 +42,11 @@ const SAFETY_INTENTS = new Set<Intent["kind"]>([
 /** Intents an un-seated connection may send to get into the game. */
 const LOBBY_INTENTS = new Set<Intent["kind"]>(["create_game", "claim_seat"]);
 
-/** Turn-driving intents: allowed for the player whose turn is in progress (or GM). */
+/**
+ * Turn-driving intents: allowed for the player whose turn is in progress (or GM).
+ * `roll_gm` is deliberately NOT here — the Reich's roll is the GM's beat (issue #5),
+ * so it falls through to the GM-only default below. Don't add it.
+ */
 const TURN_INTENTS = new Set<Intent["kind"]>([
   "roll",
   "resolve_discard",

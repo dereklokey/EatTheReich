@@ -153,16 +153,32 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
     case "roll": {
       const turn = state.currentTurn;
       if (!turn) return err("no turn in progress");
-      // Server builds the GM pool from current threats (RULES §4) and rolls both.
+      // The player rolls; the Reich answers separately (`roll_gm`) so each side gets its
+      // own beat at the table (issue #5). We still build the GM pool now from current
+      // threats (RULES §4) and record it (POOL_BUILT) so everyone sees what's incoming.
       const gmDice = buildGmPool(state.board.threats, turn.engagedThreatIds);
       const playerResults = deps.roller.roll(intent.playerPoolDice);
-      const gmResults = deps.roller.roll(gmDice);
-      return ok([
+      const events: EventInput[] = [
         { type: "POOL_BUILT", payload: { who: "player", dice: intent.playerPoolDice, sources: intent.sources ?? [] }, actor: turn.seat },
         { type: "POOL_BUILT", payload: { who: "gm", dice: gmDice } },
         { type: "DICE_ROLLED", payload: { who: "player", results: playerResults }, actor: turn.seat },
-        { type: "DICE_ROLLED", payload: { who: "gm", results: gmResults } },
-      ]);
+      ];
+      // Uncontested action (no engaged Threat → 0 GM dice): there's nothing for the Reich
+      // to roll, so resolve its empty pool now and skip the GM-roll beat entirely.
+      if (gmDice === 0) {
+        events.push({ type: "DICE_ROLLED", payload: { who: "gm", results: [] } });
+      }
+      return ok(events);
+    }
+
+    case "roll_gm": {
+      const turn = state.currentTurn;
+      if (!turn) return err("no turn in progress");
+      if (!turn.playerDice) return err("the player hasn't rolled yet");
+      if (turn.gmDice) return err("the Reich has already rolled");
+      // Roll the pool size already built and shown by `roll` (POOL_BUILT gm).
+      const gmResults = deps.roller.roll(turn.gmPoolSize ?? 0);
+      return ok([{ type: "DICE_ROLLED", payload: { who: "gm", results: gmResults } }]);
     }
 
     case "resolve_discard": {

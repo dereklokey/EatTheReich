@@ -36,6 +36,9 @@ export type Intent =
   | { kind: "start_turn"; seat: CharId; stat: Stat; engagedThreatIds: string[]; tags?: string[] }
   | { kind: "cancel_turn" }
   | { kind: "roll"; playerPoolDice: number; sources?: PoolSource[] }
+  /** GM rolls the Reich's pool, after the player has rolled (RULES §4 — the two pools
+   *  resolve as a two-beat handoff, not one button). GM-only; see authz. */
+  | { kind: "roll_gm" }
   | { kind: "resolve_discard" }
   | { kind: "allocate"; allocations: Allocation[] }
   | { kind: "commit" }

@@ -104,4 +104,12 @@ describe("authorizeIntent — a seated player", () => {
     // No turn in progress → denied.
     expect(authorizeIntent(s, "iryna", { kind: "commit" }).ok).toBe(false);
   });
+
+  it("may roll their own pool but NOT the Reich's — roll_gm is the GM's beat (issue #5)", () => {
+    const irynaTurn = withTurn("iryna");
+    expect(authorizeIntent(irynaTurn, "iryna", { kind: "roll", playerPoolDice: 5 }).ok).toBe(true);
+    // Even on their own turn, the active player can't throw the enemy dice.
+    expect(authorizeIntent(irynaTurn, "iryna", { kind: "roll_gm" }).ok).toBe(false);
+    expect(authorizeIntent(irynaTurn, "gm", { kind: "roll_gm" }).ok).toBe(true);
+  });
 });

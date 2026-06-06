@@ -1,115 +1,79 @@
-import { useEffect, useRef, useState } from "react";
-import { motion } from "motion/react";
 import type { TurnState } from "@shared/state/types.js";
 import type { DieFace } from "@shared/domain/types.js";
 import { Die, tiltFor, type DieVisualState } from "@/components/dice/Die";
-import { useEffects } from "@/effects/EffectsContext";
 import { useSound } from "@/effects/SoundContext";
 
 /**
- * ROLL → reveal (RULES §4, DESIGN.md §6). The dice land with a concussion (shake +
- * muzzle bloom), then — staggered, not all at once — tumble into the tray and settle
- * neutral. After a beat of suspense the values resolve: successes (4–5) flare
- * hazard-yellow, the crit (6) detonates crimson with a short slow-mo hold, and
- * sub-threshold dice are about to be discarded. The driver then resolves the discard.
+ * The results readout (RULES §4) — the calm, static panel the table lands on after the dice
+ * have been thrown (RollSequence) or, under reduce-effects, in place of any throw. It shows
+ * the settled pools with their successes/crit flares and the Reich's hit count, then the
+ * driver resolves the discard. When the Reich hasn't rolled yet (the reduced two-beat), it
+ * holds a poised tray and hands the GM the trigger.
  */
 function playerState(face: DieFace): DieVisualState {
   if (face === 6) return "critical";
   if (face >= 4) return "success";
   return "normal";
 }
-
-/** Staggered tumble-in for one die; the entry transform lives on this wrapper alone. */
-function entry(i: number) {
-  return {
-    initial: { y: -130, rotate: -24, opacity: 0, scale: 1.08 },
-    animate: { y: 0, rotate: 0, opacity: 1, scale: 1 },
-    transition: { delay: i * 0.07, type: "spring" as const, stiffness: 520, damping: 24 },
-  };
+function gmState(face: DieFace): DieVisualState {
+  return face >= 4 ? "success" : "normal";
 }
 
 export function RollReveal({
   turn,
   canDrive,
+  isGm,
+  onRollGm,
   onResolve,
 }: {
   turn: TurnState;
   canDrive: boolean;
+  isGm: boolean;
+  onRollGm: () => void;
   onResolve: () => void;
 }) {
-  const { reduced } = useEffects();
   const { play } = useSound();
-  const [boom, setBoom] = useState(!reduced);
-  const [revealed, setRevealed] = useState(reduced);
-  const seen = useRef(false);
 
   const player = turn.playerDice ?? [];
-  const gm = turn.gmDice ?? [];
-  const gmHits = gm.filter((f) => f >= 4).length;
-  const anyCrit = player.includes(6);
-
-  useEffect(() => {
-    if (seen.current) return;
-    seen.current = true;
-    // The roll lands (sound is independent of reduce-effects — it has its own mute).
-    play("concussion");
-    play("clatter");
-    const anySucc = player.some((f) => f >= 4);
-    // Values resolve only after the dice have tumbled in — that suspense is the drama.
-    const revealAt = reduced ? 0 : Math.min(player.length * 70 + 280, 900);
-    const revealT = setTimeout(() => {
-      setRevealed(true);
-      play(anyCrit ? "crit" : anySucc ? "success" : "discard");
-    }, revealAt);
-    const settle = reduced ? undefined : setTimeout(() => setBoom(false), 520);
-    return () => {
-      clearTimeout(revealT);
-      if (settle) clearTimeout(settle);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const gm = turn.gmDice; // undefined until the GM rolls
+  const gmPool = turn.gmPoolSize ?? 0;
+  const gmHits = (gm ?? []).filter((f) => f >= 4).length;
 
   return (
     <div>
       <div className="theater__phase text-sm">The roll</div>
 
-      <div className={`relative mt-3 ${boom ? "shake" : ""}`}>
-        {boom && <span className="flash-bloom" />}
+      <div className="mt-3">
         <div className="mono text-xs text-paper-fade mb-1">Your dice</div>
         <div className="tray">
-          {player.map((face, i) =>
-            reduced ? (
-              <Die key={i} kind="player" value={face} state={playerState(face)} tilt={tiltFor(i)} />
-            ) : (
-              <motion.div key={i} {...entry(i)}>
-                <div className={revealed && face === 6 ? "crit-pop" : ""}>
-                  <Die kind="player" value={face} state={revealed ? playerState(face) : "normal"} tilt={tiltFor(i)} />
-                </div>
-              </motion.div>
-            ),
-          )}
+          {player.map((face, i) => (
+            <Die key={i} kind="player" value={face} state={playerState(face)} tilt={tiltFor(i)} />
+          ))}
+          {player.length === 0 && <span className="mono text-paper-fade italic">No dice in the pool.</span>}
         </div>
       </div>
 
       <div className="mt-5">
-        <div className="mono text-xs text-paper-fade mb-1">
-          The Reich’s dice — <span className="text-blood">{gmHits} success{gmHits === 1 ? "" : "es"}</span>
-        </div>
-        <div className="tray">
-          {gm.map((face, i) => {
-            const gmState = revealed && face >= 4 ? "success" : "normal";
-            return reduced ? (
-              <Die key={i} kind="gm" value={face} state={face >= 4 ? "success" : "normal"} tilt={tiltFor(i + 3)} size="2.75rem" />
-            ) : (
-              <motion.div key={i} {...entry(player.length + i)}>
-                <Die kind="gm" value={face} state={gmState} tilt={tiltFor(i + 3)} size="2.75rem" />
-              </motion.div>
-            );
-          })}
-        </div>
+        {gm === undefined ? (
+          <ReichPending pool={gmPool} isGm={isGm} onRollGm={onRollGm} />
+        ) : (
+          <>
+            <div className="mono text-xs text-paper-fade mb-1">
+              The Reich’s dice — <span className="text-blood">{gmHits} success{gmHits === 1 ? "" : "es"}</span>
+            </div>
+            <div className="tray">
+              {gm.map((face, i) => (
+                <Die key={i} kind="gm" value={face} state={gmState(face)} tilt={tiltFor(i + 3)} size="2.75rem" />
+              ))}
+              {gm.length === 0 && (
+                <span className="mono text-paper-fade italic">Uncontested — the Reich never saw it coming.</span>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
-      {canDrive && (
+      {canDrive && gm !== undefined && (
         <button
           className="detonator mt-6"
           onClick={() => {
@@ -120,6 +84,34 @@ export function RollReveal({
           Discard &amp; resolve
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * The Reich is poised but hasn't thrown yet (RULES §4 BUILD_GM_POOL → ROLL). The pool size
+ * is already known, so the table sees how many bone dice are coming; the GM holds the trigger.
+ */
+function ReichPending({ pool, isGm, onRollGm }: { pool: number; isGm: boolean; onRollGm: () => void }) {
+  return (
+    <div>
+      <div className="mono text-xs text-paper-fade mb-1">
+        The Reich answers — <span className="text-blood">{pool} {pool === 1 ? "die" : "dice"}</span>
+      </div>
+      <div className="tray">
+        {Array.from({ length: Math.min(pool, 16) }, (_, i) => (
+          <span key={i} className="reich-waiting-die" aria-hidden />
+        ))}
+      </div>
+      <div className="mt-4">
+        {isGm ? (
+          <button className="detonator" onClick={onRollGm} title="Throw the Reich’s dice">
+            Roll the Reich
+          </button>
+        ) : (
+          <p className="mono text-sm text-paper-fade">The GM is rolling the Reich’s dice…</p>
+        )}
+      </div>
     </div>
   );
 }

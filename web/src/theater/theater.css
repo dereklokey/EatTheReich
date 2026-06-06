@@ -39,6 +39,26 @@
 /* A scattered tray of dice. */
 .tray { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
 
+/* The Reich poised but not yet thrown (issue #5): bone dice face-down in the cup, one
+   per pooled die, breathing slightly so the table feels the threat waiting to land. */
+.reich-waiting-die {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.5rem;
+  background:
+    radial-gradient(70% 60% at 32% 28%, #fff8ea 0%, transparent 60%),
+    var(--die-gm);
+  border: 1px solid #cdbf9f;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3), inset 0 -3px 4px rgba(0, 0, 0, 0.3);
+  opacity: 0.62;
+  transform: rotate(-3deg);
+  animation: reich-breathe 1.5s ease-in-out infinite;
+}
+@keyframes reich-breathe {
+  0%, 100% { opacity: 0.5; transform: rotate(-3deg) scale(0.97); }
+  50% { opacity: 0.74; transform: rotate(-3deg) scale(1); }
+}
+
 /* Screen-shake for the roll concussion (§6); single-shot. */
 @keyframes shake {
   0%, 100% { transform: translate(0, 0); }

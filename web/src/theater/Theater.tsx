@@ -1,9 +1,10 @@
-import type { GameState } from "@shared/state/types.js";
+import type { ReactNode } from "react";
+import type { GameState, TurnState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
 import type { Allocation } from "@shared/engine/allocate.js";
 import type { SeatId } from "@shared/events/types.js";
 import { seatName } from "@/game/seats";
-import { RollReveal } from "./RollReveal";
+import { RollSequence } from "./RollSequence";
 import { AllocationTray } from "./AllocationTray";
 import { InjuryCheck } from "./InjuryCheck";
 import "./theater.css";
@@ -14,7 +15,8 @@ import "./theater.css";
  * branching on what the server has recorded so far (no client-side phase guessing):
  *   no player dice  → the driver is still in the Turn Composer (private prep); watchers
  *                     see a calm "loading the action" beat until the dice are cast
- *   dice, no survivors → reveal + resolve discard
+ *   dice, no survivors → the roll itself: a staged craps-table throw over the live board
+ *                        (RollSequence), ending in the results panel
  *   survivors         → allocate + commit
  * DECLARE + BUILD_PLAYER_POOL happen in the TurnComposer before the roll, so the theater
  * opens straight into the shared roll. Only the active player and GM get the controls.
@@ -35,14 +37,69 @@ export function Theater({
   if (!turn) return null;
   const char = state.characters[turn.seat];
   const canDrive = mySeat === turn.seat || mySeat === "gm";
+  const cancel = () => send({ kind: "cancel_turn" });
+
+  // The roll — player throw → Reich throw → results — is its own staged sequence. It plays
+  // the dice over the live board (a transparent layer), only raising the dark results panel
+  // once they've settled and faded, so it owns the whole screen rather than nesting here.
+  if (turn.playerDice && !turn.survivors && !turn.pendingInjury) {
+    return (
+      <RollSequence
+        turn={turn}
+        state={state}
+        canDrive={canDrive}
+        isGm={mySeat === "gm"}
+        onRollGm={() => send({ kind: "roll_gm" })}
+        onResolve={() => send({ kind: "resolve_discard" })}
+        onMinimize={onMinimize}
+        onCancel={cancel}
+      />
+    );
+  }
 
   const onLockIn = (allocations: Allocation[]) => {
     send({ kind: "allocate", allocations });
     send({ kind: "commit" });
   };
+  const onAddDice = (count: number, label?: string) =>
+    send({ kind: "add_bonus_dice", count, ...(label ? { label } : {}) });
 
-  const onAddDice = (count: number, label?: string) => send({ kind: "add_bonus_dice", count, ...(label ? { label } : {}) });
+  return (
+    <TheaterShell turn={turn} canDrive={canDrive} onMinimize={onMinimize} onCancel={cancel}>
+      {turn.pendingInjury ? (
+        <InjuryCheck turn={turn} state={state} canDrive={canDrive} send={send} />
+      ) : !turn.playerDice ? (
+        <div className="mt-6 text-center">
+          <div className="theater__phase text-sm">Loading the action</div>
+          <p className="mono text-sm text-paper-fade mt-3">
+            {seatName(turn.seat)} is choosing a stat, gear, and targets…
+          </p>
+        </div>
+      ) : (
+        <AllocationTray turn={turn} state={state} char={char} canDrive={canDrive} onLockIn={onLockIn} onAddDice={onAddDice} />
+      )}
+    </TheaterShell>
+  );
+}
 
+/**
+ * The dark dossier panel that frames a resolution beat: the header (whose turn, the stat
+ * and engagements, cancel/peek) over the night ground. Shared by the theater's branches
+ * and by the roll sequence's results screen so they read as one continuous surface.
+ */
+export function TheaterShell({
+  turn,
+  canDrive,
+  onMinimize,
+  onCancel,
+  children,
+}: {
+  turn: TurnState;
+  canDrive: boolean;
+  onMinimize: () => void;
+  onCancel: () => void;
+  children: ReactNode;
+}) {
   return (
     <div className="theater">
       <div className="theater__inner">
@@ -58,7 +115,7 @@ export function Theater({
             <button
               className="mono text-xs underline text-paper-fade"
               title="Abort this turn — it won't count as your action"
-              onClick={() => send({ kind: "cancel_turn" })}
+              onClick={onCancel}
             >
               cancel turn
             </button>
@@ -73,22 +130,7 @@ export function Theater({
           </button>
         </div>
 
-        <div className="mt-4">
-          {turn.pendingInjury ? (
-            <InjuryCheck turn={turn} state={state} canDrive={canDrive} send={send} />
-          ) : !turn.playerDice ? (
-            <div className="mt-6 text-center">
-              <div className="theater__phase text-sm">Loading the action</div>
-              <p className="mono text-sm text-paper-fade mt-3">
-                {seatName(turn.seat)} is choosing a stat, gear, and targets…
-              </p>
-            </div>
-          ) : !turn.survivors ? (
-            <RollReveal turn={turn} canDrive={canDrive} onResolve={() => send({ kind: "resolve_discard" })} />
-          ) : (
-            <AllocationTray turn={turn} state={state} char={char} canDrive={canDrive} onLockIn={onLockIn} onAddDice={onAddDice} />
-          )}
-        </div>
+        <div className="mt-4">{children}</div>
 
         {!canDrive && (
           <p className="mono text-xs text-paper-fade mt-6 text-center">
