@@ -74,6 +74,14 @@ function penaltyLabel(seat: CharId, category: 0 | 1 | 2): string | undefined {
   return CHARACTERS_BY_ID[seat]?.injuries[category]?.boxes[1]?.penalty;
 }
 
+/** Player discard threshold for an engagement: 3, raised by an engaged Rust-Witch (Aura of Misfortune). */
+function discardThreshold(state: GameState, engagedThreatIds: string[]): number {
+  const thresholds = state.board.threats
+    .filter((t) => engagedThreatIds.includes(t.id) && t.discardThreshold !== undefined)
+    .map((t) => t.discardThreshold as number);
+  return Math.max(3, ...thresholds);
+}
+
 /** Find an item by id across the character's sheet equipment and earned loot. */
 function findEquipment(state: GameState, seat: CharId, itemId: string): Equipment | undefined {
   return (
@@ -157,12 +165,7 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       const turn = state.currentTurn;
       if (!turn?.playerDice || !turn.gmDice) return err("dice not rolled yet");
 
-      // Discard threshold: 3 normally, raised by an engaged Rust-Witch (Aura of Misfortune).
-      const thresholds = state.board.threats
-        .filter((t) => turn.engagedThreatIds.includes(t.id) && t.discardThreshold !== undefined)
-        .map((t) => t.discardThreshold as number);
-      const threshold = Math.max(3, ...thresholds);
-
+      const threshold = discardThreshold(state, turn.engagedThreatIds);
       const { survivors } = resolvePlayerDice(turn.playerDice, threshold);
       const playerOnes = countOnes(turn.playerDice);
       let gmCount = gmSuccesses(turn.gmDice).length;
@@ -196,6 +199,20 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
           actor: turn.seat,
         })),
       );
+    }
+
+    case "add_bonus_dice": {
+      const turn = state.currentTurn;
+      // Bonus dice land during ALLOCATE only (RULES §4): after discard, before the injury
+      // check, and never during a Last Stand (whose 8d6 are fixed).
+      if (!turn || !turn.survivors || turn.pendingInjury || turn.lastStand) return err("can only add bonus dice during allocation");
+      const count = Math.max(1, Math.min(8, Math.floor(intent.count)));
+      const threshold = discardThreshold(state, turn.engagedThreatIds);
+      const results = deps.roller.roll(count);
+      const { survivors } = resolvePlayerDice(results, threshold);
+      return ok([
+        { type: "BONUS_DICE_ROLLED", payload: { results, survivors: survivors.map((s) => s.face), count, ...(intent.label ? { label: intent.label } : {}) }, actor: turn.seat },
+      ]);
     }
 
     case "commit": {

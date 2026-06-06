@@ -20,12 +20,14 @@ export function GMPanel({
   send,
   events,
   onRewind,
+  onDelete,
   onClose,
 }: {
   state: GameState;
   send: (i: Intent) => void;
   events: GameEvent[];
   onRewind: (toSeq: number) => void;
+  onDelete: () => void;
   onClose: () => void;
 }) {
   return (
@@ -44,8 +46,35 @@ export function GMPanel({
         <RescueSection state={state} send={send} />
         <RewindSection state={state} events={events} onRewind={onRewind} />
         <SeatsSection state={state} send={send} />
+        <DangerSection onDelete={onDelete} />
       </div>
     </div>
+  );
+}
+
+/** Finish & delete the whole game (§3A). Two-step confirm — it wipes the room for good. */
+function DangerSection({ onDelete }: { onDelete: () => void }) {
+  const [arming, setArming] = useState(false);
+  return (
+    <Section title="Finish & delete game">
+      <p className="mono text-[0.65rem] text-paper-fade mb-2">
+        Permanently wipes this game — every event, injury, and objective — for all players. There is no undo.
+      </p>
+      {!arming ? (
+        <button className="mono text-xs paper paper-tight text-blood" onClick={() => setArming(true)}>
+          Finish & delete…
+        </button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <button className="display text-paper bg-blood px-3 py-1 text-sm" style={{ borderRadius: 2 }} onClick={onDelete}>
+            Delete forever
+          </button>
+          <button className="mono text-xs underline text-paper-fade" onClick={() => setArming(false)}>
+            cancel
+          </button>
+        </div>
+      )}
+    </Section>
   );
 }
 

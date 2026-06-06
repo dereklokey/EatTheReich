@@ -23,8 +23,18 @@ describe("authorizeIntent — GM", () => {
       { kind: "change_blood", seat: "iryna", delta: 1 },
       { kind: "release_seat", seat: "nicole" },
       { kind: "start_turn", seat: "flint", stat: "SHOOT", engagedThreatIds: [] },
+      { kind: "delete_game" },
     ];
     for (const i of intents) expect(authorizeIntent(s, "gm", i).ok).toBe(true);
+  });
+});
+
+describe("authorizeIntent — finish & delete game (§3A)", () => {
+  it("is GM-only", () => {
+    const s = base();
+    expect(authorizeIntent(s, "gm", { kind: "delete_game" }).ok).toBe(true);
+    expect(authorizeIntent(s, "iryna", { kind: "delete_game" }).ok).toBe(false);
+    expect(authorizeIntent(s, null, { kind: "delete_game" }).ok).toBe(false);
   });
 });
 
@@ -82,6 +92,8 @@ describe("authorizeIntent — a seated player", () => {
   it("may drive only their own turn", () => {
     const irynaTurn = withTurn("iryna");
     expect(authorizeIntent(irynaTurn, "iryna", { kind: "roll", playerPoolDice: 5 }).ok).toBe(true);
+    expect(authorizeIntent(irynaTurn, "iryna", { kind: "add_bonus_dice", count: 1 }).ok).toBe(true);
+    expect(authorizeIntent(irynaTurn, "iryna", { kind: "resolve_injury" }).ok).toBe(true);
     expect(authorizeIntent(irynaTurn, "iryna", { kind: "commit" }).ok).toBe(true);
     // Not iryna's turn → denied.
     expect(authorizeIntent(irynaTurn, "nicole", { kind: "roll", playerPoolDice: 5 }).ok).toBe(false);

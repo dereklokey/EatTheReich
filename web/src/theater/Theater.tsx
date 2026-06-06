@@ -47,6 +47,8 @@ export function Theater({
     send({ kind: "commit" });
   };
 
+  const onAddDice = (count: number, label?: string) => send({ kind: "add_bonus_dice", count, ...(label ? { label } : {}) });
+
   return (
     <div className="theater">
       <div className="theater__inner">
@@ -85,7 +87,7 @@ export function Theater({
           ) : !turn.survivors ? (
             <RollReveal turn={turn} canDrive={canDrive} onResolve={() => send({ kind: "resolve_discard" })} />
           ) : (
-            <AllocationTray turn={turn} state={state} char={char} canDrive={canDrive} onLockIn={onLockIn} />
+            <AllocationTray turn={turn} state={state} char={char} canDrive={canDrive} onLockIn={onLockIn} onAddDice={onAddDice} />
           )}
         </div>
 

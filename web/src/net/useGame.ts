@@ -25,9 +25,12 @@ export interface GameView {
   error: string | null;
   /** Recent events accumulated this session, for the GM rewind feed (§3.2). */
   events: GameEvent[];
+  /** True once the GM has finished & deleted this game (§3A) — the room is gone. */
+  deleted: boolean;
   claimSeat: (seat: SeatId) => void;
   releaseSeat: (seat: SeatId) => void;
   rewind: (toSeq: number) => void;
+  deleteGame: () => void;
   send: (intent: Intent) => void;
   clearError: () => void;
 }
@@ -52,6 +55,10 @@ function saveSeat(code: string, seat: SeatId, token: string): void {
   localStorage.setItem(seatKey(code), JSON.stringify({ seat, token } satisfies StoredSeat));
 }
 
+function clearSeat(code: string): void {
+  localStorage.removeItem(seatKey(code));
+}
+
 export function useGame(code: string | null): GameView {
   const [status, setStatus] = useState<ConnStatus>("connecting");
   const [state, setState] = useState<GameState | null>(null);
@@ -59,12 +66,14 @@ export function useGame(code: string | null): GameView {
   const [mySeat, setMySeat] = useState<SeatId | null>(code ? (loadSeat(code)?.seat ?? null) : null);
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<GameEvent[]>([]);
+  const [deleted, setDeleted] = useState(false);
   const connRef = useRef<GameConnection | null>(null);
 
   useEffect(() => {
     if (!code) return;
     setMySeat(loadSeat(code)?.seat ?? null);
     setEvents([]);
+    setDeleted(false);
 
     const conn = new GameConnection(
       code,
@@ -96,6 +105,13 @@ export function useGame(code: string | null): GameView {
               saveSeat(code, m.seat, m.seatToken);
               setMySeat(m.seat);
               break;
+            case "deleted":
+              // The GM finished & deleted the room (§3A): drop our seat token (it points at
+              // storage that no longer exists) and surface the ended state.
+              clearSeat(code);
+              setMySeat(null);
+              setDeleted(true);
+              break;
             case "error":
               setError(m.message);
               break;
@@ -118,7 +134,8 @@ export function useGame(code: string | null): GameView {
   const claimSeat = useCallback((seat: SeatId) => send({ kind: "claim_seat", seat }), [send]);
   const releaseSeat = useCallback((seat: SeatId) => send({ kind: "release_seat", seat }), [send]);
   const rewind = useCallback((toSeq: number) => send({ kind: "rewind", toSeq }), [send]);
+  const deleteGame = useCallback(() => send({ kind: "delete_game" }), [send]);
   const clearError = useCallback(() => setError(null), []);
 
-  return { status, state, online, mySeat, error, events, claimSeat, releaseSeat, rewind, send, clearError };
+  return { status, state, online, mySeat, error, events, deleted, claimSeat, releaseSeat, rewind, deleteGame, send, clearError };
 }

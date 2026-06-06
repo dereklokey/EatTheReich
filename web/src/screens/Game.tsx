@@ -34,6 +34,8 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
     setTheaterMin(false);
   }, [turnSeat]);
 
+  if (game.deleted) return <GameEnded onExit={onExit} />;
+
   return (
     <div className="min-h-full">
       <TopBar
@@ -88,7 +90,7 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
         </button>
       ) : null}
       {game.state && isGm && gmOpen && (
-        <GMPanel state={game.state} send={game.send} events={game.events} onRewind={game.rewind} onClose={() => setGmOpen(false)} />
+        <GMPanel state={game.state} send={game.send} events={game.events} onRewind={game.rewind} onDelete={game.deleteGame} onClose={() => setGmOpen(false)} />
       )}
       {game.state && sheetSeat && (
         <CharacterSheet
@@ -111,6 +113,23 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
           {game.error}
         </button>
       )}
+    </div>
+  );
+}
+
+/** Shown to everyone once the GM finishes & deletes the game (§3A). */
+function GameEnded({ onExit }: { onExit: () => void }) {
+  return (
+    <div className="substrate grain min-h-[80vh] grid place-items-center text-center px-6">
+      <div>
+        <h2 className="display text-3xl text-paper">The war file is closed.</h2>
+        <p className="mono text-sm text-paper-fade mt-3 max-w-md mx-auto">
+          The GM finished and deleted this game. Nothing more to drink here.
+        </p>
+        <button className="detonator mt-6" onClick={onExit}>
+          Back to start
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { GameState, TurnState, CharacterRuntime } from "@shared/state/types.js";
 import type { Allocation } from "@shared/engine/allocate.js";
@@ -32,12 +32,14 @@ export function AllocationTray({
   char,
   canDrive,
   onLockIn,
+  onAddDice,
 }: {
   turn: TurnState;
   state: GameState;
   char: CharacterRuntime;
   canDrive: boolean;
   onLockIn: (allocations: Allocation[]) => void;
+  onAddDice: (count: number, label?: string) => void;
 }) {
   const { reduced } = useEffects();
   const { play } = useSound();
@@ -45,6 +47,27 @@ export function AllocationTray({
   const gmRemaining = turn.gmDiceRemaining ?? 0;
   const [assign, setAssign] = useState<Assignment[]>(() => survivors.map(() => null));
   const [picked, setPicked] = useState<number | null>(null);
+
+  // Survivors can GROW mid-allocation when bonus dice land (RULES §4) — extend the
+  // assignment array for the new dice while preserving existing placements.
+  if (assign.length !== survivors.length) {
+    setAssign((cur) => survivors.map((_, i) => cur[i] ?? null));
+  }
+
+  // Flag freshly-added dice so they drop in (and clatter) for one beat.
+  const seenLen = useRef(survivors.length);
+  const [enterFrom, setEnterFrom] = useState<number | null>(null);
+  useEffect(() => {
+    if (survivors.length > seenLen.current) {
+      if (!reduced) setEnterFrom(seenLen.current);
+      play("clatter");
+      seenLen.current = survivors.length;
+      const t = setTimeout(() => setEnterFrom(null), 650);
+      return () => clearTimeout(t);
+    }
+    seenLen.current = survivors.length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [survivors.length]);
 
   // Transient spectacle (§6). Never cleared — overwritten and re-keyed by an
   // incrementing seq so the same target replays its burst on each new hit.
@@ -140,12 +163,14 @@ export function AllocationTray({
               onClick={() => (placed ? unassign(i) : setPicked(i))}
               title={placed ? `placed: ${placed.kind} — tap to free` : "tap to pick up"}
             >
-              <Die kind="player" value={die.face} state={die.kind === "crit" ? "critical" : "success"} tilt={tiltFor(i)} />
+              <Die kind="player" value={die.face} state={die.kind === "crit" ? "critical" : "success"} tilt={tiltFor(i)} entering={enterFrom !== null && i >= enterFrom} />
             </button>
           );
         })}
         {survivors.length === 0 && <span className="mono text-paper-fade italic">No survivors — all dice discarded.</span>}
       </div>
+
+      {canDrive && <BonusDiceControl onAdd={onAddDice} />}
 
       <p className="mono text-xs text-paper-fade mt-1">
         {pickedDie
@@ -263,6 +288,54 @@ export function AllocationTray({
           <div className="special-stamp__name">{special.name}</div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Mid-allocation bonus dice (RULES §4 — "the pool is not frozen at roll time"). When a
+ * new advantage is narrated and the GM confirms it, more dice are rolled straight into
+ * the tray. Collapsed to a quiet link until needed, so it never competes with the dice.
+ */
+function BonusDiceControl({ onAdd }: { onAdd: (count: number, label?: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [count, setCount] = useState(1);
+  const [label, setLabel] = useState("");
+
+  if (!open) {
+    return (
+      <button className="mono text-xs underline text-paper-fade mt-2" onClick={() => setOpen(true)} title="A newly narrated advantage rolls more dice into the tray (GM confirms)">
+        ＋ bonus dice
+      </button>
+    );
+  }
+  const roll = () => {
+    onAdd(count, label.trim() || undefined);
+    setOpen(false);
+    setLabel("");
+    setCount(1);
+  };
+  return (
+    <div className="paper paper-tight mt-2 flex flex-wrap items-center gap-2">
+      <span className="mono text-[0.65rem] text-paper-fade">New advantage — GM grants</span>
+      <div className="flex items-center gap-1">
+        <button className="mono px-2 bg-night-top text-paper" style={{ borderRadius: 2 }} onClick={() => setCount((c) => Math.max(1, c - 1))}>−</button>
+        <span className="display text-base w-5 text-center">{count}</span>
+        <button className="mono px-2 bg-night-top text-paper" style={{ borderRadius: 2 }} onClick={() => setCount((c) => Math.min(4, c + 1))}>+</button>
+        <span className="mono text-[0.6rem] text-paper-fade">{count === 1 ? "die" : "dice"}</span>
+      </div>
+      <input
+        className="mono text-xs bg-night-deep text-paper px-2 py-1 flex-1 min-w-24 border border-paper-shadow/30"
+        style={{ borderRadius: 2 }}
+        placeholder="reason (e.g. flanking)"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && roll()}
+      />
+      <button className="detonator text-sm px-3 py-1" onClick={roll} title="Roll the bonus dice into the tray">
+        Roll
+      </button>
+      <button className="mono text-xs underline text-paper-fade" onClick={() => setOpen(false)}>cancel</button>
     </div>
   );
 }

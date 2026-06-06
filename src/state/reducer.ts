@@ -3,7 +3,7 @@ import { initialState } from "./init.js";
 import type { GameEvent, CharId } from "../events/types.js";
 import type { Allocation, AllocationAccumulator } from "../engine/allocate.js";
 import { applyOneAllocation, clampBlood } from "../engine/allocate.js";
-import { TURN_PHASES } from "../engine/index.js";
+import { TURN_PHASES, addBonusDice } from "../engine/index.js";
 import type { DieFace } from "../domain/types.js";
 import type { PlayerDie } from "../engine/dice.js";
 
@@ -161,6 +161,20 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
         ...(e.payload.playerSurvivors ? { survivors: survivorsFromFaces(e.payload.playerSurvivors) } : {}),
         ...(e.payload.gmSuccessCount !== undefined
           ? { gmSuccessCount: e.payload.gmSuccessCount, gmDiceRemaining: e.payload.gmSuccessCount }
+          : {}),
+      });
+    }
+    case "BONUS_DICE_ROLLED": {
+      // The pool isn't frozen at roll time (RULES §4): append the new survivors to the
+      // tray and record the rolled dice + pool source so replay stays faithful.
+      if (!s.currentTurn) return s;
+      const turn = s.currentTurn;
+      return withTurn(s, {
+        ...turn,
+        playerDice: [...(turn.playerDice ?? []), ...e.payload.results],
+        survivors: [...(turn.survivors ?? []), ...survivorsFromFaces(e.payload.survivors)],
+        ...(turn.playerPool
+          ? { playerPool: { total: turn.playerPool.total + e.payload.count, sources: [...turn.playerPool.sources, addBonusDice(e.payload.label ?? "bonus", e.payload.count)] } }
           : {}),
       });
     }

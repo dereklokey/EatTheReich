@@ -79,6 +79,12 @@ export interface EventPayloads {
     gmSuccessDelta?: number;
   };
   DICE_DISCARDED: { playerSurvivors?: DieFace[]; gmSuccessCount?: number };
+  /**
+   * Mid-allocation bonus dice (RULES §4 — the pool is NOT frozen at roll time). A newly
+   * narrated advantage adds `count` dice now; the server rolls and discards them, and the
+   * survivors join the allocation tray. `label` tags their pool source.
+   */
+  BONUS_DICE_ROLLED: { results: DieFace[]; survivors: DieFace[]; count: number; label?: string };
   DIE_ALLOCATED: {
     kind: AllocationKind;
     targetId?: string;

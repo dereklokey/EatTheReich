@@ -39,6 +39,8 @@ export type Intent =
   | { kind: "commit" }
   /** Resolve the parked INJURY_CHECK: apply the rolled injury, or `ignore` it (Chuck's hat). */
   | { kind: "resolve_injury"; ignore?: boolean }
+  /** Mid-allocation bonus dice (RULES §4): roll `count` more dice into the tray. */
+  | { kind: "add_bonus_dice"; count: number; label?: string }
   /** Last Stand (RULES §5): roll the final 8d6, then allocate them and retire. */
   | { kind: "last_stand_roll" }
   | { kind: "last_stand_commit"; allocations: Allocation[] }
@@ -53,7 +55,9 @@ export type Intent =
   | { kind: "trigger_flashback"; seat: CharId; context: string; question: string }
   | { kind: "gm_override"; note?: string; patch?: { objectives?: Objective[]; threats?: Threat[] } }
   /** GM rewind: drop the event log back to `toSeq` (§3.2). Handled by the room, not the reducer. */
-  | { kind: "rewind"; toSeq: number };
+  | { kind: "rewind"; toSeq: number }
+  /** GM "finish & delete game" (§3A): wipe the room's storage. Handled by the room, not the reducer. */
+  | { kind: "delete_game" };
 
 /**
  * client → server.
@@ -79,4 +83,6 @@ export type ServerMessage =
   | { t: "sync"; state: GameState; events: GameEvent[] }
   | { t: "seat_granted"; seat: SeatId; seatToken: string }
   | { t: "presence"; online: SeatId[] }
+  /** The GM finished & deleted the game (§3A); clients clear their seat and return to start. */
+  | { t: "deleted" }
   | { t: "error"; message: string };

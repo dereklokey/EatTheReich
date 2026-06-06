@@ -192,6 +192,55 @@ describe("processIntent — Last Stand (RULES §5)", () => {
   });
 });
 
+describe("processIntent — mid-allocation bonus dice (RULES §4)", () => {
+  /** Drive a turn into the ALLOCATE phase (survivors present) for `seat`. */
+  function intoAllocation(seat: "iryna" = "iryna") {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat, stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), seat);
+    d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 2, 6, 2, 2]), seat); // 1 survivor (5); GM 1 succ
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), seat);
+    return d;
+  }
+
+  it("rolls more dice into the tray and appends the survivors", () => {
+    const d = intoAllocation();
+    expect(d.state.currentTurn?.survivors).toHaveLength(1);
+
+    // Add 2 bonus dice that roll 6 (crit) and 2 (discarded) → +1 survivor (the crit).
+    const ev = d.run({ kind: "add_bonus_dice", count: 2, label: "flanking" }, sequenceRoller([6, 2]), "iryna");
+    expect(ev.map((e) => e.type)).toEqual(["BONUS_DICE_ROLLED"]);
+
+    const surv = d.state.currentTurn?.survivors ?? [];
+    expect(surv).toHaveLength(2); // 1 original + 1 bonus crit (the 2 was discarded)
+    expect(surv[1]).toMatchObject({ face: 6, kind: "crit", units: 2 });
+    expect(d.state.currentTurn?.playerPool?.sources.at(-1)).toMatchObject({ label: "+flanking", dice: 2 });
+  });
+
+  it("rejects bonus dice outside the allocation phase", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "iryna");
+    // No discard yet → no survivors → not in allocation.
+    expect(d.fail({ kind: "add_bonus_dice", count: 1 }, "iryna").ok).toBe(false);
+  });
+
+  it("respects an engaged Rust-Witch's raised discard threshold", () => {
+    const rustWitch: Threat = { id: "rw", name: "Rust-Witch", kind: "threat", rating: 3, attack: 2, startingAttack: 2, reinforces: false, restoresAtZero: false, discardThreshold: 4 };
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [rustWitch] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["rw"] }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: 1 }, sequenceRoller([6, 2, 2]), "iryna"); // crit survives; GM 0 succ
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
+
+    // Threshold 4 → a rolled 4 is discarded, only 5–6 survive.
+    d.run({ kind: "add_bonus_dice", count: 2, label: "x" }, sequenceRoller([4, 5]), "iryna");
+    const surv = d.state.currentTurn?.survivors ?? [];
+    expect(surv).toHaveLength(2); // original crit + the 5 (the 4 was discarded at threshold 4)
+    expect(surv[1]).toMatchObject({ face: 5, kind: "success" });
+  });
+});
+
 describe("processIntent — INJURY_CHECK window + reactive gear (RULES §4/§5)", () => {
   /** Drive a turn up to a parked single-box Injury for `seat` (d6=1 → category 0). */
   function parkAnInjury(seat: "astrid" | "chuck") {

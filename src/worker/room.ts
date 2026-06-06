@@ -19,6 +19,14 @@ export interface Env {
 /** A seat is shown online if its last heartbeat arrived within this window (§3A). */
 const PRESENCE_WINDOW_MS = 60_000;
 
+/**
+ * Idle window before a room self-cleans via an Alarm (§3A, "auto-expiry"). Any activity
+ * (a connection or a game event) pushes the deadline out, so an active campaign — even one
+ * played in week-apart bursts — never expires; this only reaps genuinely abandoned rooms.
+ * Storage is trivially small, so this is hygiene, not necessity.
+ */
+const EXPIRY_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+
 /** What we stash on each hibernatable socket: the seat it has authenticated as. */
 type SocketAttachment = { seat: SeatId };
 
@@ -98,10 +106,34 @@ export class GameRoom implements DurableObject {
     this.ctx.acceptWebSocket(server); // hibernatable accept
 
     const state = await this.hydrate();
+    await this.touch(); // a connection is activity — push the auto-expiry deadline out (§3A)
     this.sendTo(server, { t: "sync", state, events: [] });
     this.sendTo(server, { t: "presence", online: this.onlineSeats() });
 
     return new Response(null, { status: 101, webSocket: client });
+  }
+
+  /** Record activity and (re)arm the idle-expiry Alarm (§3A). */
+  private async touch(): Promise<void> {
+    await this.storage.put("meta:lastActivity", Date.now());
+    await this.storage.setAlarm(Date.now() + EXPIRY_MS);
+  }
+
+  /**
+   * Idle-expiry Alarm (§3A). Fires EXPIRY_MS after the last `touch()`; if there's been
+   * activity since the alarm was armed, it just reschedules — so only a room untouched for
+   * the full window is wiped. deleteAll() also drops the meta/snapshot/event keys.
+   */
+  async alarm(): Promise<void> {
+    const last = (await this.storage.get<number>("meta:lastActivity")) ?? 0;
+    if (Date.now() - last >= EXPIRY_MS) {
+      await this.storage.deleteAll();
+      await this.storage.deleteAlarm();
+      this.state = null;
+      this.broadcast({ t: "deleted" });
+    } else {
+      await this.storage.setAlarm(last + EXPIRY_MS);
+    }
   }
 
   /**
@@ -173,6 +205,16 @@ export class GameRoom implements DurableObject {
       return;
     }
 
+    // GM "finish & delete game" (§3A) — also a log op, not an event: wipe the room's
+    // storage and tell every client to clear its seat and return to the start screen.
+    if (msg.intent.kind === "delete_game") {
+      await this.storage.deleteAll();
+      await this.storage.deleteAlarm();
+      this.state = null;
+      this.broadcast({ t: "deleted" });
+      return;
+    }
+
     // For a fresh seat claim, mint the raw token here and keep only its hash in the
     // log; the raw token is handed back to this one socket below (§3.6).
     let mintedToken: string | undefined;
@@ -209,6 +251,7 @@ export class GameRoom implements DurableObject {
       applied.push(event);
     }
     this.state = next;
+    await this.touch(); // game activity — refresh the auto-expiry deadline (§3A)
 
     // A successful claim binds this socket to the seat and returns the raw token so
     // the client can persist it for next week's reclaim.
