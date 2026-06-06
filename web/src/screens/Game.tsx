@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useGame } from "@/net/useGame";
 import { useEffects } from "@/effects/EffectsContext";
 import { SeatPick } from "./SeatPick";
@@ -5,17 +6,19 @@ import { Board } from "./Board";
 import { SafetyBar, XCardOverlay } from "./SafetyBar";
 import { Theater } from "@/theater/Theater";
 import { TurnControls } from "@/theater/TurnControls";
+import { GMPanel } from "@/gm/GMPanel";
 
 /**
  * In-game shell: connects to the room, then routes to seat-pick (until this device
  * owns a seat) or the board. The safety bar + X-Card overlay are always mounted, one
- * tap away, per CLAUDE.md §2 / DESIGN.md §8. The resolution theater and GM panel hang
- * off the board in the next increment.
+ * tap away, per CLAUDE.md §2 / DESIGN.md §8. The GM gets a slide-over GM panel; the
+ * resolution theater overlays everything while a turn is in progress.
  */
 export function Game({ code, onExit }: { code: string; onExit: () => void }) {
   const game = useGame(code);
   const { reduced, toggle } = useEffects();
   const isGm = game.mySeat === "gm";
+  const [gmOpen, setGmOpen] = useState(false);
 
   return (
     <div className="min-h-full">
@@ -24,6 +27,8 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
         status={game.status}
         seatLabel={game.mySeat ?? null}
         reduced={reduced}
+        isGm={isGm}
+        onOpenGm={() => setGmOpen(true)}
         onToggleEffects={toggle}
         onExit={onExit}
       />
@@ -50,6 +55,7 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
       )}
 
       {game.state?.currentTurn && <Theater state={game.state} send={game.send} mySeat={game.mySeat} />}
+      {game.state && isGm && gmOpen && <GMPanel state={game.state} send={game.send} onClose={() => setGmOpen(false)} />}
       {game.state && <SafetyBar state={game.state} send={game.send} />}
       {game.state && <XCardOverlay state={game.state} send={game.send} />}
 
@@ -71,6 +77,8 @@ function TopBar({
   status,
   seatLabel,
   reduced,
+  isGm,
+  onOpenGm,
   onToggleEffects,
   onExit,
 }: {
@@ -78,6 +86,8 @@ function TopBar({
   status: string;
   seatLabel: string | null;
   reduced: boolean;
+  isGm: boolean;
+  onOpenGm: () => void;
   onToggleEffects: () => void;
   onExit: () => void;
 }) {
@@ -89,7 +99,12 @@ function TopBar({
         <span className={`dot ${status === "open" ? "dot-online" : "dot-away"}`} title={status} />
         {seatLabel && <span className="mono text-xs text-paper-fade">· you: {seatLabel}</span>}
 
-        <button className="mono text-xs text-paper-fade ml-auto underline" onClick={onToggleEffects}>
+        {isGm && (
+          <button className="display text-paper bg-blood px-2 py-0.5 text-sm ml-auto" style={{ borderRadius: 2 }} onClick={onOpenGm}>
+            GM
+          </button>
+        )}
+        <button className={`mono text-xs text-paper-fade underline ${isGm ? "" : "ml-auto"}`} onClick={onToggleEffects}>
           effects: {reduced ? "reduced" : "full"}
         </button>
         <button className="mono text-xs text-paper-fade underline" onClick={onExit}>
