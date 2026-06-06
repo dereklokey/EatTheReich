@@ -124,6 +124,11 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
           challengeConsumed: {},
         },
       };
+    case "TURN_CANCELLED":
+      // Abort: drop the in-progress turn. NOT added to actedThisRound — the
+      // character can still take their turn this round (unlike ALLOCATION_COMMITTED).
+      return { ...s, currentTurn: null, activeSeat: null };
+
     case "POOL_BUILT": {
       if (!s.currentTurn) return s;
       const turn =

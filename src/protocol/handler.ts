@@ -122,6 +122,11 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
 
     case "start_turn":
       return ok([{ type: "TURN_STARTED", payload: { seat: intent.seat, stat: intent.stat, engagedThreatIds: intent.engagedThreatIds, ...(intent.tags ? { tags: intent.tags } : {}) }, actor: intent.seat }]);
+    case "cancel_turn": {
+      const turn = state.currentTurn;
+      if (!turn) return err("no turn in progress");
+      return ok([{ type: "TURN_CANCELLED", payload: { seat: turn.seat }, actor: turn.seat }]);
+    }
 
     case "roll": {
       const turn = state.currentTurn;

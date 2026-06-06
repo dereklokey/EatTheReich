@@ -168,6 +168,25 @@ describe("processIntent — end of round reinforcements", () => {
   });
 });
 
+describe("processIntent — cancelling a turn", () => {
+  it("aborts the turn without marking the character as having acted", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "iryna");
+    expect(d.state.currentTurn).not.toBeNull();
+
+    d.run({ kind: "cancel_turn" }, sequenceRoller([]), "iryna");
+    expect(d.state.currentTurn).toBeNull();
+    expect(d.state.activeSeat).toBeNull();
+    expect(d.state.actedThisRound).toEqual([]); // can still act this round
+  });
+
+  it("rejects cancelling when no turn is in progress", () => {
+    const d = makeDriver();
+    expect(d.fail({ kind: "cancel_turn" }).ok).toBe(false);
+  });
+});
+
 describe("processIntent — claiming seats", () => {
   it("stamps the injected token hash into ROLE_CLAIMED and marks the seat claimed", () => {
     const d = makeDriver();

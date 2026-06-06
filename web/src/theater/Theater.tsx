@@ -22,10 +22,13 @@ export function Theater({
   state,
   send,
   mySeat,
+  onMinimize,
 }: {
   state: GameState;
   send: (i: Intent) => void;
   mySeat: SeatId | null;
+  /** Collapse the theater locally to peek at the board/sheets (the turn stays live). */
+  onMinimize: () => void;
 }) {
   const turn = state.currentTurn;
   if (!turn) return null;
@@ -45,14 +48,31 @@ export function Theater({
   return (
     <div className="theater">
       <div className="theater__inner">
-        <div className="flex items-baseline justify-between">
-          <h2 className="display text-2xl text-paper">
+        <div className="flex items-center gap-3">
+          <h2 className="display text-2xl text-paper flex-1">
             {seatName(turn.seat)}’s turn
+            <span className="mono text-xs text-paper-fade ml-2">
+              {turn.stat ?? "—"}
+              {turn.engagedThreatIds.length > 0 && ` · vs ${turn.engagedThreatIds.length} threat${turn.engagedThreatIds.length === 1 ? "" : "s"}`}
+            </span>
           </h2>
-          <span className="mono text-xs text-paper-fade">
-            {turn.stat ?? "—"}
-            {turn.engagedThreatIds.length > 0 && ` · vs ${turn.engagedThreatIds.length} threat${turn.engagedThreatIds.length === 1 ? "" : "s"}`}
-          </span>
+          {canDrive && (
+            <button
+              className="mono text-xs underline text-paper-fade"
+              title="Abort this turn — it won't count as your action"
+              onClick={() => send({ kind: "cancel_turn" })}
+            >
+              cancel turn
+            </button>
+          )}
+          <button
+            className="mono text-sm px-2 py-1 bg-night-top text-paper border border-paper-shadow/40"
+            style={{ borderRadius: 3 }}
+            title="Look at the board / sheets — the turn stays live"
+            onClick={onMinimize}
+          >
+            ▾ peek
+          </button>
         </div>
 
         <div className="mt-4">

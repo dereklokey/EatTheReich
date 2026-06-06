@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useGame } from "@/net/useGame";
 import { useEffects } from "@/effects/EffectsContext";
 import { SeatPick } from "./SeatPick";
@@ -8,6 +8,7 @@ import { Theater } from "@/theater/Theater";
 import { TurnControls } from "@/theater/TurnControls";
 import { GMPanel } from "@/gm/GMPanel";
 import { CharacterSheet } from "@/sheet/CharacterSheet";
+import { seatName } from "@/game/seats";
 import { CHAR_IDS, type CharId } from "@shared/events/types.js";
 
 /**
@@ -23,6 +24,14 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
   const ownChar = game.mySeat && CHAR_IDS.includes(game.mySeat as CharId) ? (game.mySeat as CharId) : null;
   const [gmOpen, setGmOpen] = useState(false);
   const [sheetSeat, setSheetSeat] = useState<CharId | null>(null);
+  const [theaterMin, setTheaterMin] = useState(false);
+
+  // Always re-open the theater when a (new) turn starts; "peek" is only a local
+  // collapse within the current turn.
+  const turnSeat = game.state?.currentTurn?.seat ?? null;
+  useEffect(() => {
+    setTheaterMin(false);
+  }, [turnSeat]);
 
   return (
     <div className="min-h-full">
@@ -64,7 +73,17 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
         </>
       )}
 
-      {game.state?.currentTurn && <Theater state={game.state} send={game.send} mySeat={game.mySeat} />}
+      {game.state?.currentTurn && !theaterMin && (
+        <Theater state={game.state} send={game.send} mySeat={game.mySeat} onMinimize={() => setTheaterMin(true)} />
+      )}
+      {game.state?.currentTurn && theaterMin && (
+        <button
+          className="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 detonator text-base"
+          onClick={() => setTheaterMin(false)}
+        >
+          ▴ Resume {seatName(turnSeat!)}’s turn
+        </button>
+      )}
       {game.state && isGm && gmOpen && (
         <GMPanel state={game.state} send={game.send} events={game.events} onRewind={game.rewind} onClose={() => setGmOpen(false)} />
       )}

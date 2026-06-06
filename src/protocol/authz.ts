@@ -48,6 +48,7 @@ const TURN_INTENTS = new Set<Intent["kind"]>([
   "resolve_discard",
   "allocate",
   "commit",
+  "cancel_turn",
 ]);
 
 /** The seat an intent acts upon, if it's self-scoped; otherwise undefined. */
