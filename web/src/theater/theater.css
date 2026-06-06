@@ -1,0 +1,92 @@
+/* Resolution theater (DESIGN.md §6) — the hot layer. Everyone watches; the active
+   player + GM drive. All spectacle is gated by reduce-effects (theme.css zeroes the
+   animations under <html data-effects="reduced">). */
+
+.theater {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(90% 60% at 50% 30%, rgba(58, 37, 64, 0.6), transparent 70%),
+    rgba(13, 10, 28, 0.97);
+  overflow-y: auto;
+}
+.theater__inner { margin: auto; width: 100%; max-width: 56rem; padding: 1.25rem; }
+
+.theater__phase { font-family: var(--font-display); letter-spacing: 0.12em; color: var(--paper-fade); }
+
+/* The ROLL detonator — a big stamped button that feels like a plunger (§6). */
+.detonator {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 1.6rem;
+  color: #fff;
+  background: radial-gradient(120% 120% at 50% 0%, var(--blood-bright), var(--blood) 60%, #7d0d1f);
+  border: 2px solid #7d0d1f;
+  border-radius: 4px;
+  padding: 0.7rem 2.2rem;
+  box-shadow: 0 6px 0 #5e0a18, 0 12px 22px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: transform var(--motion-fast) var(--ease-impact), box-shadow var(--motion-fast);
+}
+.detonator:active { transform: translateY(5px); box-shadow: 0 1px 0 #5e0a18, 0 4px 10px rgba(0, 0, 0, 0.5); }
+.detonator:disabled { filter: grayscale(0.6) brightness(0.7); cursor: default; }
+
+/* A scattered tray of dice. */
+.tray { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+
+/* Screen-shake for the roll concussion (§6); single-shot. */
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-6px, 3px) rotate(-0.4deg); }
+  40% { transform: translate(5px, -4px) rotate(0.4deg); }
+  60% { transform: translate(-4px, 2px); }
+  80% { transform: translate(3px, -2px); }
+}
+.shake { animation: shake 360ms var(--ease-impact) both; }
+
+/* Muzzle-flash bloom behind the dice when they explode out (§6). */
+@keyframes flash-bloom {
+  0% { opacity: 0; transform: scale(0.5); }
+  30% { opacity: 0.9; }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+.flash-bloom {
+  position: absolute; inset: -20% ;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, rgba(232, 148, 28, 0.7), transparent 60%);
+  animation: flash-bloom 420ms ease-out both;
+}
+
+/* Allocation target cards. */
+.target {
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--motion-fast) var(--ease-impact), box-shadow var(--motion-fast);
+}
+.target:hover { transform: translateY(-2px); }
+.target--armed { box-shadow: 0 0 0 2px var(--hazard), 0 8px 18px rgba(0, 0, 0, 0.5); }
+.target--threat.target--armed { box-shadow: 0 0 0 2px var(--blood-bright), 0 8px 18px rgba(0, 0, 0, 0.5); }
+
+/* A surviving die that's selected for placement glows. */
+.die-pick { cursor: pointer; transition: transform var(--motion-fast); }
+.die-pick--selected { transform: translateY(-6px) scale(1.06); filter: drop-shadow(0 0 8px var(--hazard)); }
+
+/* Arterial spray burst on Eliminate; blood flood pulse on Feed (§6) — kept as light,
+   stylized CSS (the Kill Bill register, §8), not photographic. Step 8 adds particles. */
+@keyframes spray {
+  0% { opacity: 0.9; transform: scale(0.3) rotate(var(--spin, 0deg)); }
+  100% { opacity: 0; transform: scale(1.5) rotate(var(--spin, 0deg)); }
+}
+.spray {
+  position: absolute; inset: 0; pointer-events: none; z-index: 5;
+  background:
+    radial-gradient(8px 3px at 20% 30%, var(--blood-bright) 60%, transparent 70%),
+    radial-gradient(6px 4px at 70% 40%, var(--blood) 60%, transparent 70%),
+    radial-gradient(5px 5px at 50% 70%, var(--blood-bright) 60%, transparent 70%),
+    radial-gradient(4px 3px at 85% 75%, var(--blood) 60%, transparent 70%);
+  animation: spray 500ms ease-out both;
+}

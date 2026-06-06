@@ -3,6 +3,8 @@ import { useEffects } from "@/effects/EffectsContext";
 import { SeatPick } from "./SeatPick";
 import { Board } from "./Board";
 import { SafetyBar, XCardOverlay } from "./SafetyBar";
+import { Theater } from "@/theater/Theater";
+import { TurnControls } from "@/theater/TurnControls";
 
 /**
  * In-game shell: connects to the room, then routes to seat-pick (until this device
@@ -41,9 +43,13 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
           onRelease={game.releaseSeat}
         />
       ) : (
-        <Board state={game.state} online={game.online} />
+        <>
+          <TurnControls state={game.state} send={game.send} mySeat={game.mySeat} />
+          <Board state={game.state} online={game.online} />
+        </>
       )}
 
+      {game.state?.currentTurn && <Theater state={game.state} send={game.send} mySeat={game.mySeat} />}
       {game.state && <SafetyBar state={game.state} send={game.send} />}
       {game.state && <XCardOverlay state={game.state} send={game.send} />}
 
