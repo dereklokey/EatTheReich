@@ -1,0 +1,7 @@
+/* Font voices (DESIGN.md §3). Strong local fallbacks so the app still reads right
+   offline: a typewriter mono for body, a condensed stencil-ish face for headers, a
+   blackletter for spectacle callouts only. @import must precede the Tailwind import. */
+@import url("https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Oswald:wght@500;700&family=UnifrakturCook:wght@700&display=swap");
+
+@import "tailwindcss";
+@import "./theme.css";

@@ -1,0 +1,106 @@
+/* Dice (DESIGN.md §5) — the iconic, reused-everywhere centerpiece. Rendered as
+   weighty 2.5D cubes: thick edges, real shadow, a sense of mass. Player dice are
+   purple-marbled with crimson Roman numerals (the 6 is special); GM dice are
+   bone/cream with crimson pips and read as "the enemy's, other, smaller." */
+
+.die {
+  --die-size: 3rem;
+  position: relative;
+  width: var(--die-size);
+  height: var(--die-size);
+  display: grid;
+  place-items: center;
+  border-radius: calc(var(--die-size) * 0.18);
+  transform: rotate(var(--die-tilt, -3deg));
+  user-select: none;
+  /* weight: thick lower edge + grounded shadow */
+  box-shadow:
+    0 calc(var(--die-size) * 0.09) 0 rgba(0, 0, 0, 0.35),
+    0 calc(var(--die-size) * 0.14) calc(var(--die-size) * 0.18) rgba(0, 0, 0, 0.45),
+    inset 0 2px 1px rgba(255, 255, 255, 0.35),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* ---- Player die: purple marble + crimson numerals ---- */
+.die--player {
+  /* marbled material, NOT a flat web gradient (DESIGN.md §2 forbidden cliché) */
+  background:
+    radial-gradient(60% 55% at 30% 25%, var(--die-player-2) 0%, transparent 55%),
+    radial-gradient(70% 60% at 78% 80%, #4a1c63 0%, transparent 60%),
+    conic-gradient(from 200deg at 50% 50%, var(--die-player), #531f70, var(--die-player-2), var(--die-player));
+  border: 1px solid #3b1551;
+}
+.die--player .die__face {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--die-pip);
+  font-size: calc(var(--die-size) * 0.46);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* ---- GM die: bone/cream + crimson pips, slightly smaller presence ---- */
+.die--gm {
+  --die-size: 2.5rem;
+  background:
+    radial-gradient(70% 60% at 32% 28%, #fff8ea 0%, transparent 60%),
+    var(--die-gm);
+  border: 1px solid #cdbf9f;
+}
+.die__pips {
+  width: 72%;
+  height: 72%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  place-items: center;
+}
+.die__pip {
+  width: 22%;
+  height: 22%;
+  border-radius: 9999px;
+  background: var(--die-gm-pip);
+  box-shadow: inset 0 -1px 1px rgba(0, 0, 0, 0.35);
+}
+
+/* ---- States ---- */
+.die--success { outline: 2px solid var(--hazard); outline-offset: 1px; }
+
+.die--critical {
+  /* the 6 matters at a glance: brighter body, crimson detonation ring + glow */
+  filter: brightness(1.18) saturate(1.2);
+  box-shadow:
+    0 0 0 2px var(--blood-bright),
+    0 0 18px 4px rgba(255, 45, 74, 0.6),
+    0 calc(var(--die-size) * 0.09) 0 rgba(0, 0, 0, 0.35),
+    inset 0 2px 1px rgba(255, 255, 255, 0.4);
+}
+.die--critical .die__face { color: #fff; text-shadow: 0 0 8px var(--blood-bright); }
+
+/* Discard: crumble + desaturate to the muted discard tone, with a gothic stamp (§5). */
+.die--discarded {
+  filter: grayscale(0.9) brightness(0.7);
+  background: var(--discard) !important;
+  opacity: 0.7;
+}
+.die__discard-stamp {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-gothic);
+  font-size: calc(var(--die-size) * 0.34);
+  color: var(--blood-bright);
+  transform: rotate(-12deg);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+
+/* Drop-in from above for mid-allocation bonus dice / fresh rolls (§6). */
+@keyframes die-drop-in {
+  0% { transform: translateY(-140%) rotate(-24deg) scale(1.1); opacity: 0; }
+  70% { transform: translateY(8%) rotate(2deg) scale(1); opacity: 1; }
+  100% { transform: translateY(0) rotate(var(--die-tilt, -3deg)); }
+}
+.die--enter { animation: die-drop-in var(--motion-base) var(--ease-impact) both; }

@@ -1,0 +1,234 @@
+/* =========================================================================
+   Eat the Reich — style kit (DESIGN.md §2–4, §9)
+   Establish CSS variables, type voices, and the paper/grain substrate FIRST;
+   every screen inherits from here. The calm "dossier" layer is restrained; the
+   loud "spectacle" layer (added per-action) is the exception, not the ambient.
+   ========================================================================= */
+
+:root {
+  /* ---- Palette (DESIGN.md §2, sampled from the book) ---- */
+  --paper:        #e8dcc0;   /* aged manila body paper */
+  --paper-shadow: #c8b896;   /* paper edge / layered-file shadow */
+  --paper-ink:    #1c1a17;   /* typewriter near-black */
+  --paper-fade:   #5a5346;   /* faded carbon text */
+
+  --night-top:    #1a1530;   /* deep indigo sky */
+  --night-deep:   #0d0a1c;   /* near-black base */
+  --dusk-mauve:   #3a2540;   /* horizon mauve */
+
+  --blood:        #c0142e;   /* arterial crimson — hits, danger, GM */
+  --blood-bright: #ff2d4a;   /* spray highlight / crit flash */
+  --hazard:       #f2c014;   /* highlighter / success */
+  --hazard-warm:  #e8941c;   /* fire / explosion */
+
+  --die-player:   #6a2b8a;
+  --die-player-2: #9c3bb0;
+  --die-pip:      #ff2d4a;
+  --die-gm:       #ede4d0;
+  --die-gm-pip:   #c0142e;
+
+  --success:      var(--hazard);
+  --critical:     var(--blood-bright);
+  --discard:      #4a4458;
+
+  /* ---- Type voices (DESIGN.md §3) ---- */
+  --font-mono:    "Courier Prime", "Courier New", ui-monospace, monospace;
+  --font-display: "Oswald", "Arial Narrow", system-ui, sans-serif;
+  --font-gothic:  "UnifrakturCook", "Blackletter", serif;
+
+  /* ---- Motion (read by JS + CSS; zeroed under reduce-effects) ---- */
+  --motion-fast:  120ms;
+  --motion-base:  220ms;
+  --motion-slow:  480ms;
+  --ease-impact:  cubic-bezier(0.18, 0.9, 0.22, 1.0); /* fast-in / slow-settle */
+}
+
+/* Tailwind v4 theme bridge: expose the palette + fonts as utilities
+   (bg-paper, text-blood, font-mono, …) without losing the raw vars above. */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-shadow: var(--paper-shadow);
+  --color-paper-ink: var(--paper-ink);
+  --color-paper-fade: var(--paper-fade);
+  --color-night-top: var(--night-top);
+  --color-night-deep: var(--night-deep);
+  --color-dusk-mauve: var(--dusk-mauve);
+  --color-blood: var(--blood);
+  --color-blood-bright: var(--blood-bright);
+  --color-hazard: var(--hazard);
+  --color-hazard-warm: var(--hazard-warm);
+  --color-discard: var(--discard);
+  --font-mono: var(--font-mono);
+  --font-display: var(--font-display);
+  --font-gothic: var(--font-gothic);
+}
+
+/* ---- Base: night ground, typewriter body (DESIGN.md §2, §3) ---- */
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-mono);
+  color: var(--paper-ink);
+  background:
+    radial-gradient(120% 80% at 50% -10%, var(--night-top) 0%, var(--night-deep) 60%),
+    var(--night-deep);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* The app sits on the night ground; the layered-dossier substrate (§4) is painted
+   behind everything via .substrate, kept subtle so text stays the loud thing. */
+.substrate { position: relative; min-height: 100%; isolation: isolate; }
+
+.substrate::before {
+  /* faint stacked, rotated paper edges suggesting a war file (§4) */
+  content: "";
+  position: fixed; inset: 0; z-index: -2;
+  background:
+    linear-gradient(115deg, transparent 0 42%, rgba(200,184,150,0.05) 42% 43%, transparent 43%),
+    linear-gradient(-100deg, transparent 0 70%, rgba(200,184,150,0.04) 70% 71%, transparent 71%);
+  pointer-events: none;
+}
+
+/* One global grain/noise overlay ties the app together (§4). Lives in the
+   background; toggled off under reduce-effects. */
+.grain::after {
+  content: "";
+  position: fixed; inset: 0; z-index: 50;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'>\
+<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/>\
+<feColorMatrix type='saturate' values='0'/></filter>\
+<rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* =========================================================================
+   Type voices
+   ========================================================================= */
+.display {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  line-height: 0.95;
+}
+.mono { font-family: var(--font-mono); }
+.gothic { font-family: var(--font-gothic); letter-spacing: 0.01em; }
+
+/* Hand-drawn underline for headers — an SVG squiggle, not text-decoration (§3). */
+.underline-squiggle {
+  background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='120' height='8'>\
+<path d='M1 5 Q 20 1 40 5 T 80 5 T 119 4' fill='none' stroke='%23c0142e' stroke-width='2'/></svg>");
+  background-repeat: no-repeat;
+  background-position: left bottom;
+  background-size: 100% 7px;
+  padding-bottom: 8px;
+}
+
+/* Highlighter swipe behind key terms — skewed, rough-edged hazard/blood marker (§3).
+   Use .hl (yellow emphasis) or .hl-danger (crimson). */
+.hl, .hl-danger {
+  position: relative;
+  isolation: isolate;
+}
+.hl::before, .hl-danger::before {
+  content: "";
+  position: absolute; inset: -0.05em -0.25em;
+  z-index: -1;
+  transform: skewX(-8deg) rotate(-0.6deg);
+  background: color-mix(in srgb, var(--hazard) 70%, transparent);
+  /* torn marker edges via a soft mask, not a clean rectangle */
+  -webkit-mask: radial-gradient(120% 130% at 50% 50%, #000 70%, transparent 100%);
+          mask: radial-gradient(120% 130% at 50% 50%, #000 70%, transparent 100%);
+}
+.hl-danger::before { background: color-mix(in srgb, var(--blood) 60%, transparent); }
+
+/* =========================================================================
+   Paper panels — manila cards with torn/burnt edges, grain, stacked shadow (§4)
+   ========================================================================= */
+.paper {
+  position: relative;
+  background:
+    linear-gradient(0deg, rgba(0,0,0,0.03), rgba(0,0,0,0.03)),
+    var(--paper);
+  color: var(--paper-ink);
+  border: 1px solid var(--paper-shadow);
+  /* irregular torn corners — not a tidy rounded rectangle */
+  clip-path: polygon(
+    0 6px, 6px 0, calc(100% - 10px) 2px, 100% 8px,
+    calc(100% - 3px) calc(100% - 6px), calc(100% - 9px) 100%,
+    8px calc(100% - 2px), 2px calc(100% - 9px)
+  );
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.35) inset,
+    0 10px 22px rgba(0,0,0,0.45),
+    0 2px 4px rgba(0,0,0,0.3);
+  padding: 1rem 1.1rem;
+}
+/* faint paper grain on the card itself */
+.paper::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  background:
+    radial-gradient(60% 40% at 80% 12%, rgba(120,90,40,0.10), transparent 60%),
+    radial-gradient(40% 30% at 12% 88%, rgba(120,90,40,0.08), transparent 60%);
+}
+.paper-tight { padding: 0.6rem 0.7rem; }
+
+/* Rubber-stamped label, e.g. RECEIVED / a seat tag (§4) */
+.stamp {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--blood);
+  border: 2px solid var(--blood);
+  padding: 0.1em 0.4em;
+  transform: rotate(-5deg);
+  opacity: 0.85;
+  display: inline-block;
+  border-radius: 2px;
+}
+
+/* Presence dots (§6 ambient): green live (faint pulse), grey away. */
+.dot { width: 0.6rem; height: 0.6rem; border-radius: 9999px; display: inline-block; }
+.dot-online { background: #3fbf6a; box-shadow: 0 0 0 0 rgba(63,191,106,0.6); animation: pulse 2.4s ease-out infinite; }
+.dot-away { background: #6b6b6b; }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(63,191,106,0.5); }
+  70% { box-shadow: 0 0 0 7px rgba(63,191,106,0); }
+  100% { box-shadow: 0 0 0 0 rgba(63,191,106,0); }
+}
+
+/* =========================================================================
+   Reduce-effects (DESIGN.md §4 guardrail, §9). Wired from the start: strips grain,
+   spatter, shake, and heavy motion while keeping layout + color identity. Driven by
+   <html data-effects="reduced"> (set by EffectsProvider, defaulting to the OS pref).
+   ========================================================================= */
+[data-effects="reduced"] .grain::after,
+[data-effects="reduced"] .substrate::before { display: none; }
+
+[data-effects="reduced"] *,
+[data-effects="reduced"] *::before,
+[data-effects="reduced"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
