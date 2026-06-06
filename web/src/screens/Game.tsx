@@ -55,7 +55,12 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
       ) : (
         <>
           <TurnControls state={game.state} send={game.send} mySeat={game.mySeat} />
-          <Board state={game.state} online={game.online} onOpenSheet={setSheetSeat} />
+          <Board
+            state={game.state}
+            online={game.online}
+            onOpenSheet={setSheetSeat}
+            onFrameScene={isGm ? () => setGmOpen(true) : undefined}
+          />
         </>
       )}
 

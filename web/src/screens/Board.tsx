@@ -13,14 +13,32 @@ export function Board({
   state,
   online,
   onOpenSheet,
+  onFrameScene,
 }: {
   state: GameState;
   online: SeatId[];
   onOpenSheet?: (id: CharId) => void;
+  /** GM-only: open the GM panel to frame the first scene (shown as an empty-state CTA). */
+  onFrameScene?: () => void;
 }) {
+  const empty = state.board.objectives.length === 0 && state.board.threats.length === 0;
   return (
     <div className="substrate grain min-h-full p-4 pb-20 mx-auto max-w-5xl">
       <BoardHeader state={state} />
+
+      {empty && onFrameScene && (
+        <div className="paper mt-4 text-center">
+          <p className="display text-xl">No scene yet</p>
+          <p className="mono text-xs text-paper-fade mt-1">Load a location or add objectives and threats to set the board.</p>
+          <button
+            className="display text-paper bg-blood px-4 py-2 mt-3"
+            style={{ borderRadius: 2 }}
+            onClick={onFrameScene}
+          >
+            Frame a scene
+          </button>
+        </div>
+      )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <section>
