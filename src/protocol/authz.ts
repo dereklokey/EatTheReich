@@ -26,11 +26,17 @@ export type Authorization = { ok: true } | { ok: false; error: string };
 const allow: Authorization = { ok: true };
 const deny = (error: string): Authorization => ({ ok: false, error });
 
-/** Intents anyone (including spectators) may send — the safety tooling is universal (§2). */
+/**
+ * Intents anyone (including spectators) may send — the safety tooling is universal
+ * (§2, DESIGN.md §8). Lines/Veils/calibration (`set_safety`) belong here too: every
+ * participant is responsible for the table's safety (rulebook p6), so anyone may
+ * record a Line or Veil during Session 0 or mid-game, not just the GM.
+ */
 const SAFETY_INTENTS = new Set<Intent["kind"]>([
   "raise_xcard",
   "clear_xcard",
   "traffic_signal",
+  "set_safety",
 ]);
 
 /** Intents an un-seated connection may send to get into the game. */

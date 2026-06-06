@@ -1,6 +1,8 @@
+import { useState } from "react";
 import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
 import type { TrafficColor } from "@shared/events/types.js";
+import { SafetySetup } from "@/safety/SafetySetup";
 
 /**
  * Safety tooling (CLAUDE.md §2, DESIGN.md §8). The deliberate exception to the
@@ -14,7 +16,10 @@ const TRAFFIC: { color: TrafficColor; label: string; css: string }[] = [
 ];
 
 export function SafetyBar({ state, send }: { state: GameState; send: (i: Intent) => void }) {
-  const { traffic } = state.safety;
+  const { traffic, lines, veils } = state.safety;
+  const [setupOpen, setSetupOpen] = useState(false);
+  const noted = lines.length + veils.length;
+
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 bg-night-deep/95 border-t border-paper-shadow/30">
       <div className="mx-auto max-w-5xl flex items-center gap-3 px-4 py-2">
@@ -42,10 +47,16 @@ export function SafetyBar({ state, send }: { state: GameState; send: (i: Intent)
           ))}
         </div>
 
-        <span className="font-mono text-xs text-paper-fade ml-auto">
-          {traffic ? `Signal: ${traffic}` : "Safety tools — always available"}
-        </span>
+        <button
+          className="font-mono text-sm px-3 py-1.5 bg-night-top text-paper border border-paper-shadow/40 ml-auto"
+          style={{ borderRadius: 3 }}
+          onClick={() => setSetupOpen(true)}
+        >
+          Lines &amp; Veils{noted > 0 ? ` (${noted})` : ""}
+        </button>
       </div>
+
+      {setupOpen && <SafetySetup state={state} send={send} onClose={() => setSetupOpen(false)} />}
     </div>
   );
 }

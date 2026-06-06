@@ -60,9 +60,12 @@ describe("authorizeIntent — a seated player", () => {
     expect(authorizeIntent(s, "iryna", { kind: "loot_add", seat: "iryna", item: { id: "x", name: "X" } }).ok).toBe(false);
   });
 
-  it("may use the safety tools", () => {
+  it("may use the safety tools, including recording Lines/Veils", () => {
     expect(authorizeIntent(s, "iryna", { kind: "raise_xcard" }).ok).toBe(true);
     expect(authorizeIntent(s, "iryna", { kind: "traffic_signal", color: "amber" }).ok).toBe(true);
+    expect(authorizeIntent(s, "iryna", { kind: "set_safety", lines: ["x"] }).ok).toBe(true);
+    // Spectators too.
+    expect(authorizeIntent(s, null, { kind: "set_safety", veils: ["y"] }).ok).toBe(true);
   });
 
   it("may not touch GM-only surfaces", () => {
