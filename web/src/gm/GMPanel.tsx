@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
 import type { Objective, Threat } from "@shared/domain/types.js";
-import { CHAR_IDS, type SeatId } from "@shared/events/types.js";
+import { CHAR_IDS, type SeatId, type GameEvent } from "@shared/events/types.js";
 import { LOCATIONS_BY_SECTOR, type Sector } from "@shared/data/locations.js";
 import { seatName } from "@/game/seats";
 import { THREAT_CATALOG, loadLocation, newObjective, rescueObjective } from "./catalog";
@@ -18,10 +18,14 @@ const SECTORS: Sector[] = [3, 2, 1];
 export function GMPanel({
   state,
   send,
+  events,
+  onRewind,
   onClose,
 }: {
   state: GameState;
   send: (i: Intent) => void;
+  events: GameEvent[];
+  onRewind: (toSeq: number) => void;
   onClose: () => void;
 }) {
   return (
@@ -38,6 +42,7 @@ export function GMPanel({
         <ObjectivesSection state={state} send={send} />
         <ThreatsSection state={state} send={send} />
         <RescueSection state={state} send={send} />
+        <RewindSection state={state} events={events} onRewind={onRewind} />
         <SeatsSection state={state} send={send} />
       </div>
     </div>
@@ -202,6 +207,39 @@ function RescueSection({ state, send }: { state: GameState; send: (i: Intent) =>
           Add rescue objective for {seatName(id)}
         </button>
       ))}
+    </Section>
+  );
+}
+
+function RewindSection({ state, events, onRewind }: { state: GameState; events: GameEvent[]; onRewind: (toSeq: number) => void }) {
+  const recent = [...events].reverse().slice(0, 12);
+  const label = (t: string) => t.toLowerCase().replace(/_/g, " ");
+  return (
+    <Section title="Rewind">
+      <p className="mono text-[0.65rem] text-paper-fade mb-2">
+        Undo is permanent — it drops events off the end of the log. Everyone’s screen jumps back.
+      </p>
+      <button
+        className="w-full display bg-dusk-mauve text-paper py-1.5 disabled:opacity-40"
+        style={{ borderRadius: 2 }}
+        disabled={state.seq <= 1}
+        onClick={() => onRewind(state.seq - 1)}
+      >
+        Undo last action (#{state.seq})
+      </button>
+      {recent.length > 0 && (
+        <div className="mt-2 flex flex-col gap-1">
+          {recent.map((e) => (
+            <div key={e.seq} className="paper paper-tight flex items-center gap-2 mono text-[0.7rem]">
+              <span className="text-paper-fade">#{e.seq}</span>
+              <span className="flex-1">{label(e.type)} <span className="text-paper-fade">· {e.actor}</span></span>
+              <button className="underline text-blood" title="rewind to just before this event" onClick={() => onRewind(e.seq - 1)}>
+                ↩ before
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </Section>
   );
 }

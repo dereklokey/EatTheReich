@@ -27,4 +27,10 @@ export interface Store {
   loadSnapshot(gameId: string): Promise<Snapshot | null>;
   /** Highest event seq for a game (0 if none) — used to assign the next seq. */
   lastSeq(gameId: string): Promise<number>;
+  /**
+   * GM rewind (CLAUDE.md §3.2 "undo / pop events"). Permanently drop every event with
+   * seq > `toSeq`, reset the head to `toSeq`, and discard any snapshot newer than it so
+   * a subsequent rebuild reflects the rewound log. Appends resume from `toSeq + 1`.
+   */
+  rewindTo(gameId: string, toSeq: number): Promise<void>;
 }

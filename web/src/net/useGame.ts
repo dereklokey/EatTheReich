@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
-import type { SeatId } from "@shared/events/types.js";
+import type { SeatId, GameEvent } from "@shared/events/types.js";
 import { GameConnection, type ConnStatus } from "./connection.js";
+
+/** How many recent events the client keeps for the GM rewind feed. */
+const FEED_CAP = 60;
 
 /**
  * React binding over GameConnection (CLAUDE.md §3.4: "a single client-side reducer
@@ -20,8 +23,11 @@ export interface GameView {
   online: SeatId[];
   mySeat: SeatId | null;
   error: string | null;
+  /** Recent events accumulated this session, for the GM rewind feed (§3.2). */
+  events: GameEvent[];
   claimSeat: (seat: SeatId) => void;
   releaseSeat: (seat: SeatId) => void;
+  rewind: (toSeq: number) => void;
   send: (intent: Intent) => void;
   clearError: () => void;
 }
@@ -52,11 +58,13 @@ export function useGame(code: string | null): GameView {
   const [online, setOnline] = useState<SeatId[]>([]);
   const [mySeat, setMySeat] = useState<SeatId | null>(code ? (loadSeat(code)?.seat ?? null) : null);
   const [error, setError] = useState<string | null>(null);
+  const [events, setEvents] = useState<GameEvent[]>([]);
   const connRef = useRef<GameConnection | null>(null);
 
   useEffect(() => {
     if (!code) return;
     setMySeat(loadSeat(code)?.seat ?? null);
+    setEvents([]);
 
     const conn = new GameConnection(
       code,
@@ -70,6 +78,16 @@ export function useGame(code: string | null): GameView {
           switch (m.t) {
             case "sync":
               setState(m.state);
+              // Accumulate the event feed, dedupe by seq, and prune anything past the
+              // current head so a GM rewind (which truncates the log) prunes here too.
+              setEvents((prev) => {
+                const bySeq = new Map(prev.map((e) => [e.seq, e]));
+                for (const e of m.events) bySeq.set(e.seq, e);
+                return [...bySeq.values()]
+                  .filter((e) => e.seq <= m.state.seq)
+                  .sort((a, b) => a.seq - b.seq)
+                  .slice(-FEED_CAP);
+              });
               break;
             case "presence":
               setOnline(m.online);
@@ -99,7 +117,8 @@ export function useGame(code: string | null): GameView {
 
   const claimSeat = useCallback((seat: SeatId) => send({ kind: "claim_seat", seat }), [send]);
   const releaseSeat = useCallback((seat: SeatId) => send({ kind: "release_seat", seat }), [send]);
+  const rewind = useCallback((toSeq: number) => send({ kind: "rewind", toSeq }), [send]);
   const clearError = useCallback(() => setError(null), []);
 
-  return { status, state, online, mySeat, error, claimSeat, releaseSeat, send, clearError };
+  return { status, state, online, mySeat, error, events, claimSeat, releaseSeat, rewind, send, clearError };
 }

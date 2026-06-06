@@ -56,6 +56,20 @@ export class FileStore implements Store {
     return events.length > 0 ? events[events.length - 1]!.seq : 0;
   }
 
+  async rewindTo(gameId: string, toSeq: number): Promise<void> {
+    const kept = (await this.loadEvents(gameId)).filter((e) => e.seq <= toSeq);
+    const eventsPath = this.eventsPath(gameId);
+    if (kept.length === 0) {
+      await fs.rm(eventsPath, { force: true });
+    } else {
+      const tmp = `${eventsPath}.tmp`;
+      await fs.writeFile(tmp, kept.map((e) => JSON.stringify(e)).join("\n") + "\n", "utf8");
+      await fs.rename(tmp, eventsPath);
+    }
+    const snap = await this.loadSnapshot(gameId);
+    if (snap && snap.seq > toSeq) await fs.rm(this.snapshotPath(gameId), { force: true });
+  }
+
   private async readOrEmpty(p: string): Promise<string> {
     try {
       return await fs.readFile(p, "utf8");

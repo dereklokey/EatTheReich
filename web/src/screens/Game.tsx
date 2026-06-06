@@ -60,7 +60,9 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
       )}
 
       {game.state?.currentTurn && <Theater state={game.state} send={game.send} mySeat={game.mySeat} />}
-      {game.state && isGm && gmOpen && <GMPanel state={game.state} send={game.send} onClose={() => setGmOpen(false)} />}
+      {game.state && isGm && gmOpen && (
+        <GMPanel state={game.state} send={game.send} events={game.events} onRewind={game.rewind} onClose={() => setGmOpen(false)} />
+      )}
       {game.state && sheetSeat && (
         <CharacterSheet
           seat={sheetSeat}

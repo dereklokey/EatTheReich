@@ -59,6 +59,24 @@ describe.each([
     expect(viaSnapshot).toEqual(viaFullReplay);
     expect(viaSnapshot.seq).toBe(16);
   });
+
+  it("rewinds the log, dropping later events + a now-stale snapshot (GM undo)", async () => {
+    const store = await make();
+    const events = irynaClockTowerEvents("gr");
+    await appendAll(store, "gr");
+    // A head snapshot would be stale once we rewind behind it.
+    await store.saveSnapshot({ gameId: "gr", seq: 16, state: reduce(events) });
+
+    await store.rewindTo("gr", 8);
+    expect(await store.lastSeq("gr")).toBe(8);
+    expect((await store.loadEvents("gr")).map((e) => e.seq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    // Stale snapshot dropped → rebuild equals a replay of just the kept events.
+    expect(await loadState(store, "gr")).toEqual(reduce(events.slice(0, 8)));
+
+    // Appends resume cleanly from the rewound head.
+    await store.appendEvent("gr", events[8]!); // seq 9
+    expect(await store.lastSeq("gr")).toBe(9);
+  });
 });
 
 describe("FileStore durability across a 'restart'", () => {

@@ -75,4 +75,17 @@ describe("DOStore — Store against DO storage (key scheme evt:/snapshot/meta)",
     const snap = await store.loadSnapshot("room");
     expect(snap?.seq).toBe(10);
   });
+
+  it("rewinds: deletes events past the head and a stale snapshot", async () => {
+    const store = new DOStore(new FakeDOStorage());
+    const events = irynaClockTowerEvents("room");
+    for (const e of events) await store.appendEvent("room", e);
+    await store.saveSnapshot({ gameId: "room", seq: 16, state: reduce(events) });
+
+    await store.rewindTo("room", 6);
+    expect(await store.lastSeq("room")).toBe(6);
+    expect((await store.loadEvents("room")).map((e) => e.seq)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(await store.loadSnapshot("room")).toBeNull(); // stale snapshot dropped
+    expect(await loadState(store, "room")).toEqual(reduce(events.slice(0, 6)));
+  });
 });

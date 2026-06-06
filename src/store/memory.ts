@@ -37,4 +37,11 @@ export class InMemoryStore implements Store {
     const log = this.events.get(gameId);
     return log && log.length > 0 ? log[log.length - 1]!.seq : 0;
   }
+
+  async rewindTo(gameId: string, toSeq: number): Promise<void> {
+    const log = this.events.get(gameId) ?? [];
+    this.events.set(gameId, log.filter((e) => e.seq <= toSeq));
+    const snap = this.snapshots.get(gameId);
+    if (snap && snap.seq > toSeq) this.snapshots.delete(gameId);
+  }
 }

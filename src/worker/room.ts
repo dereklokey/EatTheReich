@@ -149,6 +149,15 @@ export class GameRoom implements DurableObject {
       return;
     }
 
+    // GM rewind (§3.2) is a log operation, not an appended event: truncate the log,
+    // rebuild, and broadcast the rewound state to everyone.
+    if (msg.intent.kind === "rewind") {
+      const toSeq = Math.min(state.seq, Math.max(1, Math.floor(msg.intent.toSeq)));
+      this.state = await this.log.rewindTo(this.gameId, toSeq);
+      this.broadcast({ t: "sync", state: this.state, events: [] });
+      return;
+    }
+
     // For a fresh seat claim, mint the raw token here and keep only its hash in the
     // log; the raw token is handed back to this one socket below (§3.6).
     let mintedToken: string | undefined;

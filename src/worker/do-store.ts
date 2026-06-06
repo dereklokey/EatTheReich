@@ -67,4 +67,14 @@ export class DOStore implements Store {
   async lastSeq(_gameId: string): Promise<number> {
     return (await this.storage.get<number>(LAST_SEQ_KEY)) ?? 0;
   }
+
+  async rewindTo(_gameId: string, toSeq: number): Promise<void> {
+    // Delete every event past the rewind point.
+    const doomed = await this.storage.list<GameEvent>({ prefix: EVT_PREFIX, start: evtKey(toSeq + 1) });
+    for (const key of doomed.keys()) await this.storage.delete(key);
+    await this.storage.put(LAST_SEQ_KEY, toSeq);
+    // Drop a snapshot that's now newer than the head so rebuild replays cleanly.
+    const snap = await this.storage.get<Snapshot>(SNAPSHOT_KEY);
+    if (snap && snap.seq > toSeq) await this.storage.delete(SNAPSHOT_KEY);
+  }
 }

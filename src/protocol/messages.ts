@@ -45,7 +45,9 @@ export type Intent =
   | { kind: "loot_activate"; seat: CharId; itemId: string }
   | { kind: "unlock_advance"; seat: CharId; advanceId: string }
   | { kind: "trigger_flashback"; seat: CharId; context: string; question: string }
-  | { kind: "gm_override"; note?: string; patch?: { objectives?: Objective[]; threats?: Threat[] } };
+  | { kind: "gm_override"; note?: string; patch?: { objectives?: Objective[]; threats?: Threat[] } }
+  /** GM rewind: drop the event log back to `toSeq` (§3.2). Handled by the room, not the reducer. */
+  | { kind: "rewind"; toSeq: number };
 
 /**
  * client → server.

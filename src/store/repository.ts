@@ -54,6 +54,12 @@ export class GameLog {
     return loadState(this.store, gameId);
   }
 
+  /** GM rewind: drop events past `toSeq`, then return the rebuilt state (§3.2). */
+  async rewindTo(gameId: string, toSeq: number): Promise<GameState> {
+    await this.store.rewindTo(gameId, toSeq);
+    return loadState(this.store, gameId);
+  }
+
   /** Force a snapshot at the current head (e.g. on graceful shutdown). */
   async snapshotNow(gameId: string): Promise<Snapshot> {
     const seq = await this.store.lastSeq(gameId);
