@@ -49,6 +49,8 @@ export type Intent =
   | { kind: "share_blood"; from: CharId; to: CharId; amount: number }
   | { kind: "heal"; seat: CharId; category: 0 | 1 | 2; box: 1 | 2 }
   | { kind: "use_equipment"; seat: CharId; itemId: string }
+  /** Un-spend an equipment use (the sheet's click-to-remove); restores 1 use up to the item's max. */
+  | { kind: "restore_equipment"; seat: CharId; itemId: string }
   | { kind: "loot_add"; seat: CharId; item: Equipment }
   | { kind: "loot_activate"; seat: CharId; itemId: string }
   | { kind: "unlock_advance"; seat: CharId; advanceId: string }

@@ -48,7 +48,7 @@ describe("character catalog integrity", () => {
     expect(IRYNA.stats).toMatchObject({ SHOOT: 3, CON: 4, SNEAK: 1, BRAWL: 2, TERRIFY: 3 });
     const runes = IRYNA.equipment.find((e) => e.id === "iryna-runes")!;
     expect(runes.bonus).toEqual({ tag: "concealed", plus: 2 });
-    expect(runes.uses).toBe(2);
+    expect(runes.uses).toBe(3);
   });
 
   it("Nicole's weapons carry distinct Scavenger slots 1–6", () => {

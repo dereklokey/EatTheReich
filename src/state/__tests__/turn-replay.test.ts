@@ -25,8 +25,8 @@ describe("Iryna clock-tower turn, replayed from events", () => {
     expect(state.characters.iryna.downed).toBe(false);
   });
 
-  it("spends a use of the Explosive Runes (2 → 1)", () => {
-    expect(state.characters.iryna.equipmentUses["iryna-runes"]).toBe(1);
+  it("spends a use of the Explosive Runes (3 → 2)", () => {
+    expect(state.characters.iryna.equipmentUses["iryna-runes"]).toBe(2);
   });
 
   it("ends the turn: Iryna has acted, no turn in progress, session is live", () => {

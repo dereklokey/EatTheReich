@@ -112,6 +112,7 @@ export interface EventPayloads {
   BLOOD_SHARED: { from: CharId; to: CharId; amount: number };
 
   EQUIPMENT_USED: { seat: CharId; itemId: string };
+  EQUIPMENT_RESTORED: { seat: CharId; itemId: string };
   LOOT_ADDED: { seat: CharId; item: Equipment };
   LOOT_ACTIVATED: { seat: CharId; itemId: string };
   ADVANCE_UNLOCKED: { seat: CharId; advanceId: string };

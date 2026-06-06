@@ -5,8 +5,10 @@ import type { CharacterSheet, InjuryCategory } from "../domain/character.js";
  * The six fixed pregens, transcribed from the rulebook character sheets (pp. 14–24)
  * and mechanics (pp. 30–41). The rulebook is the source of truth.
  *
- * Equipment use counts follow the sheet's pip pattern (verified on every sheet):
- *   + → 3 uses · ++ → 2 uses · +++ → 1 use · ++++ → 1 use; plus 1-use special items.
+ * Equipment use counts are the literal pip boxes printed beside each item on the
+ * sheet (counted off the PDF — the last box is drawn in the character's accent colour
+ * but is still a use). There is NO formula tying uses to the +bonus; each item's count
+ * is whatever the sheet prints, e.g. Chuck's revolvers have 5, his tool belt 4.
  *
  * Passive ids the engine recognises: "corpse-eater", "dead-mans-luck", "bone-armour"
  * (see engine/passives.ts).
@@ -51,10 +53,10 @@ export const IRYNA: CharacterSheet = {
   ],
   stats: stats(2, 4, 2, 2, 3, 1, 3),
   equipment: [
-    { id: "iryna-rifle", name: "Exquisite hunting rifle", uses: 3, bonus: { tag: "elevated position", plus: 1 } },
-    { id: "iryna-sabre", name: "Magic cavalry sabre", uses: 3, bonus: { tag: "charge!", plus: 1 } },
-    { id: "iryna-runes", name: "Explosive runes", uses: 2, bonus: { tag: "concealed", plus: 2 } },
-    { id: "iryna-cigarettes", name: "Cigarettes taken from the pockets of hanged men", uses: 1, addsDie: false, note: "mark to regain 2 Blood", reactive: { blood: 2 } },
+    { id: "iryna-rifle", name: "Exquisite hunting rifle", uses: 5, bonus: { tag: "elevated position", plus: 1 } },
+    { id: "iryna-sabre", name: "Magic cavalry sabre", uses: 5, bonus: { tag: "charge!", plus: 1 } },
+    { id: "iryna-runes", name: "Explosive runes", uses: 3, bonus: { tag: "concealed", plus: 2 } },
+    { id: "iryna-cigarettes", name: "Cigarettes taken from the pockets of hanged men", uses: 3, addsDie: false, note: "mark to regain 2 Blood", reactive: { blood: 2 } },
   ],
   abilities: [
     { id: "iryna-dark-glamour", name: "Dark Glamour", text: "Those nearby are mesmerised by your unearthly visage.", mechanic: "active", bloodCost: 1, bonus: { tag: "beautiful surroundings", plus: 1 } },
@@ -86,9 +88,9 @@ export const NICOLE: CharacterSheet = {
   ],
   stats: stats(2, 2, 1, 2, 4, 3, 3),
   equipment: [
-    { id: "nicole-m3", name: "M3 submachine gun", scavengerSlot: 1, uses: 3, bonus: { tag: "flanking", plus: 1 } },
-    { id: "nicole-lee-enfield", name: "Cut-down Lee Enfield rifle", scavengerSlot: 2, uses: 3, bonus: { tag: "close quarters", plus: 1 } },
-    { id: "nicole-smoke", name: "Smoke grenades", scavengerSlot: 3, uses: 2, bonus: { tag: "cover advance", plus: 1 } },
+    { id: "nicole-m3", name: "M3 submachine gun", scavengerSlot: 1, uses: 4, bonus: { tag: "flanking", plus: 1 } },
+    { id: "nicole-lee-enfield", name: "Cut-down Lee Enfield rifle", scavengerSlot: 2, uses: 4, bonus: { tag: "close quarters", plus: 1 } },
+    { id: "nicole-smoke", name: "Smoke grenades", scavengerSlot: 3, uses: 3, bonus: { tag: "cover advance", plus: 1 } },
     { id: "nicole-firebombs", name: "Firebombs", scavengerSlot: 4, uses: 2, bonus: { tag: "firetrap", plus: 2 } },
     { id: "nicole-panzerfaust", name: "Panzerfaust", scavengerSlot: 5, uses: 1, bonus: { tag: "armoured target", plus: 3 } },
     { id: "nicole-dynamite", name: "Dynamite", scavengerSlot: 6, uses: 1, bonus: { tag: "demolitions", plus: 4 } },
@@ -123,8 +125,8 @@ export const COSGRAVE: CharacterSheet = {
   ],
   stats: stats(2, 3, 3, 2, 2, 3, 2),
   equipment: [
-    { id: "cosgrave-knife", name: "Enormous knife", uses: 3, bonus: { tag: "never saw you coming", plus: 1 } },
-    { id: "cosgrave-shotgun", name: "Sawn-off shotgun", uses: 2, bonus: { tag: "point-blank", plus: 2 } },
+    { id: "cosgrave-knife", name: "Enormous knife", uses: 4, bonus: { tag: "never saw you coming", plus: 1 } },
+    { id: "cosgrave-shotgun", name: "Sawn-off shotgun", uses: 3, bonus: { tag: "point-blank", plus: 2 } },
     { id: "cosgrave-bottled-ghosts", name: "Bottled ghosts", uses: 2, bonus: { tag: "pass through walls", plus: 2 } },
     // Sheet prints (+++any); the mechanics prose (p31) loosely calls it "four bonus
     // dice" (the +3 bonus plus the use die). Encoded as the sheet: +++ = 3, 1 use.
@@ -159,8 +161,8 @@ export const CHUCK: CharacterSheet = {
   ],
   stats: stats(3, 1, 4, 2, 3, 2, 2),
   equipment: [
-    { id: "chuck-revolvers", name: "Paired revolvers, Betsy and Maria", uses: 3, bonus: { tag: "duel", plus: 1 } },
-    { id: "chuck-tool-belt", name: "Tool belt", uses: 3, bonus: { tag: "Jerry-rigging", plus: 1 } },
+    { id: "chuck-revolvers", name: "Paired revolvers, Betsy and Maria", uses: 5, bonus: { tag: "duel", plus: 1 } },
+    { id: "chuck-tool-belt", name: "Tool belt", uses: 4, bonus: { tag: "Jerry-rigging", plus: 1 } },
     { id: "chuck-cowboy-hat", name: "Cowboy hat", uses: 1, addsDie: false, note: "mark to ignore an Injury or being Downed; hat is destroyed", reactive: { ignoreInjury: true } },
   ],
   abilities: [
@@ -192,10 +194,10 @@ export const ASTRID: CharacterSheet = {
   ],
   stats: stats(3, 1, 2, 3, 2, 2, 4),
   equipment: [
-    { id: "astrid-machine-gun", name: "Machine Gun", uses: 3, bonus: { tag: "enemies in cover", plus: 1 } },
-    { id: "astrid-greatspear", name: "Greatspear", uses: 3, bonus: { tag: "receive a charge", plus: 1 } },
+    { id: "astrid-machine-gun", name: "Machine Gun", uses: 4, bonus: { tag: "enemies in cover", plus: 1 } },
+    { id: "astrid-greatspear", name: "Greatspear", uses: 4, bonus: { tag: "receive a charge", plus: 1 } },
     { id: "astrid-frag-grenades", name: "Fragmentation Grenades", uses: 2, bonus: { tag: "enclosed spaces", plus: 2 } },
-    { id: "astrid-spirit-fetters", name: "Spirit Fetters", uses: 1, bonus: { tag: "animals", plus: 3 } },
+    { id: "astrid-spirit-fetters", name: "Spirit Fetters", uses: 2, bonus: { tag: "animals", plus: 3 } },
   ],
   abilities: [
     { id: "astrid-apex-predator", name: "Apex Predator", text: "Reduce a Threat's rating by 3.", mechanic: "special", trigger: { type: "crit" } },
@@ -226,8 +228,8 @@ export const FLINT: CharacterSheet = {
   ],
   stats: stats(4, 2, 2, 2, 1, 3, 3),
   equipment: [
-    { id: "flint-claws", name: "Steel gouging claws", uses: 3, bonus: { tag: "ambush", plus: 1 } },
-    { id: "flint-grappling-hook", name: "Grappling hook", uses: 2, bonus: { tag: "three or more storeys", plus: 2 } },
+    { id: "flint-claws", name: "Steel gouging claws", uses: 4, bonus: { tag: "ambush", plus: 1 } },
+    { id: "flint-grappling-hook", name: "Grappling hook", uses: 3, bonus: { tag: "three or more storeys", plus: 2 } },
   ],
   abilities: [
     { id: "flint-ravenous", name: "Ravenous", text: "When you're in melee combat: gain 3 Blood.", mechanic: "special", trigger: { type: "crit", requires: { tag: "melee" } } },

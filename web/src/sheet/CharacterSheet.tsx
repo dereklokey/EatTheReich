@@ -114,11 +114,14 @@ export function CharacterSheet({
               <div key={e.id} className="mb-2 border-b border-paper-shadow/40 pb-2">
                 <div className="flex items-center gap-2">
                   <span className="mono text-sm flex-1">{e.name}</span>
-                  {tracked && <UsePips total={e.uses ?? 0} left={remaining} />}
-                  {canEdit && tracked && remaining > 0 && (
-                    <button className="mono text-xs underline text-blood" onClick={() => send({ kind: "use_equipment", seat, itemId: e.id })}>
-                      use
-                    </button>
+                  {tracked && (
+                    <UseBoxes
+                      total={e.uses ?? 0}
+                      remaining={remaining}
+                      canEdit={canEdit}
+                      onSpend={() => send({ kind: "use_equipment", seat, itemId: e.id })}
+                      onRestore={() => send({ kind: "restore_equipment", seat, itemId: e.id })}
+                    />
                   )}
                 </div>
                 {e.bonus && <div className="mono text-[0.65rem] text-paper-fade">+{e.bonus.plus} when “{e.bonus.tag}”</div>}
@@ -138,39 +141,49 @@ export function CharacterSheet({
             return (
               <div key={ci} className="mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="mono text-[0.6rem] text-paper-fade w-7" title={`rolled ${cat.faces[0]}–${cat.faces[1]}`}>
+                  <span className="mono text-[0.6rem] text-paper-fade w-7 shrink-0" title={`rolled ${cat.faces[0]}–${cat.faces[1]}`}>
                     {cat.faces[0]}–{cat.faces[1]}
                   </span>
-                  <span className="mono text-sm flex-1">{cat.boxes[0]?.label}</span>
-                  {cat.boxes.map((box, bi) => {
-                    const isMarked = marked >= bi + 1;
-                    const justMarked = !reduced && injFx?.kind === "mark" && injFx.cat === ci && bi + 1 === marked;
-                    const justHealed = !reduced && injFx?.kind === "heal" && injFx.cat === ci && bi + 1 === marked + 1;
-                    return (
-                      <span key={bi} className="injury-box grid place-items-center w-5 h-5 border border-paper-shadow text-blood" title={box.penalty ?? box.label}>
-                        {isMarked && (
-                          <span key={justMarked ? `m${injFx!.seq}` : "m"} className={justMarked ? "ink-splat" : undefined}>✕</span>
-                        )}
-                        {justHealed && <span key={`h${injFx!.seq}`} className="heal-shimmer" />}
-                      </span>
-                    );
-                  })}
-                  {canEdit && marked > 0 && (
-                    <button
-                      className="mono text-xs underline text-blood disabled:opacity-40"
-                      disabled={char.blood < HEAL_COST}
-                      title={`Spend ${HEAL_COST} Blood to clear a box`}
-                      onClick={() => {
-                        send({ kind: "change_blood", seat, delta: -HEAL_COST, reason: "heal" });
-                        send({ kind: "heal", seat, category, box: marked as 1 | 2 });
-                      }}
-                    >
-                      heal ({HEAL_COST})
-                    </button>
-                  )}
+                  {/* Label + heal sit together on the left; heal trails the text rather than
+                      the boxes so the box cluster stays aligned across rows (issue #3). */}
+                  <span className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                    <span className="mono text-sm">{cat.boxes[0]?.label}</span>
+                    {canEdit && marked > 0 && (
+                      <button
+                        className="mono text-xs underline text-blood disabled:opacity-40"
+                        disabled={char.blood < HEAL_COST}
+                        title={`Spend ${HEAL_COST} Blood to clear a box`}
+                        onClick={() => {
+                          send({ kind: "change_blood", seat, delta: -HEAL_COST, reason: "heal" });
+                          send({ kind: "heal", seat, category, box: marked as 1 | 2 });
+                        }}
+                      >
+                        heal ({HEAL_COST})
+                      </button>
+                    )}
+                  </span>
+                  <span className="flex gap-0.5 shrink-0">
+                    {cat.boxes.map((box, bi) => {
+                      const isMarked = marked >= bi + 1;
+                      const justMarked = !reduced && injFx?.kind === "mark" && injFx.cat === ci && bi + 1 === marked;
+                      const justHealed = !reduced && injFx?.kind === "heal" && injFx.cat === ci && bi + 1 === marked + 1;
+                      return (
+                        <span key={bi} className="injury-box grid place-items-center w-5 h-5 border border-paper-shadow text-blood" title={box.penalty ?? box.label}>
+                          {isMarked && (
+                            <span key={justMarked ? `m${injFx!.seq}` : "m"} className={justMarked ? "ink-splat" : undefined}>✕</span>
+                          )}
+                          {justHealed && <span key={`h${injFx!.seq}`} className="heal-shimmer" />}
+                        </span>
+                      );
+                    })}
+                  </span>
                 </div>
-                {cat.boxes[1]?.penalty && marked >= 2 && (
-                  <div className="mono text-[0.65rem] text-blood">penalty: {cat.boxes[1].penalty}</div>
+                {/* The 2nd box's effect is always on the sheet now (issue #3): dim as a heads-up
+                    while unmarked, blood-red once that box is actually taken. */}
+                {cat.boxes[1]?.penalty && (
+                  <div className={`mono text-[0.62rem] ml-9 ${marked >= 2 ? "text-blood" : "text-paper-fade italic"}`}>
+                    {marked >= 2 ? cat.boxes[1].penalty : `2nd box — ${cat.boxes[1].penalty}`}
+                  </div>
                 )}
               </div>
             );
@@ -183,18 +196,33 @@ export function CharacterSheet({
           ) : (
             char.loot.map((item) => {
               const active = char.activeLootSlot === item.id;
+              const tracked = item.uses !== undefined;
+              const remaining = char.equipmentUses[item.id] ?? item.uses ?? 0;
               return (
-                <div key={item.id} className="flex items-center gap-2 mb-1">
-                  <span className="mono text-sm flex-1">{item.name}</span>
-                  {active ? (
-                    <span className="stamp text-[0.6rem]">active</span>
-                  ) : (
-                    canEdit && (
-                      <button className="mono text-xs underline text-blood" onClick={() => send({ kind: "loot_activate", seat, itemId: item.id })}>
-                        activate
-                      </button>
-                    )
-                  )}
+                <div key={item.id} className="mb-2 border-b border-paper-shadow/40 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="mono text-sm flex-1">{item.name}</span>
+                    {tracked && (
+                      <UseBoxes
+                        total={item.uses ?? 0}
+                        remaining={remaining}
+                        canEdit={canEdit}
+                        onSpend={() => send({ kind: "use_equipment", seat, itemId: item.id })}
+                        onRestore={() => send({ kind: "restore_equipment", seat, itemId: item.id })}
+                      />
+                    )}
+                    {active ? (
+                      <span className="stamp text-[0.6rem]">active</span>
+                    ) : (
+                      canEdit && (
+                        <button className="mono text-xs underline text-blood" onClick={() => send({ kind: "loot_activate", seat, itemId: item.id })}>
+                          activate
+                        </button>
+                      )
+                    )}
+                  </div>
+                  {item.bonus && <div className="mono text-[0.65rem] text-paper-fade">+{item.bonus.plus} when “{item.bonus.tag}”</div>}
+                  {item.note && <div className="mono text-[0.65rem] text-paper-fade italic">{item.note}</div>}
                 </div>
               );
             })
@@ -240,12 +268,50 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function UsePips({ total, left }: { total: number; left: number }) {
+/**
+ * Equipment / loot use track, drawn like the injury boxes (issue #3): each box is empty
+ * until the use is spent, then it takes a blood ✕ — so a fresh item reads as all-empty,
+ * not all-full. Click to edit, but only at the boundary (RULES §0 "suggest, don't
+ * enforce"): the next empty box spends a use, the last ✕ box hands one back. Everything
+ * in between is inert, so a stray tap can't blank or max the track.
+ */
+function UseBoxes({
+  total,
+  remaining,
+  canEdit,
+  onSpend,
+  onRestore,
+}: {
+  total: number;
+  remaining: number;
+  canEdit: boolean;
+  onSpend: () => void;
+  onRestore: () => void;
+}) {
+  const spent = Math.min(total, Math.max(0, total - remaining));
   return (
-    <span className="inline-flex gap-0.5" title={`${left}/${total} uses`}>
-      {Array.from({ length: total }, (_, i) => (
-        <span key={i} className="w-2.5 h-2.5 border border-paper-shadow" style={{ background: i < left ? "var(--blood)" : "transparent" }} />
-      ))}
+    <span className="inline-flex gap-0.5" title={`${remaining}/${total} uses`}>
+      {Array.from({ length: total }, (_, i) => {
+        const isSpent = i < spent;
+        const isNextEmpty = i === spent; // leftmost available → spend it
+        const isLastSpent = i === spent - 1; // rightmost ✕ → give it back
+        const interactive = canEdit && (isNextEmpty || isLastSpent);
+        const act = isNextEmpty ? onSpend : onRestore;
+        return (
+          <span
+            key={i}
+            role={interactive ? "button" : undefined}
+            tabIndex={interactive ? 0 : undefined}
+            aria-label={isNextEmpty ? "spend a use" : isLastSpent ? "give a use back" : undefined}
+            title={isNextEmpty ? "spend a use" : isLastSpent ? "give a use back" : undefined}
+            onClick={interactive ? act : undefined}
+            onKeyDown={interactive ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } } : undefined}
+            className={`use-box grid place-items-center w-5 h-5 border border-paper-shadow text-blood ${interactive ? "use-box--live" : ""}`}
+          >
+            {isSpent && <span>✕</span>}
+          </span>
+        );
+      })}
     </span>
   );
 }
@@ -286,9 +352,26 @@ function BloodSection({
   return (
     <Section title={`Blood — ${char.blood}/10`}>
       <div className={`flex gap-0.5 ${pulse === "up" ? "blood-meter--up" : pulse === "down" ? "blood-meter--down" : ""}`} style={{ borderRadius: 1 }}>
-        {Array.from({ length: 10 }, (_, i) => (
-          <span key={i} className="blood-cell h-3 flex-1" style={{ backgroundColor: i < char.blood ? "var(--blood)" : "var(--paper-shadow)", borderRadius: 1 }} />
-        ))}
+        {Array.from({ length: 10 }, (_, i) => {
+          // Click the meter to drink/spend, but only at the waterline (issue #3): the next
+          // empty cell adds a Blood, the last full one drains it. No filling gaps mid-track.
+          const isNextEmpty = i === char.blood;
+          const isLastFull = i === char.blood - 1;
+          const interactive = canEdit && (isNextEmpty || isLastFull);
+          return (
+            <span
+              key={i}
+              role={interactive ? "button" : undefined}
+              tabIndex={interactive ? 0 : undefined}
+              aria-label={isNextEmpty ? "add a Blood" : isLastFull ? "spend a Blood" : undefined}
+              title={isNextEmpty ? "add a Blood" : isLastFull ? "spend a Blood" : undefined}
+              onClick={interactive ? () => send({ kind: "change_blood", seat, delta: isNextEmpty ? 1 : -1 }) : undefined}
+              onKeyDown={interactive ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); send({ kind: "change_blood", seat, delta: isNextEmpty ? 1 : -1 }); } } : undefined}
+              className={`blood-cell h-3 flex-1 ${interactive ? "blood-cell--live" : ""}`}
+              style={{ backgroundColor: i < char.blood ? "var(--blood)" : "var(--paper-shadow)", borderRadius: 1 }}
+            />
+          );
+        })}
       </div>
       {canEdit && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -336,6 +419,11 @@ function PowerSection({
   if (powers.length === 0) return null;
   return (
     <Section title={title}>
+      {advances && (
+        <p className="mono text-[0.65rem] text-paper-fade italic mb-2 -mt-1">
+          Locked until you drink Übermensch (mini-boss) blood{canEdit ? " — then tap unlock" : ""}.
+        </p>
+      )}
       {powers.map((p) => {
         const locked = advances ? !char.unlockedAdvances.includes(p.id) : false;
         return (

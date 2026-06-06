@@ -59,6 +59,8 @@ describe("authorizeIntent — a seated player", () => {
   it("may act on their own character but not another's", () => {
     expect(authorizeIntent(s, "iryna", { kind: "change_blood", seat: "iryna", delta: 1 }).ok).toBe(true);
     expect(authorizeIntent(s, "iryna", { kind: "use_equipment", seat: "iryna", itemId: "x" }).ok).toBe(true);
+    expect(authorizeIntent(s, "iryna", { kind: "restore_equipment", seat: "iryna", itemId: "x" }).ok).toBe(true);
+    expect(authorizeIntent(s, "iryna", { kind: "restore_equipment", seat: "nicole", itemId: "x" }).ok).toBe(false);
     expect(authorizeIntent(s, "iryna", { kind: "share_blood", from: "iryna", to: "nicole", amount: 1 }).ok).toBe(true);
 
     expect(authorizeIntent(s, "iryna", { kind: "change_blood", seat: "nicole", delta: 1 }).ok).toBe(false);

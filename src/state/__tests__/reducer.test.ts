@@ -127,6 +127,18 @@ describe("reducer — injuries, downed, equipment, advances", () => {
     expect(s.characters.nicole.equipmentUses["nicole-panzerfaust"]).toBe(0);
     expect(s.characters.nicole.unlockedAdvances).toContain("nicole-feed-on-fear");
   });
+
+  it("EQUIPMENT_RESTORED gives a use back but never exceeds the item's max", () => {
+    const { ev, all } = log();
+    // Chuck's revolvers start with 5 uses: spend two, restore three (capped back at 5).
+    ev("EQUIPMENT_USED", { seat: "chuck", itemId: "chuck-revolvers" }, "chuck");
+    ev("EQUIPMENT_USED", { seat: "chuck", itemId: "chuck-revolvers" }, "chuck");
+    ev("EQUIPMENT_RESTORED", { seat: "chuck", itemId: "chuck-revolvers" }, "chuck");
+    ev("EQUIPMENT_RESTORED", { seat: "chuck", itemId: "chuck-revolvers" }, "chuck");
+    ev("EQUIPMENT_RESTORED", { seat: "chuck", itemId: "chuck-revolvers" }, "chuck");
+    const s = reduce(all);
+    expect(s.characters.chuck.equipmentUses["chuck-revolvers"]).toBe(5);
+  });
 });
 
 describe("reducer — purity", () => {

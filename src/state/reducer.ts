@@ -6,6 +6,11 @@ import { applyOneAllocation, clampBlood } from "../engine/allocate.js";
 import { TURN_PHASES, addBonusDice } from "../engine/index.js";
 import type { DieFace } from "../domain/types.js";
 import type { PlayerDie } from "../engine/dice.js";
+import { CHARACTERS_BY_ID } from "../data/characters.js";
+
+/** Max uses for an item id, from the sheet equipment or earned loot (undefined = untracked). */
+const maxUses = (seat: CharId, itemId: string, c: CharacterRuntime): number | undefined =>
+  (CHARACTERS_BY_ID[seat]?.equipment.find((e) => e.id === itemId) ?? c.loot.find((l) => l.id === itemId))?.uses;
 
 /**
  * The reducer (CLAUDE.md §3.1): `state = reduce(events)`. Pure — every case returns
@@ -291,6 +296,13 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
       return updateChar(s, e.payload.seat, (c) => {
         if (c.equipmentUses[e.payload.itemId] === undefined) return c;
         return { ...c, equipmentUses: { ...c.equipmentUses, [e.payload.itemId]: Math.max(0, c.equipmentUses[e.payload.itemId]! - 1) } };
+      });
+    case "EQUIPMENT_RESTORED":
+      return updateChar(s, e.payload.seat, (c) => {
+        const cur = c.equipmentUses[e.payload.itemId];
+        const max = maxUses(e.payload.seat, e.payload.itemId, c);
+        if (cur === undefined || max === undefined) return c;
+        return { ...c, equipmentUses: { ...c.equipmentUses, [e.payload.itemId]: Math.min(max, cur + 1) } };
       });
     case "LOOT_ADDED":
       return updateChar(s, e.payload.seat, (c) => ({

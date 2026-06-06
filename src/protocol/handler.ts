@@ -306,6 +306,20 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       }
       return ok(events);
     }
+    case "restore_equipment": {
+      // Click-to-remove on the sheet: hand back one spent use, up to the item's max.
+      // No-op once the item is already full so it can't mint phantom uses (or, for
+      // reactive economy gear, phantom Blood). For reactive-Blood items the restore is
+      // a clean undo of the use, so it returns the Blood too — keeping spend⇄restore symmetric.
+      const item = findEquipment(state, intent.seat, intent.itemId);
+      const remaining = state.characters[intent.seat]?.equipmentUses[intent.itemId];
+      if (remaining === undefined || item?.uses === undefined || remaining >= item.uses) return ok([]);
+      const events: EventInput[] = [{ type: "EQUIPMENT_RESTORED", payload: { seat: intent.seat, itemId: intent.itemId }, actor: intent.seat }];
+      if (item.reactive?.blood) {
+        events.push({ type: "BLOOD_CHANGED", payload: { seat: intent.seat, delta: -item.reactive.blood, reason: `${item.name} (returned)` }, actor: intent.seat });
+      }
+      return ok(events);
+    }
     case "loot_add":
       return ok([{ type: "LOOT_ADDED", payload: { seat: intent.seat, item: intent.item }, actor: intent.seat }]);
     case "loot_activate":

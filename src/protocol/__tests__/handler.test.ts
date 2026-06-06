@@ -288,15 +288,22 @@ describe("processIntent — INJURY_CHECK window + reactive gear (RULES §4/§5)"
     const d = makeDriver();
     expect(d.state.characters.iryna.blood).toBe(0);
 
+    // Cigarettes have 3 uses; each marked use mints 2 Blood.
     const ev = d.run({ kind: "use_equipment", seat: "iryna", itemId: "iryna-cigarettes" }, sequenceRoller([]), "iryna");
     expect(ev.map((e) => e.type)).toEqual(["EQUIPMENT_USED", "BLOOD_CHANGED"]);
     expect(d.state.characters.iryna.blood).toBe(2);
+    expect(d.state.characters.iryna.equipmentUses["iryna-cigarettes"]).toBe(2);
+
+    // Burn the other two uses (6 Blood total, all uses spent).
+    d.run({ kind: "use_equipment", seat: "iryna", itemId: "iryna-cigarettes" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "use_equipment", seat: "iryna", itemId: "iryna-cigarettes" }, sequenceRoller([]), "iryna");
+    expect(d.state.characters.iryna.blood).toBe(6);
     expect(d.state.characters.iryna.equipmentUses["iryna-cigarettes"]).toBe(0);
 
     // Depleted now → using again no longer mints Blood.
     const ev2 = d.run({ kind: "use_equipment", seat: "iryna", itemId: "iryna-cigarettes" }, sequenceRoller([]), "iryna");
     expect(ev2.map((e) => e.type)).toEqual(["EQUIPMENT_USED"]);
-    expect(d.state.characters.iryna.blood).toBe(2);
+    expect(d.state.characters.iryna.blood).toBe(6);
   });
 
   it("a weapon use grants no Blood (only reactive items do)", () => {
@@ -304,6 +311,32 @@ describe("processIntent — INJURY_CHECK window + reactive gear (RULES §4/§5)"
     const ev = d.run({ kind: "use_equipment", seat: "iryna", itemId: "iryna-sabre" }, sequenceRoller([]), "iryna");
     expect(ev.map((e) => e.type)).toEqual(["EQUIPMENT_USED"]);
     expect(d.state.characters.iryna.blood).toBe(0);
+  });
+
+  it("restore_equipment hands a spent use back, and is a no-op on a full item", () => {
+    const d = makeDriver();
+    d.run({ kind: "use_equipment", seat: "iryna", itemId: "iryna-sabre" }, sequenceRoller([]), "iryna");
+    expect(d.state.characters.iryna.equipmentUses["iryna-sabre"]).toBe(4); // 5 → 4
+
+    const ev = d.run({ kind: "restore_equipment", seat: "iryna", itemId: "iryna-sabre" }, sequenceRoller([]), "iryna");
+    expect(ev.map((e) => e.type)).toEqual(["EQUIPMENT_RESTORED"]);
+    expect(d.state.characters.iryna.equipmentUses["iryna-sabre"]).toBe(5); // back to full
+
+    // Already full → no event, no phantom use.
+    const ev2 = d.run({ kind: "restore_equipment", seat: "iryna", itemId: "iryna-sabre" }, sequenceRoller([]), "iryna");
+    expect(ev2).toEqual([]);
+    expect(d.state.characters.iryna.equipmentUses["iryna-sabre"]).toBe(5);
+  });
+
+  it("restoring a reactive item returns the Blood it minted (no farming loop)", () => {
+    const d = makeDriver();
+    d.run({ kind: "use_equipment", seat: "iryna", itemId: "iryna-cigarettes" }, sequenceRoller([]), "iryna");
+    expect(d.state.characters.iryna.blood).toBe(2);
+
+    const ev = d.run({ kind: "restore_equipment", seat: "iryna", itemId: "iryna-cigarettes" }, sequenceRoller([]), "iryna");
+    expect(ev.map((e) => e.type)).toEqual(["EQUIPMENT_RESTORED", "BLOOD_CHANGED"]);
+    expect(d.state.characters.iryna.blood).toBe(0);
+    expect(d.state.characters.iryna.equipmentUses["iryna-cigarettes"]).toBe(3);
   });
 });
 
