@@ -16,9 +16,14 @@
 /* Equipment / loot use boxes: same empty-box-with-✕ treatment as injuries (issue #3).
    The two boundary boxes (spend / give back) are the only clickable ones — they wash
    blood-red and show a pointer so the live edge of the track reads as a button. */
-.use-box--live { cursor: pointer; transition: background-color 130ms ease, box-shadow 130ms ease; }
+/* Live use boxes and the manually-editable injury boxes share the same clickable
+   affordance (issue #3 follow-up: injuries are click-to-mark/clear for corrections). */
+.use-box--live,
+.injury-box--live { cursor: pointer; transition: background-color 130ms ease, box-shadow 130ms ease; }
 .use-box--live:hover,
-.use-box--live:focus-visible { background: rgba(255, 45, 74, 0.16); box-shadow: inset 0 0 0 1.5px var(--blood); outline: none; }
+.use-box--live:focus-visible,
+.injury-box--live:hover,
+.injury-box--live:focus-visible { background: rgba(255, 45, 74, 0.16); box-shadow: inset 0 0 0 1.5px var(--blood); outline: none; }
 
 /* Heal: a brief flesh-knitting shimmer over the box as the X dissolves. */
 @keyframes heal-shimmer {

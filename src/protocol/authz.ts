@@ -61,6 +61,7 @@ function subjectSeat(intent: Intent): SeatId | undefined {
     case "start_turn":
     case "change_blood":
     case "heal":
+    case "mark_injury":
     case "use_equipment":
     case "restore_equipment":
     case "loot_activate": // the owner activates their own loot; granting (loot_add) is GM-only

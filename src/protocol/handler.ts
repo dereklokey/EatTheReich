@@ -293,6 +293,12 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       return ok([{ type: "BLOOD_SHARED", payload: { from: intent.from, to: intent.to, amount: intent.amount }, actor: intent.from }]);
     case "heal":
       return ok([{ type: "HEALED", payload: { seat: intent.seat, category: intent.category, box: intent.box }, actor: intent.seat }]);
+    case "mark_injury": {
+      // A manual correction (no GM die, no Blood) — mirrors the resolution path's
+      // INJURY_MARKED so a 2nd box still records its penalty for replay/audit.
+      const penalty = intent.box === 2 ? penaltyLabel(intent.seat, intent.category) : undefined;
+      return ok([{ type: "INJURY_MARKED", payload: { seat: intent.seat, category: intent.category, box: intent.box, ...(penalty ? { penalty } : {}) }, actor: intent.seat }]);
+    }
     case "use_equipment": {
       const events: EventInput[] = [{ type: "EQUIPMENT_USED", payload: { seat: intent.seat, itemId: intent.itemId }, actor: intent.seat }];
       // Reactive economy gear (Iryna's cigarettes → +Blood) applies its effect here, not

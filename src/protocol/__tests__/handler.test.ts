@@ -456,6 +456,34 @@ describe("processIntent — loot", () => {
   });
 });
 
+describe("processIntent — manual injury override (sheet click-to-mark)", () => {
+  it("marks an injury box with no Blood cost, recording the 2nd-box penalty", () => {
+    const d = makeDriver();
+    expect(d.state.characters.chuck.blood).toBe(0);
+    expect(d.state.characters.chuck.injuries).toEqual([0, 0, 0]);
+
+    const ev1 = d.run({ kind: "mark_injury", seat: "chuck", category: 0, box: 1 }, sequenceRoller([]), "chuck");
+    expect(ev1.map((e) => e.type)).toEqual(["INJURY_MARKED"]);
+    expect(d.state.characters.chuck.injuries).toEqual([1, 0, 0]);
+    expect(d.state.characters.chuck.blood).toBe(0); // no Blood touched
+
+    const ev2 = d.run({ kind: "mark_injury", seat: "chuck", category: 0, box: 2 }, sequenceRoller([]), "chuck");
+    expect(ev2[0]?.payload).toMatchObject({ category: 0, box: 2, penalty: "Spend 1 Blood at the start of your turn" });
+    expect(d.state.characters.chuck.injuries).toEqual([2, 0, 0]);
+  });
+
+  it("clears a box via heal with no Blood change (undo a mistake)", () => {
+    const d = makeDriver();
+    d.run({ kind: "mark_injury", seat: "chuck", category: 1, box: 1 }, sequenceRoller([]), "chuck");
+    d.run({ kind: "change_blood", seat: "chuck", delta: 5 }, sequenceRoller([]), "chuck");
+
+    const ev = d.run({ kind: "heal", seat: "chuck", category: 1, box: 1 }, sequenceRoller([]), "chuck");
+    expect(ev.map((e) => e.type)).toEqual(["HEALED"]); // no BLOOD_CHANGED on the bare heal intent
+    expect(d.state.characters.chuck.injuries).toEqual([0, 0, 0]);
+    expect(d.state.characters.chuck.blood).toBe(5);
+  });
+});
+
 describe("processIntent — safety & sessions", () => {
   it("raises the X-Card and resets flashbacks on a new session", () => {
     const d = makeDriver();

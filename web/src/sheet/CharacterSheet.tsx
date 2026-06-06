@@ -167,8 +167,27 @@ export function CharacterSheet({
                       const isMarked = marked >= bi + 1;
                       const justMarked = !reduced && injFx?.kind === "mark" && injFx.cat === ci && bi + 1 === marked;
                       const justHealed = !reduced && injFx?.kind === "heal" && injFx.cat === ci && bi + 1 === marked + 1;
+                      // Manual override (no Blood): click the next empty box to mark an injury,
+                      // or the last ✕ box to clear it — for undoing mistakes. The heal (3) button
+                      // stays the in-fiction, Blood-spending heal; Blood is fixed on the meter.
+                      const boxNo = (bi + 1) as 1 | 2;
+                      const isNextEmpty = bi === marked;
+                      const isLastMarked = bi === marked - 1;
+                      const interactive = canEdit && (isNextEmpty || isLastMarked);
+                      const act = isNextEmpty
+                        ? () => send({ kind: "mark_injury", seat, category, box: boxNo })
+                        : () => send({ kind: "heal", seat, category, box: boxNo });
                       return (
-                        <span key={bi} className="injury-box grid place-items-center w-5 h-5 border border-paper-shadow text-blood" title={box.penalty ?? box.label}>
+                        <span
+                          key={bi}
+                          role={interactive ? "button" : undefined}
+                          tabIndex={interactive ? 0 : undefined}
+                          aria-label={interactive ? (isNextEmpty ? "mark this injury (no Blood)" : "clear this injury (no Blood)") : undefined}
+                          onClick={interactive ? act : undefined}
+                          onKeyDown={interactive ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } } : undefined}
+                          className={`injury-box grid place-items-center w-5 h-5 border border-paper-shadow text-blood ${interactive ? "injury-box--live" : ""}`}
+                          title={box.penalty ?? box.label}
+                        >
                           {isMarked && (
                             <span key={justMarked ? `m${injFx!.seq}` : "m"} className={justMarked ? "ink-splat" : undefined}>✕</span>
                           )}
