@@ -186,10 +186,16 @@ table). Some enemies make Challenge **unlowerable** (Werhund).
 - **Abilities** are available from the start. Each used adds a die (unless its text says
   otherwise) and may cost Blood.
 - **SPECIALs** are rule-breaking effects. A SPECIAL fires **only when a critical is
-  allocated to it** — *unless* its text gives a different trigger/condition (e.g. "when in
-  melee", or Nicole's Scavenger). Tag each SPECIAL with `trigger: 'crit' | 'condition'` and,
-  where relevant, a `condition` the engine/GM checks before offering it (e.g. Chuck's Elbow
-  Grease only appears as a crit-target on a **solo FIX Objective** action).
+  allocated to it** (rulebook p33: "Specials can only be activated when a critical is
+  allocated to them"). Some additionally require a **narration condition** the GM confirms
+  before the SPECIAL is offered as a crit-target — e.g. Flint's Ravenous ("when in melee"),
+  Iryna's Deadeye Shot ("when you use a ranged weapon"), Nicole's Sapper ("when you use
+  explosives"), or Chuck's Elbow Grease (only on a **solo FIX Objective** action). Even
+  Nicole's Scavenger — which has no extra condition — is still crit-activated. Tag each
+  SPECIAL with `trigger: { type: 'crit', requires?: condition }`; the engine checks
+  `requires` against the action context before offering it. (Passive/automatic effects such
+  as Corpse Eater, Dead Man's Luck, and "when you reduce a Threat to 0" advances are NOT
+  SPECIALs and are not crit-gated — model them as passives, not crit triggers.)
 - **Advances** are **locked** until the player **drinks Übermensch blood**, then they unlock
   one. Character state: `unlockedAdvances: Set<id>`. Advances may grant new SPECIALs/passives.
 
@@ -204,8 +210,23 @@ Standard:
 3. Any Threat the GM rolled **zero successes** against during the round: **Attack +1**
    (checked at end of round).
 
-**Exemptions:** Übermenschen / elite operatives **do not reinforce** — at rating 0 they die
-permanently and are removed (their Attack starts higher to compensate).
+**Exemptions:** Übermenschen / elite operatives (and "Solo" common enemies — Sniper Team,
+Armoured Car, Tank, Vampirjäger Cadre) **do not reinforce** — they get no Attack escalation,
+and at rating 0 they die permanently and are removed (their Attack starts higher to
+compensate).
+
+Model this with **two independent flags** on a Threat, because they don't always move
+together:
+- `reinforces` — gets the end-of-round Attack escalation (rules 2 & 3). True for standard
+  threats, false for Solo enemies / most Übermenschen.
+- `restoresAtZero` — at rating 0, regains 1d6 rating + half-Attack (rule 1) vs. removed
+  permanently. True for standard threats, false for elites.
+
+**The Stahlsoldat is the load-bearing exception** (rulebook p52: "uses the reinforcement
+rules as normal, but is defeated when reduced to 0"): `reinforces: true` **but**
+`restoresAtZero: false` — it escalates Attack each round like a standard threat, yet at 0 it
+dies rather than restoring. A plain "übermenschen don't reinforce" rule cannot express this,
+which is why the flags are separate.
 
 **Relaxed variant (table toggle):** ignore reinforcement entirely; instead bump
 ratings/Attack by 1–3 as the GM sees fit; Threats at 0 are simply removed.
@@ -249,11 +270,14 @@ advances, active loot slot.
 - **Iryna** — ranged occultist. SPECIALs reduce Threat Attack / inflict flat Übermensch
   damage (advance-gated). Example gear: Exquisite Hunting Rifle (+elevated position),
   Explosive Runes (++concealed).
-- **Nicole** — demolitions. **Scavenger** SPECIAL: roll d6, match the `[n]` bracket on her
-  weapons, restore 1 use of that weapon (this is a `condition`-trigger restore, not crit).
-  **Sapper**: with explosives, reduce a target's Challenge by 1. Gear carries `[1]..[6]` IDs.
+- **Nicole** — demolitions. **Scavenger** SPECIAL (**crit-activated**, no extra condition):
+  roll d6, match the `[n]` bracket on her weapons, restore 1 use of that weapon. **Sapper**
+  SPECIAL (crit, requires the "explosives" tag): reduce a target's Challenge by 1. Gear
+  carries `[1]..[6]` IDs for the Scavenger match.
 - **Cosgrave** — necromancer. **Dead Man's Luck** advance = pre-discard passive (−1 GM
-  successful die per rolled 1). Has a 1-use soul jar granting +4 bonus dice.
+  successful die per rolled 1). Soul jar: **1 use, `+++` bonus (3 dice)**. (The rulebook
+  prose calls it "four bonus dice" — that counts the +1 use die plus the 3 bonus; the sheet
+  symbol is `+++`. Encode `plus: 3`.)
 - **Chuck** — ghoul. **Corpse Eater** passive: +1 Blood on any rolled 1 (pre-discard).
   **Elbow Grease** advance SPECIAL: on a **solo FIX Objective** action, a crit reduces that
   Objective's rating by **4** (condition-gated *and* crit-gated). Cowboy hat: one-time

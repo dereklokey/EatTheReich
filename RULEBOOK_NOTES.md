@@ -10,6 +10,10 @@ the **book** in each case.
 
 ## Discrepancies between RULES.md and the rulebook
 
+> **Status: reconciled.** `RULES.md` §7, §8, and §10 were updated to match the
+> rulebook on all four points below. Kept here as a record of *why* the contract
+> reads the way it does.
+
 1. **Nicole's Scavenger — trigger.** RULES.md §10/§7 calls Scavenger "a
    condition-trigger restore, **not crit**." The rulebook sheet (p16) prints it as
    `SPECIAL: Roll a D6…`, and p33 states "Specials can only be activated when a
