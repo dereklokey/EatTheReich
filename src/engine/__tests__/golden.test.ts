@@ -130,7 +130,6 @@ describe("Golden B — Reinforcements", () => {
     const result = reinforce({
       threats: [deadSquad, police],
       reducedToZeroThisRound: new Set([squad.id]),
-      zeroSuccessThisRound: new Set(),
       roller: sequenceRoller([4]), // the 1d6 rating restore
     });
 

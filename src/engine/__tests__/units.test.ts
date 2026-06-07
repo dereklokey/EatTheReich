@@ -4,6 +4,7 @@ import {
   buildPlayerPool,
   buildGmPool,
   gmPoolContributions,
+  whiffAnchor,
   resolvePlayerDice,
   gmSuccesses,
   reduceGmSuccessesPerOne,
@@ -97,6 +98,35 @@ describe("gmPoolContributions — per-Threat breakdown", () => {
     expect(gmPoolContributions([dead, policePatrol()])).toEqual([
       expect.objectContaining({ dice: 2, anchor: true }), // only the live Police Patrol
     ]);
+  });
+});
+
+describe("whiffAnchor — GM zero-success escalation (RULES §8, rulebook p38)", () => {
+  const squad = infantrySquad(); // attack 3
+  const police = policePatrol(); // attack 2
+
+  it("returns the anchor (highest-Attack) Threat when the Reich rolled zero successes", () => {
+    // No die ≥ 4 → a whiff → the lead Threat presses harder.
+    expect(whiffAnchor([police, squad], [1, 3, 2, 3])?.name).toBe("Infantry Squad");
+  });
+
+  it("is null when the Reich rolled any success", () => {
+    expect(whiffAnchor([police, squad], [1, 3, 4])).toBeNull(); // a 4 is a success
+    expect(whiffAnchor([police, squad], [6])).toBeNull(); // a crit
+  });
+
+  it("is null on an uncontested action (the Reich never rolled)", () => {
+    expect(whiffAnchor([police, squad], [])).toBeNull();
+  });
+
+  it("is null when no Threat is left in play to escalate", () => {
+    const dead = { ...squad, rating: 0, attack: 0 };
+    expect(whiffAnchor([dead], [1, 2, 3])).toBeNull();
+  });
+
+  it("skips a defeated anchor and escalates the next live Threat", () => {
+    const dead = { ...squad, rating: 0, attack: 0 }; // the would-be anchor, now dead
+    expect(whiffAnchor([dead, police], [2, 1])?.name).toBe("Police Patrol");
   });
 });
 

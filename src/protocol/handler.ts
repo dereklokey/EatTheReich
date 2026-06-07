@@ -9,6 +9,7 @@ import type { DiceRoller } from "../domain/dice.js";
 import type { Intent } from "./messages.js";
 import {
   buildGmPool,
+  whiffAnchor,
   resolvePlayerDice,
   gmSuccesses,
   countOnes,
@@ -99,6 +100,21 @@ function specialBloodGrant(state: GameState, seat: CharId, specialId: string): {
     sheet.abilities.find((p) => p.id === specialId) ??
     sheet.advances.find((p) => p.id === specialId && unlocked.includes(p.id));
   return power?.grantsBlood ? { amount: power.grantsBlood, name: power.name } : undefined;
+}
+
+/**
+ * GM-whiff escalation (RULES §8, rulebook p38), applied at the conclusion of the action it
+ * happened in (NOT at end of round). If the Reich's Attack roll this turn produced zero
+ * successes, the lead (anchor) Threat presses harder: +1 Attack. Returns the THREAT_UPDATED
+ * event to append just before the turn closes, or `null` when there was no whiff / no Threat
+ * left to escalate. Read off the post-allocation board so a Threat the player just killed
+ * isn't the one that gets madder.
+ */
+function gmWhiffEvent(state: GameState): EventInput | null {
+  const turn = state.currentTurn;
+  const anchor = turn ? whiffAnchor(state.board.threats, turn.gmDice ?? []) : null;
+  if (!anchor) return null;
+  return { type: "THREAT_UPDATED", payload: { id: anchor.id, patch: { attack: anchor.attack + 1 } } };
 }
 
 /** Find an item by id across the character's sheet equipment and earned loot. */
@@ -269,7 +285,11 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       if (!turn) return err("no turn in progress");
       const leftover = turn.gmDiceRemaining ?? 0;
       // No GM die got through → no INJURY_CHECK; the turn just closes (no window flashes).
-      if (leftover <= 0) return ok([{ type: "ALLOCATION_COMMITTED", payload: {}, actor: turn.seat }]);
+      // A GM whiff still presses the anchor Threat (+1 Attack) as the action concludes.
+      if (leftover <= 0) {
+        const whiff = gmWhiffEvent(state);
+        return ok([...(whiff ? [whiff] : []), { type: "ALLOCATION_COMMITTED", payload: {}, actor: turn.seat }]);
+      }
 
       // A die got through → roll the injury d6 now (server-authoritative) but PARK it:
       // the table sees the reveal and can react (Chuck's hat) before INJURY_CHECK marks a
@@ -328,8 +348,9 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
 
     case "end_round": {
       const reducedToZero = new Set(intent.reducedToZeroThreatIds ?? state.board.threats.filter((t) => t.rating <= 0).map((t) => t.id));
-      const zeroSuccess = new Set(intent.zeroSuccessThreatIds ?? []);
-      const { threats, log } = reinforce({ threats: state.board.threats, reducedToZeroThisRound: reducedToZero, zeroSuccessThisRound: zeroSuccess, roller: deps.roller });
+      // The zero-success (whiff) bump is applied immediately at the conclusion of the
+      // whiffing action (see gmWhiffEvent), not here at end of round.
+      const { threats, log } = reinforce({ threats: state.board.threats, reducedToZeroThisRound: reducedToZero, roller: deps.roller });
       return ok([
         { type: "REINFORCEMENTS_APPLIED", payload: { threats, log } },
         { type: "ROUND_ENDED", payload: {} },

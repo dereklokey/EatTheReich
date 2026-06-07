@@ -7,9 +7,11 @@ import type { DiceRoller } from "../domain/dice.js";
  *     floor(startingAttack / 2). (It does NOT also get the +1 from rule 2.)
  *  2. Every Threat still in play (rating > 0, and NOT one restored by rule 1):
  *     Attack +1.
- *  3. Any Threat the GM rolled zero successes against this round: Attack +1.
- *     (Applied only to threats not handled by rule 1 — golden test B expects the
- *     restored Squad to end at exactly floor(3/2) = 1.)
+ *
+ * The third rulebook clause — a GM Attack roll with zero successes bumps the lead
+ * Threat's Attack by 1 — is NOT handled here: it fires immediately at the conclusion of
+ * the action that whiffed (rulebook p38: "once the player has resolved their action"),
+ * not at end of round. See `whiffAnchor` (gmPool.ts) + the handler's commit/resolve_injury.
  *
  * Übermenschen / elites (`reinforces: false`) do not reinforce; at rating 0 they
  * die permanently and are removed.
@@ -20,8 +22,6 @@ export interface ReinforceInput {
   threats: readonly Threat[];
   /** Threat ids reduced to 0 during this round. */
   reducedToZeroThisRound: ReadonlySet<string>;
-  /** Threat ids the GM rolled zero successes against this round. */
-  zeroSuccessThisRound: ReadonlySet<string>;
   roller: DiceRoller;
 }
 
@@ -92,15 +92,11 @@ export function reinforce(input: ReinforceInput): ReinforceResult {
       continue;
     }
 
-    // Rule 2: still in play → +1. Rule 3: +1 more if zero successes against it.
-    let attackAfter = t.attack + 1;
-    let reason = "still in play → Attack +1";
-    if (input.zeroSuccessThisRound.has(t.id)) {
-      attackAfter += 1;
-      reason += "; zero successes against it → +1";
-    }
+    // Rule 2: still in play → Attack +1 (nazi forces closing in). The zero-success bump
+    // is applied earlier, at the conclusion of the whiffing action (see whiffAnchor).
+    const attackAfter = t.attack + 1;
     out.push({ ...t, attack: attackAfter });
-    log.push({ threatId: t.id, name: t.name, attackBefore, attackAfter, reason });
+    log.push({ threatId: t.id, name: t.name, attackBefore, attackAfter, reason: "still in play → Attack +1" });
   }
 
   return { threats: out, log };

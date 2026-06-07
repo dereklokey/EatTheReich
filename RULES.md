@@ -211,8 +211,17 @@ Standard:
 1. Any Threat reduced to **0 this round**: restore rating by **1d6**; set Attack to **half
    its starting Attack, rounded down**.
 2. **Every Threat still in play: Attack +1.**
-3. Any Threat the GM rolled **zero successes** against during the round: **Attack +1**
-   (checked at end of round).
+
+**GM-whiff escalation (not an end-of-round step).** The rulebook's third clause — a Reich
+Attack roll that lands **zero successes** bumps the lead Threat's Attack by 1 — fires
+**immediately at the conclusion of the action that whiffed** (rulebook p38: "once the player
+has resolved their action"), not at end of round. The app applies it at `commit`: if the
+turn's GM dice held no success (the **raw** roll — a player passive that cancels GM successes
+is the player's doing, not a nazi fumble, so it does **not** count), the **anchor** Threat
+(the most-dangerous one in play, which rolled its full Attack — see `whiffAnchor`) gets
+**Attack +1** right then. A whiff always leaves 0 GM dice through, so this is the no-injury
+commit path. Read off the post-allocation board, so a Threat the player just killed isn't the
+one that gets madder; if no Threat survives, nothing escalates.
 
 **Exemptions:** Übermenschen / elite operatives (and "Solo" common enemies — Sniper Team,
 Armoured Car, Tank, Vampirjäger Cadre) **do not reinforce** — they get no Attack escalation,
@@ -221,7 +230,7 @@ compensate).
 
 Model this with **two independent flags** on a Threat, because they don't always move
 together:
-- `reinforces` — gets the end-of-round Attack escalation (rules 2 & 3). True for standard
+- `reinforces` — gets the end-of-round Attack escalation (rule 2). True for standard
   threats, false for Solo enemies / most Übermenschen.
 - `restoresAtZero` — at rating 0, regains 1d6 rating + half-Attack (rule 1) vs. removed
   permanently. True for standard threats, false for elites.

@@ -51,7 +51,7 @@ export type Intent =
   /** Last Stand (RULES §5): roll the final 8d6, then allocate them and retire. */
   | { kind: "last_stand_roll" }
   | { kind: "last_stand_commit"; allocations: Allocation[] }
-  | { kind: "end_round"; reducedToZeroThreatIds?: string[]; zeroSuccessThreatIds?: string[] }
+  | { kind: "end_round"; reducedToZeroThreatIds?: string[] }
   | { kind: "change_blood"; seat: CharId; delta: number; reason?: string }
   | { kind: "share_blood"; from: CharId; to: CharId; amount: number }
   | { kind: "heal"; seat: CharId; category: 0 | 1 | 2; box: 1 | 2 }

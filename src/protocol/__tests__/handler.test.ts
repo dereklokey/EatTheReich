@@ -169,6 +169,39 @@ describe("processIntent — full §12-A turn driven by intents", () => {
   });
 });
 
+describe("processIntent — GM whiff escalates the anchor at the action's conclusion (RULES §8)", () => {
+  it("a Reich roll with zero successes bumps the anchor Threat's Attack by 1 at commit", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] }); // thr1: attack 3
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: 1 }, sequenceRoller([5]), "iryna"); // 1 player success
+    d.run({ kind: "roll_gm" }, sequenceRoller([1, 2, 3]), "gm"); // 3 dice, ZERO successes → a whiff
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), "iryna");
+
+    // No GM die got through (zero successes), so the turn closes with no injury — but the
+    // whiff presses the lead Threat right now, before ALLOCATION_COMMITTED.
+    const events = d.run({ kind: "commit" }, sequenceRoller([]), "iryna");
+    expect(events.map((e) => e.type)).toEqual(["THREAT_UPDATED", "ALLOCATION_COMMITTED"]);
+    expect(d.state.board.threats[0]?.attack).toBe(4); // 3 → 4, immediately
+    expect(d.state.currentTurn).toBeNull();
+  });
+
+  it("does NOT bump when the Reich rolled a success that was merely defended away", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: 1 }, sequenceRoller([5]), "iryna");
+    d.run({ kind: "roll_gm" }, sequenceRoller([4, 2, 2]), "gm"); // one real success (the 4)
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "allocate", allocations: [{ kind: "defend", units: 1 }] }, sequenceRoller([]), "iryna"); // shave it to 0
+
+    const events = d.run({ kind: "commit" }, sequenceRoller([]), "iryna");
+    expect(events.map((e) => e.type)).toEqual(["ALLOCATION_COMMITTED"]); // no whiff bump
+    expect(d.state.board.threats[0]?.attack).toBe(3); // unchanged
+  });
+});
+
 describe("processIntent — SPECIAL self-buff applies its Blood", () => {
   it("a crit allocated to Flint's Ravenous grants +3 Blood, logged", () => {
     const d = makeDriver();

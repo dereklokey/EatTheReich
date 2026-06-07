@@ -1,4 +1,5 @@
-import { type Threat, threatInPlay } from "../domain/types.js";
+import { type Threat, type DieFace, threatInPlay } from "../domain/types.js";
+import { gmSuccesses } from "./dice.js";
 
 /**
  * BUILD_GM_POOL (RULES §4):
@@ -59,4 +60,22 @@ export function gmPoolContributions(threats: Threat[]): GmPoolContribution[] {
     dice: i === anchorIdx ? threat.attack : 1,
     anchor: i === anchorIdx,
   }));
+}
+
+/**
+ * GM-whiff escalation (RULES §8, rulebook p38): "If the GM rolls zero successes on their
+ * Attack dice, increase the Threat's Attack by 1 once the player has resolved their
+ * action." We apply this the moment the action concludes (not at end of round), and only
+ * to the ANCHOR — the single most-dangerous Threat that led the volley (`gmPoolContributions`).
+ *
+ * Returns that anchor Threat so the caller can bump its Attack by 1, or `null` when there's
+ * nothing to bump: the Reich didn't roll (uncontested — no dice), it rolled at least one
+ * success (no whiff), or no Threat is left in play. Detection uses the RAW roll: a player
+ * passive that cancels GM successes (Dead Man's Luck / Bone Armour) is the player's doing,
+ * not a nazi fumble, so a cancelled-to-zero roll is NOT a whiff.
+ */
+export function whiffAnchor(threats: Threat[], gmDice: readonly DieFace[]): Threat | null {
+  if (gmDice.length === 0) return null; // uncontested / the Reich never rolled
+  if (gmSuccesses(gmDice).length > 0) return null; // at least one success → not a whiff
+  return gmPoolContributions(threats).find((c) => c.anchor)?.threat ?? null;
 }

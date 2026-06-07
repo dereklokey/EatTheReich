@@ -136,7 +136,6 @@ describe("Übermenschen & Solo reinforcement behaviour (rulebook p38/p61)", () =
     const alive = reinforce({
       threats: [s],
       reducedToZeroThisRound: new Set(),
-      zeroSuccessThisRound: new Set(),
       roller: sequenceRoller([]),
     });
     expect(alive.threats[0]?.attack).toBe(5);
@@ -145,7 +144,6 @@ describe("Übermenschen & Solo reinforcement behaviour (rulebook p38/p61)", () =
     const dead = reinforce({
       threats: [{ ...s, rating: 0, attack: 0 }],
       reducedToZeroThisRound: new Set([s.id]),
-      zeroSuccessThisRound: new Set(),
       roller: sequenceRoller([]),
     });
     expect(dead.threats).toHaveLength(0);
@@ -157,7 +155,6 @@ describe("Übermenschen & Solo reinforcement behaviour (rulebook p38/p61)", () =
     const r = reinforce({
       threats: [sniper],
       reducedToZeroThisRound: new Set(),
-      zeroSuccessThisRound: new Set(),
       roller: sequenceRoller([]),
     });
     expect(r.threats[0]?.attack).toBe(sniper.attack); // unchanged
@@ -168,7 +165,6 @@ describe("Übermenschen & Solo reinforcement behaviour (rulebook p38/p61)", () =
     const r = reinforce({
       threats: [{ ...squad, rating: 0, attack: 0 }],
       reducedToZeroThisRound: new Set([squad.id]),
-      zeroSuccessThisRound: new Set(),
       roller: sequenceRoller([5]),
     });
     expect(r.threats[0]?.rating).toBe(5); // 0 + 1d6(5)
@@ -182,7 +178,6 @@ describe("Übermenschen & Solo reinforcement behaviour (rulebook p38/p61)", () =
     const r = reinforce({
       threats: [squad],
       reducedToZeroThisRound: new Set(),
-      zeroSuccessThisRound: new Set([squad.id]), // even with the zero-success bump pending
       roller: sequenceRoller([]),
     });
     expect(r.threats[0]?.attack).toBe(3); // unchanged — held off the board
