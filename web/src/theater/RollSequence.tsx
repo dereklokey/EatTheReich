@@ -25,20 +25,22 @@ export function RollSequence(props: {
   state: GameState;
   canDrive: boolean;
   isGm: boolean;
+  canFlashback: boolean;
+  onFlashback: (context: string, question: string) => void;
   onRollGm: () => void;
   onResolve: () => void;
   onMinimize: () => void;
   onCancel: () => void;
 }) {
   const { reduced } = useEffects();
-  const { turn, canDrive, isGm, onRollGm, onResolve, onMinimize, onCancel } = props;
+  const { turn, canDrive, isGm, canFlashback, onFlashback, onRollGm, onResolve, onMinimize, onCancel } = props;
 
   // Reduced effects: no spectacle. The dark results panel runs the two-beat (player rolls,
   // then the GM rolls) with static dice — exactly what the calm path always did.
   if (reduced) {
     return (
       <TheaterShell turn={turn} canDrive={canDrive} onMinimize={onMinimize} onCancel={onCancel}>
-        <RollReveal turn={turn} canDrive={canDrive} isGm={isGm} onRollGm={onRollGm} onResolve={onResolve} />
+        <RollReveal turn={turn} canDrive={canDrive} isGm={isGm} canFlashback={canFlashback} onFlashback={onFlashback} onRollGm={onRollGm} onResolve={onResolve} />
       </TheaterShell>
     );
   }
@@ -48,6 +50,8 @@ export function RollSequence(props: {
       turn={turn}
       canDrive={canDrive}
       isGm={isGm}
+      canFlashback={canFlashback}
+      onFlashback={onFlashback}
       onRollGm={onRollGm}
       onResolve={onResolve}
       onMinimize={onMinimize}
@@ -60,6 +64,8 @@ function FullSequence({
   turn,
   canDrive,
   isGm,
+  canFlashback,
+  onFlashback,
   onRollGm,
   onResolve,
   onMinimize,
@@ -68,6 +74,8 @@ function FullSequence({
   turn: TurnState;
   canDrive: boolean;
   isGm: boolean;
+  canFlashback: boolean;
+  onFlashback: (context: string, question: string) => void;
   onRollGm: () => void;
   onResolve: () => void;
   onMinimize: () => void;
@@ -161,7 +169,7 @@ function FullSequence({
   if (phase === "results") {
     return (
       <TheaterShell turn={turn} canDrive={canDrive} onMinimize={onMinimize} onCancel={onCancel}>
-        <RollReveal turn={turn} canDrive={canDrive} isGm={isGm} onRollGm={onRollGm} onResolve={onResolve} />
+        <RollReveal turn={turn} canDrive={canDrive} isGm={isGm} canFlashback={canFlashback} onFlashback={onFlashback} onRollGm={onRollGm} onResolve={onResolve} />
       </TheaterShell>
     );
   }

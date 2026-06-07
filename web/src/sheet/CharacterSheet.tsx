@@ -34,7 +34,6 @@ export function CharacterSheet({
   const sheet = CHARACTERS_BY_ID[seat];
   const char = state.characters[seat];
   const { reduced } = useEffects();
-  const [flashback, setFlashback] = useState(false);
 
   // The cost & care (§6): diff this render against the last to fire one-shots when an
   // injury is marked/healed or the character goes Downed/Dead. `seq` re-keys the
@@ -254,14 +253,17 @@ export function CharacterSheet({
         </Section>
 
         <Section title="Flashback">
-          {char.flashbackUsedThisSession ? (
-            <p className="mono text-xs text-paper-fade italic">Used this session.</p>
-          ) : canEdit && state.session.active ? (
-            <button className="display bg-dusk-mauve text-paper px-3 py-1.5 text-sm" style={{ borderRadius: 2 }} onClick={() => setFlashback(true)}>
-              Trigger a flashback (+2 dice reroll)
-            </button>
-          ) : (
+          {/* Status only (issue #9): the flashback is *used* from the roll-results screen
+              when a roll comes up weak, not triggered here. This just reports whether it's
+              still in hand this session. */}
+          {!state.session.active ? (
             <p className="mono text-xs text-paper-fade italic">Available once the session has started.</p>
+          ) : char.flashbackUsedThisSession ? (
+            <p className="mono text-xs text-paper-fade italic">Spent this session.</p>
+          ) : (
+            <p className="mono text-xs text-dusk-mauve">
+              Ready this session — cut to it from a weak roll (≤2 successes) to reroll with +2 dice.
+            </p>
           )}
         </Section>
 
@@ -269,16 +271,6 @@ export function CharacterSheet({
           <p className="mono text-xs text-paper-fade italic">{sheet.lastStand}</p>
         </Section>
       </div>
-
-      {flashback && (
-        <FlashbackModal
-          onCancel={() => setFlashback(false)}
-          onConfirm={(context, question) => {
-            send({ kind: "trigger_flashback", seat, context, question });
-            setFlashback(false);
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -475,23 +467,3 @@ function PowerSection({
   );
 }
 
-function FlashbackModal({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: (context: string, question: string) => void }) {
-  const [context, setContext] = useState("");
-  const [question, setQuestion] = useState("");
-  return (
-    <div className="fixed inset-0 z-[74] grid place-items-center p-4 flashback-wash">
-      <div className="paper w-full max-w-md flashback-card">
-        <h3 className="display text-xl">Flashback</h3>
-        <p className="mono text-xs text-paper-fade mt-1">A scene from before. Answer it, then reroll with +2 dice.</p>
-        <input className="mono w-full mt-3 px-2 py-1.5 bg-paper-shadow/40" placeholder="context (where/when)" value={context} onChange={(e) => setContext(e.target.value)} />
-        <input className="mono w-full mt-2 px-2 py-1.5 bg-paper-shadow/40" placeholder="the question the table asks you" value={question} onChange={(e) => setQuestion(e.target.value)} />
-        <div className="mt-4 flex justify-end gap-2">
-          <button className="mono text-sm underline text-paper-fade" onClick={onCancel}>cancel</button>
-          <button className="display bg-blood text-paper px-4 py-1.5" style={{ borderRadius: 2 }} disabled={!context.trim() || !question.trim()} onClick={() => onConfirm(context.trim(), question.trim())}>
-            Cut to it
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}

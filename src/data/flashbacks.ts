@@ -1,3 +1,5 @@
+import type { DieFace } from "../domain/types.js";
+
 /**
  * Flashback tables (RULES §9, rulebook p41). Once per session, when a player rolls
  * ≤2 successes, they may trigger a flashback: roll/pick a context and a question,
@@ -28,3 +30,21 @@ export const FLASHBACK_QUESTIONS: Record<number, string> = {
 /** Trigger condition (RULES §9). */
 export const FLASHBACK_SUCCESS_THRESHOLD = 2; // ≤ this many successes
 export const FLASHBACK_BONUS_DICE = 2;
+
+/**
+ * Success *units* on a raw player roll (RULES §4 DISCARD): 4–5 = 1, a 6 (critical) = 2.
+ * This is the same counting used to size the flashback trigger — a lone crit reads as the
+ * two successes it is, so two 6s (4 units) is a strong roll that no longer qualifies.
+ */
+export function playerSuccessUnits(dice: readonly DieFace[]): number {
+  return dice.reduce((n, f) => n + (f === 6 ? 2 : f >= 4 ? 1 : 0), 0);
+}
+
+/**
+ * RULES §9 trigger: a flashback may be cut when the *raw* player roll (before the Reich's
+ * dice cancel anything) lands ≤2 successes. Evaluated on the player's own dice, so it's
+ * known the moment they're cast — which is why the offer lives on the roll-results screen.
+ */
+export function flashbackTriggerable(dice: readonly DieFace[]): boolean {
+  return playerSuccessUnits(dice) <= FLASHBACK_SUCCESS_THRESHOLD;
+}

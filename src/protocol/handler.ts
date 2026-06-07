@@ -20,6 +20,7 @@ import {
   LAST_STAND_DICE,
 } from "../engine/index.js";
 import { CHARACTERS_BY_ID } from "../data/characters.js";
+import { flashbackTriggerable, FLASHBACK_BONUS_DICE } from "../data/flashbacks.js";
 import { threatInPlay } from "../domain/types.js";
 import type { Equipment } from "../domain/character.js";
 
@@ -402,8 +403,28 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       return ok([{ type: "LOOT_ACTIVATED", payload: { seat: intent.seat, itemId: intent.itemId }, actor: intent.seat }]);
     case "unlock_advance":
       return ok([{ type: "ADVANCE_UNLOCKED", payload: { seat: intent.seat, advanceId: intent.advanceId }, actor: intent.seat }]);
-    case "trigger_flashback":
-      return ok([{ type: "FLASHBACK_TRIGGERED", payload: { seat: intent.seat, context: intent.context, question: intent.question }, actor: intent.seat }]);
+    case "trigger_flashback": {
+      // A flashback is a one-per-session *reroll* the player calls on a weak roll (RULES §9,
+      // rulebook p41), so it only makes sense in the roll window: after the player has cast
+      // their dice, before the discard locks the result in. We validate the moment here
+      // rather than trusting the UI — the offer is surfaced on the roll-results screen.
+      const turn = state.currentTurn;
+      if (!turn || turn.seat !== intent.seat) return err("you can only flashback on your own turn");
+      if (!turn.playerDice || turn.survivors || turn.pendingInjury || turn.lastStand) {
+        return err("a flashback can only be cut on the roll, before the discard");
+      }
+      if (!state.session.active) return err("the session hasn't started");
+      if (state.characters[intent.seat]?.flashbackUsedThisSession) return err("flashback already used this session");
+      if (!flashbackTriggerable(turn.playerDice)) return err("a flashback needs a roll of 2 successes or fewer");
+      // Add 2 dice to the pool and reroll the *whole* thing — the second result stands. The
+      // reroll overwrites the player dice (a fresh DICE_ROLLED), so the table drops straight
+      // back onto the results screen with the new throw; the Reich's dice, if rolled, stand.
+      const results = deps.roller.roll(turn.playerDice.length + FLASHBACK_BONUS_DICE);
+      return ok([
+        { type: "FLASHBACK_TRIGGERED", payload: { seat: intent.seat, context: intent.context, question: intent.question }, actor: intent.seat },
+        { type: "DICE_ROLLED", payload: { who: "player", results }, actor: intent.seat },
+      ]);
+    }
 
     case "gm_override":
       return ok([{ type: "GM_OVERRIDE", payload: { ...(intent.note ? { note: intent.note } : {}), ...(intent.patch ? { patch: intent.patch } : {}) } }]);

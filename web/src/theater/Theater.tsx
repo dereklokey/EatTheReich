@@ -3,6 +3,7 @@ import type { GameState, TurnState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
 import type { Allocation } from "@shared/engine/allocate.js";
 import type { SeatId } from "@shared/events/types.js";
+import { flashbackTriggerable } from "@shared/data/flashbacks.js";
 import { seatName } from "@/game/seats";
 import { RollSequence } from "./RollSequence";
 import { AllocationTray } from "./AllocationTray";
@@ -43,12 +44,22 @@ export function Theater({
   // the dice over the live board (a transparent layer), only raising the dark results panel
   // once they've settled and faded, so it owns the whole screen rather than nesting here.
   if (turn.playerDice && !turn.survivors && !turn.pendingInjury) {
+    // The flashback (RULES §9) is offered on the results screen, to the active player, only
+    // when their own roll came up weak (≤2 successes) and it's still in hand this session.
+    // The server re-validates; this just gates the affordance (issue #9).
+    const canFlashback =
+      mySeat === turn.seat &&
+      state.session.active &&
+      !char.flashbackUsedThisSession &&
+      flashbackTriggerable(turn.playerDice);
     return (
       <RollSequence
         turn={turn}
         state={state}
         canDrive={canDrive}
         isGm={mySeat === "gm"}
+        canFlashback={canFlashback}
+        onFlashback={(context, question) => send({ kind: "trigger_flashback", seat: turn.seat, context, question })}
         onRollGm={() => send({ kind: "roll_gm" })}
         onResolve={() => send({ kind: "resolve_discard" })}
         onMinimize={onMinimize}

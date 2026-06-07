@@ -219,3 +219,28 @@
   100% { transform: scale(1); }
 }
 .crit-pop { animation: crit-pop 900ms var(--ease-impact) both; transform-origin: center; }
+
+/* Flashback (§6, RULES §9): the player calls a reroll on a weak roll. A genuine tonal
+   cut — the table behind goes sepia/desaturated, a projector grain flickers, the case-file
+   stamps in. Snaps back when the modal closes. (Lives here now that the prompt is part of
+   the roll-results screen, not the character sheet — issue #9.) */
+.flashback-wash {
+  position: fixed; inset: 0;
+  /* Dim, but stay translucent so the sepia'd table reads through — a tonal cut, not a
+     blackout. The backdrop-filter desaturates the whole table behind the case file. */
+  background: rgba(20, 14, 30, 0.55);
+  -webkit-backdrop-filter: sepia(0.7) saturate(0.55) brightness(0.85);
+  backdrop-filter: sepia(0.7) saturate(0.55) brightness(0.85);
+}
+.flashback-wash::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px);
+  mix-blend-mode: overlay;
+  animation: projector-flicker 0.5s steps(2) infinite;
+}
+@keyframes projector-flicker { 0% { opacity: 0.45; } 50% { opacity: 0.8; } 100% { opacity: 0.4; } }
+@keyframes case-file-in {
+  0% { opacity: 0; transform: scale(0.9) rotate(-2.5deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+.flashback-card { animation: case-file-in 420ms var(--ease-impact) both; }

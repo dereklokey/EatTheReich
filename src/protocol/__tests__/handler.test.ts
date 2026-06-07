@@ -8,7 +8,7 @@ import { makeEvent } from "../../events/types.js";
 import type { Actor, GameEvent } from "../../events/types.js";
 import { sequenceRoller } from "../../domain/dice.js";
 import type { DiceRoller } from "../../domain/dice.js";
-import type { Objective, Threat } from "../../domain/types.js";
+import type { DieFace, Objective, Threat } from "../../domain/types.js";
 
 const objective: Objective = { id: "obj1", name: "Take cover", kind: "objective", rating: 6 };
 const threat: Threat = { id: "thr1", name: "Nazi Squad", kind: "threat", rating: 4, attack: 3, startingAttack: 3, reinforces: true, restoresAtZero: true };
@@ -599,11 +599,104 @@ describe("processIntent — safety & sessions", () => {
     d.run({ kind: "raise_xcard", anonymous: true });
     expect(d.state.safety.xcardRaised).toBe(true);
 
-    d.run({ kind: "trigger_flashback", seat: "flint", context: "submarine", question: "q" }, sequenceRoller([]), "flint");
+    // Spend a flashback for real (a weak roll → reroll) so the per-session flag is set.
+    d.run({ kind: "start_session" });
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "flint", stat: "BRAWL" }, sequenceRoller([]), "flint");
+    d.run({ kind: "roll", playerPoolDice: 3 }, sequenceRoller([2, 3, 1]), "flint"); // 0 successes
+    d.run({ kind: "trigger_flashback", seat: "flint", context: "submarine", question: "q" }, sequenceRoller([6, 6, 5, 4, 2]), "flint");
     expect(d.state.characters.flint.flashbackUsedThisSession).toBe(true);
 
     d.run({ kind: "start_session" });
     expect(d.state.characters.flint.flashbackUsedThisSession).toBe(false);
-    expect(d.state.session).toEqual({ number: 1, active: true });
+    expect(d.state.session).toEqual({ number: 2, active: true });
+  });
+});
+
+describe("processIntent — flashback reroll (RULES §9)", () => {
+  /** A session + framed scene + a started turn that has just cast `faces`. */
+  function rolled(faces: DieFace[], seat: "iryna" | "flint" = "iryna") {
+    const d = makeDriver();
+    d.run({ kind: "start_session" });
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat, stat: "SHOOT" }, sequenceRoller([]), seat);
+    d.run({ kind: "roll", playerPoolDice: faces.length }, sequenceRoller(faces), seat);
+    return d;
+  }
+
+  it("on a weak roll, adds 2 dice and rerolls the whole pool — the second result stands", () => {
+    const d = rolled([5, 2, 2, 1]); // 1 success → eligible
+    const events = d.run(
+      { kind: "trigger_flashback", seat: "iryna", context: "opera", question: "q" },
+      sequenceRoller([6, 6, 4, 4, 5, 3]),
+      "iryna",
+    );
+    expect(events.map((e) => e.type)).toEqual(["FLASHBACK_TRIGGERED", "DICE_ROLLED"]);
+    expect(d.state.characters.iryna.flashbackUsedThisSession).toBe(true);
+    // 4 original + 2 bonus = 6 fresh dice; the first roll is gone.
+    expect(d.state.currentTurn?.playerDice).toEqual([6, 6, 4, 4, 5, 3]);
+    expect(d.state.currentTurn?.gmDice).toBeUndefined(); // the Reich's beat still lies ahead
+    expect(d.state.currentTurn?.survivors).toBeUndefined(); // pre-discard, as before the flashback
+  });
+
+  it("a lone crit counts as its 2 successes — exactly on the threshold, so it still qualifies", () => {
+    const d = rolled([6, 2, 2]); // 2 units = the threshold
+    const r = d.run({ kind: "trigger_flashback", seat: "iryna", context: "c", question: "q" }, sequenceRoller([4, 4, 4, 4, 4]), "iryna");
+    expect(r.map((e) => e.type)).toEqual(["FLASHBACK_TRIGGERED", "DICE_ROLLED"]);
+  });
+
+  it("rejects a flashback when the roll was strong (>2 successes)", () => {
+    const d = rolled([6, 6, 5, 1]); // 2+2+1 = 5 units
+    const r = d.fail({ kind: "trigger_flashback", seat: "iryna", context: "c", question: "q" }, "iryna");
+    expect(r.ok).toBe(false);
+    expect(d.state.characters.iryna.flashbackUsedThisSession).toBe(false);
+  });
+
+  it("rejects a second flashback in the same session", () => {
+    const d = rolled([2, 2, 2]);
+    d.run({ kind: "trigger_flashback", seat: "iryna", context: "c", question: "q" }, sequenceRoller([2, 2, 2, 2, 2]), "iryna");
+    // Still a weak (rerolled) result, but the flashback is spent for the session.
+    const r = d.fail({ kind: "trigger_flashback", seat: "iryna", context: "c", question: "q" }, "iryna");
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects a flashback before the roll and after the discard", () => {
+    const d = makeDriver();
+    d.run({ kind: "start_session" });
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    // before the roll
+    expect(d.fail({ kind: "trigger_flashback", seat: "iryna", context: "c", question: "q" }, "iryna").ok).toBe(false);
+    // after the discard locks the result in
+    d.run({ kind: "roll", playerPoolDice: 3 }, sequenceRoller([2, 2, 1]), "iryna");
+    d.run({ kind: "roll_gm" }, sequenceRoller([1, 1, 1]), "gm");
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
+    expect(d.fail({ kind: "trigger_flashback", seat: "iryna", context: "c", question: "q" }, "iryna").ok).toBe(false);
+  });
+
+  it("rejects a flashback when the session hasn't started", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: 3 }, sequenceRoller([2, 2, 1]), "iryna");
+    expect(d.fail({ kind: "trigger_flashback", seat: "iryna", context: "c", question: "q" }, "iryna").ok).toBe(false);
+  });
+
+  it("the rerolled pool drives the rest of the turn normally", () => {
+    const d = rolled([2, 2, 2, 1]); // whiffed — 0 successes
+    // Cut to a flashback; the second roll comes up hot.
+    d.run({ kind: "trigger_flashback", seat: "iryna", context: "c", question: "q" }, sequenceRoller([6, 5, 4, 4, 2, 1]), "iryna");
+    d.run({ kind: "roll_gm" }, sequenceRoller([1, 1, 1]), "gm"); // Reich whiffs
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
+    // 6,5,4,4 survive (2+1+1+1 = 5 units) → spend 3 advancing the rating-6 Objective.
+    d.run(
+      { kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 2 }, { kind: "advance", targetId: "obj1", units: 1 }] },
+      sequenceRoller([]),
+      "iryna",
+    );
+    d.run({ kind: "commit" }, sequenceRoller([]), "iryna");
+    expect(d.state.board.objectives[0]?.rating).toBe(3);
+    expect(d.state.currentTurn).toBeNull();
+    expect(d.state.actedThisRound).toEqual(["iryna"]);
   });
 });

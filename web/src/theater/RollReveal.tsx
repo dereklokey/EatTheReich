@@ -1,7 +1,9 @@
+import { useState } from "react";
 import type { TurnState } from "@shared/state/types.js";
 import type { DieFace } from "@shared/domain/types.js";
 import { Die, tiltFor, type DieVisualState } from "@/components/dice/Die";
 import { useSound } from "@/effects/SoundContext";
+import { FlashbackPrompt } from "./FlashbackPrompt";
 
 /**
  * The results readout (RULES §4) — the calm, static panel the table lands on after the dice
@@ -23,16 +25,22 @@ export function RollReveal({
   turn,
   canDrive,
   isGm,
+  canFlashback,
+  onFlashback,
   onRollGm,
   onResolve,
 }: {
   turn: TurnState;
   canDrive: boolean;
   isGm: boolean;
+  /** Active player, weak roll, flashback still in hand this session (RULES §9, issue #9). */
+  canFlashback: boolean;
+  onFlashback: (context: string, question: string) => void;
   onRollGm: () => void;
   onResolve: () => void;
 }) {
   const { play } = useSound();
+  const [flashback, setFlashback] = useState(false);
 
   const player = turn.playerDice ?? [];
   const gm = turn.gmDice; // undefined until the GM rolls
@@ -51,6 +59,22 @@ export function RollReveal({
           ))}
           {player.length === 0 && <span className="mono text-paper-fade italic">No dice in the pool.</span>}
         </div>
+        {/* The roll came up short and a flashback's still in hand — offer the reroll right
+            under the dice it would replace (RULES §9). Cutting to it adds 2 dice and rolls
+            the whole pool again; the second result stands. */}
+        {canFlashback && (
+          <button
+            className="mono text-xs mt-2 px-2 py-1 bg-dusk-mauve text-paper"
+            style={{ borderRadius: 2 }}
+            title="Once per session: narrate a past F.A.N.G. scene, then reroll with +2 dice"
+            onClick={() => {
+              play("concussion");
+              setFlashback(true);
+            }}
+          >
+            Cut to a flashback · +2 dice, reroll
+          </button>
+        )}
       </div>
 
       <div className="mt-5">
@@ -83,6 +107,16 @@ export function RollReveal({
         >
           Discard &amp; resolve
         </button>
+      )}
+
+      {flashback && (
+        <FlashbackPrompt
+          onCancel={() => setFlashback(false)}
+          onConfirm={(context, question) => {
+            onFlashback(context, question);
+            setFlashback(false);
+          }}
+        />
       )}
     </div>
   );
