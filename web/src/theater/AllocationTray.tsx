@@ -258,7 +258,7 @@ export function AllocationTray({
                   onClick={() => place({ kind: "special", specialId: sp.id })}
                   title={sp.text}
                 >
-                  {sp.name}
+                  {sp.name}{sp.grantsBlood ? ` (+${sp.grantsBlood} Blood)` : ""}
                 </button>
               ))}
             </div>

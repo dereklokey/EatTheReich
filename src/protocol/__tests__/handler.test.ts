@@ -169,6 +169,37 @@ describe("processIntent — full §12-A turn driven by intents", () => {
   });
 });
 
+describe("processIntent — SPECIAL self-buff applies its Blood", () => {
+  it("a crit allocated to Flint's Ravenous grants +3 Blood, logged", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "flint", stat: "BRAWL" }, sequenceRoller([]), "flint");
+    expect(d.state.characters.flint.blood).toBe(0);
+
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "flint-ravenous", units: 2 }] },
+      sequenceRoller([]),
+      "flint",
+    );
+    expect(events.map((e) => e.type)).toEqual(["DIE_ALLOCATED", "BLOOD_CHANGED"]);
+    expect(events.find((e) => e.type === "BLOOD_CHANGED")?.payload).toMatchObject({ seat: "flint", delta: 3, reason: "Ravenous" });
+    expect(d.state.characters.flint.blood).toBe(3);
+  });
+
+  it("a SPECIAL with no Blood grant (Iryna's Deadeye Shot) emits no BLOOD_CHANGED", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "iryna-deadeye-shot", units: 2 }] },
+      sequenceRoller([]),
+      "iryna",
+    );
+    expect(events.map((e) => e.type)).toEqual(["DIE_ALLOCATED"]);
+    expect(d.state.characters.iryna.blood).toBe(0);
+  });
+});
+
 describe("processIntent — Last Stand (RULES §5)", () => {
   const allSixMarked = ([0, 1, 2] as const).flatMap((category) =>
     ([1, 2] as const).map((box) => ({ type: "INJURY_MARKED" as const, payload: { seat: "iryna" as const, category, box } })),

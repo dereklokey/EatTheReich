@@ -59,6 +59,13 @@ export interface Power {
   bonus?: BonusRequirement;
   /** For specials/conditionals: when it fires and any gating condition. */
   trigger?: SpecialTrigger;
+  /**
+   * Blood gained when this SPECIAL is activated (a crit allocated to it) — e.g. Flint's
+   * Ravenous (+3). A pure self-buff the engine can apply directly; most other SPECIALs
+   * need a target the table picks and stay GM-adjudicated. Applied as a logged BLOOD_CHANGED
+   * (a default the GM can still edit, CLAUDE.md §0).
+   */
+  grantsBlood?: number;
 }
 
 export interface Equipment {

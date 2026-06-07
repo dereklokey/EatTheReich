@@ -85,6 +85,22 @@ function discardThreshold(state: GameState): number {
   return Math.max(3, ...thresholds);
 }
 
+/**
+ * The Blood a SPECIAL grants on activation, if any (Flint's Ravenous → +3). Looks across
+ * the seat's start abilities and *unlocked* advances — a SPECIAL can only be allocated to
+ * once it's been offered, which already requires it to be unlocked. Returns the power's name
+ * for the BLOOD_CHANGED reason so the log reads "Ravenous".
+ */
+function specialBloodGrant(state: GameState, seat: CharId, specialId: string): { amount: number; name: string } | undefined {
+  const sheet = CHARACTERS_BY_ID[seat];
+  if (!sheet) return undefined;
+  const unlocked = state.characters[seat]?.unlockedAdvances ?? [];
+  const power =
+    sheet.abilities.find((p) => p.id === specialId) ??
+    sheet.advances.find((p) => p.id === specialId && unlocked.includes(p.id));
+  return power?.grantsBlood ? { amount: power.grantsBlood, name: power.name } : undefined;
+}
+
 /** Find an item by id across the character's sheet equipment and earned loot. */
 function findEquipment(state: GameState, seat: CharId, itemId: string): Equipment | undefined {
   return (
@@ -217,13 +233,21 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
     case "allocate": {
       const turn = state.currentTurn;
       if (!turn) return err("no turn in progress");
-      return ok(
-        intent.allocations.map((a) => ({
-          type: "DIE_ALLOCATED" as const,
+      const events: EventInput[] = [];
+      for (const a of intent.allocations) {
+        events.push({
+          type: "DIE_ALLOCATED",
           payload: { kind: a.kind, units: a.units, ...(a.targetId ? { targetId: a.targetId } : {}), ...(a.specialId ? { specialId: a.specialId } : {}) },
           actor: turn.seat,
-        })),
-      );
+        });
+        // A SPECIAL that's a pure self-buff applies its Blood here (Ravenous +3), as a logged
+        // BLOOD_CHANGED the GM can still edit. Other SPECIALs stay GM-adjudicated (RULES §7).
+        if (a.kind === "special" && a.specialId) {
+          const grant = specialBloodGrant(state, turn.seat, a.specialId);
+          if (grant) events.push({ type: "BLOOD_CHANGED", payload: { seat: turn.seat, delta: grant.amount, reason: grant.name }, actor: turn.seat });
+        }
+      }
+      return ok(events);
     }
 
     case "add_bonus_dice": {

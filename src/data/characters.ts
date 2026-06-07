@@ -232,7 +232,7 @@ export const FLINT: CharacterSheet = {
     { id: "flint-grappling-hook", name: "Grappling hook", uses: 3, bonus: { tag: "three or more storeys", plus: 2 } },
   ],
   abilities: [
-    { id: "flint-ravenous", name: "Ravenous", text: "When you're in melee combat: gain 3 Blood.", mechanic: "special", trigger: { type: "crit", requires: { tag: "melee" } } },
+    { id: "flint-ravenous", name: "Ravenous", text: "When you're in melee combat: gain 3 Blood.", mechanic: "special", trigger: { type: "crit", requires: { tag: "melee" } }, grantsBlood: 3 },
     { id: "flint-sense-heartbeat", name: "Sense Heartbeat", text: "See the heartbeats of living beings through walls and other obstacles.", mechanic: "active", bloodCost: 1, bonus: { tag: "dense cover", plus: 1 } },
     { id: "flint-improvised-projectile", name: "Improvised Projectile", text: "Chuck something large and heavy a surprising distance.", mechanic: "active", bloodCost: 1, bonus: { tag: "aerodynamic", plus: 1 } },
     { id: "flint-wings", name: "Wings", text: "You can fly.", mechanic: "active", bloodCost: 1, bonus: { tag: "aerial combat", plus: 1 } },
