@@ -152,8 +152,14 @@ describe("processIntent — full §12-A turn driven by intents", () => {
     d.run({ kind: "resolve_discard" }, sequenceRoller([]), "astrid");
     // allocate both successes to the objective (no Defend) → 3 GM dice remain
     d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }, { kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), "astrid");
-    // 3 leftover → Downed; category from d6=5 → category 2. Commit only PARKS it now.
-    const parked = d.run({ kind: "commit" }, sequenceRoller([5]), "astrid");
+    // A die got through → commit OPENS the window without rolling; the category die is its own throw.
+    const opened = d.run({ kind: "commit" }, sequenceRoller([]), "astrid");
+    expect(opened.map((e) => e.type)).toEqual(["INJURY_CHECK_OPENED"]);
+    expect(d.state.currentTurn?.phase).toBe("INJURY_CHECK");
+    expect(d.state.currentTurn?.pendingInjury).toBeUndefined(); // not thrown yet
+
+    // 3 leftover → Downed; category from d6=5 → category 2. roll_injury PARKS it.
+    const parked = d.run({ kind: "roll_injury" }, sequenceRoller([5]), "astrid");
     expect(parked.map((e) => e.type)).toEqual(["INJURY_PENDING"]);
     expect(d.state.characters.astrid.downed).toBe(false); // not applied yet — the window is open
     expect(d.state.currentTurn?.pendingInjury).toMatchObject({ face: 5, outcome: { kind: "downed", category: 2 } });
@@ -249,7 +255,8 @@ describe("processIntent — Last Stand (RULES §5)", () => {
     d.run({ kind: "roll_gm" }, sequenceRoller([6, 2, 2]), "gm");
     d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
     d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), "iryna"); // no Defend → 1 GM die left
-    const parked = d.run({ kind: "commit" }, sequenceRoller([3]), "iryna"); // 1 leftover → injury → nowhere free → death
+    d.run({ kind: "commit" }, sequenceRoller([]), "iryna"); // opens the window (no roll yet)
+    const parked = d.run({ kind: "roll_injury" }, sequenceRoller([3]), "iryna"); // 1 leftover → injury → nowhere free → death
     expect(parked.map((e) => e.type)).toEqual(["INJURY_PENDING"]);
     expect(d.state.currentTurn?.pendingInjury?.outcome.kind).toBe("death");
 
@@ -357,7 +364,8 @@ describe("processIntent — INJURY_CHECK window + reactive gear (RULES §4/§5)"
     d.run({ kind: "roll_gm" }, sequenceRoller([6, 2, 2]), "gm"); // GM (3 dice) 1 succ
     d.run({ kind: "resolve_discard" }, sequenceRoller([]), seat);
     d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }, { kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), seat); // no Defend → 1 GM left
-    d.run({ kind: "commit" }, sequenceRoller([1]), seat); // 1 leftover → injury, d6=1 → category 0
+    d.run({ kind: "commit" }, sequenceRoller([]), seat); // opens the INJURY_CHECK window
+    d.run({ kind: "roll_injury" }, sequenceRoller([1]), seat); // 1 leftover → injury, d6=1 → category 0
     return d;
   }
 
@@ -389,6 +397,13 @@ describe("processIntent — INJURY_CHECK window + reactive gear (RULES §4/§5)"
   it("rejects resolve_injury when nothing is pending", () => {
     const d = makeDriver();
     expect(d.fail({ kind: "resolve_injury" }).ok).toBe(false);
+  });
+
+  it("rejects roll_injury outside an open injury window, and a second throw once parked", () => {
+    const d = makeDriver();
+    expect(d.fail({ kind: "roll_injury" }).ok).toBe(false); // no window open
+    const parked = parkAnInjury("astrid");
+    expect(parked.fail({ kind: "roll_injury" }).ok).toBe(false); // already thrown
   });
 
   it("using Iryna's cigarettes regains 2 Blood automatically (and only while a use remains)", () => {

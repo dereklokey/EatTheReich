@@ -44,6 +44,9 @@ export type Intent =
   | { kind: "resolve_discard" }
   | { kind: "allocate"; allocations: Allocation[] }
   | { kind: "commit" }
+  /** Throw the category d6 for the open INJURY_CHECK (RULES §4): the wounded vampire's
+   *  own beat — the server rolls it and parks INJURY_PENDING for the reveal. */
+  | { kind: "roll_injury" }
   /** Resolve the parked INJURY_CHECK: apply the rolled injury, or `ignore` it (Chuck's hat). */
   | { kind: "resolve_injury"; ignore?: boolean }
   /** Mid-allocation bonus dice (RULES §4): roll `count` more dice into the tray. */

@@ -11,6 +11,9 @@
   min-height: 8.5rem;
 }
 
+/* Awaiting the throw: centre the prompt where the die will come to rest. */
+.injury-check__stage--await { justify-content: center; }
+
 .injury-check__die { filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55)); }
 
 /* The verdict — a hard, slightly-crooked stamp that slams down and settles. */

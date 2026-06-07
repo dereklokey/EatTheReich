@@ -271,7 +271,7 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       const turn = state.currentTurn;
       // Bonus dice land during ALLOCATE only (RULES §4): after discard, before the injury
       // check, and never during a Last Stand (whose 8d6 are fixed).
-      if (!turn || !turn.survivors || turn.pendingInjury || turn.lastStand) return err("can only add bonus dice during allocation");
+      if (!turn || !turn.survivors || turn.phase === "INJURY_CHECK" || turn.lastStand) return err("can only add bonus dice during allocation");
       const count = Math.max(1, Math.min(8, Math.floor(intent.count)));
       const threshold = discardThreshold(state);
       const results = deps.roller.roll(count);
@@ -292,10 +292,21 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
         return ok([...(whiff ? [whiff] : []), { type: "ALLOCATION_COMMITTED", payload: {}, actor: turn.seat }]);
       }
 
-      // A die got through → roll the injury d6 now (server-authoritative) but PARK it:
-      // the table sees the reveal and can react (Chuck's hat) before INJURY_CHECK marks a
-      // box. `resolve_injury` applies or shrugs it off. The face is stored so replay
-      // re-derives the same outcome without re-rolling.
+      // A die got through → open the INJURY_CHECK window WITHOUT rolling yet. The category
+      // die is its own visible beat (`roll_injury`): the wounded vampire throws it across
+      // the board, then it parks for the reveal + reaction window.
+      return ok([{ type: "INJURY_CHECK_OPENED", payload: { seat: turn.seat }, actor: turn.seat }]);
+    }
+
+    case "roll_injury": {
+      const turn = state.currentTurn;
+      if (!turn || turn.phase !== "INJURY_CHECK") return err("no injury check is open");
+      if (turn.pendingInjury) return err("the injury die is already thrown");
+      const leftover = turn.gmDiceRemaining ?? 0;
+      if (leftover <= 0) return err("no GM die got through");
+      // Roll the injury d6 now (server-authoritative) but PARK it: the table sees the reveal
+      // and can react (Chuck's hat) before INJURY_CHECK marks a box. `resolve_injury` applies
+      // or shrugs it off. The face is stored so replay re-derives the same outcome.
       const face = deps.roller.roll(1)[0]!;
       const outcome = resolveInjury(leftover, state.characters[turn.seat].injuries, face);
       return ok([{ type: "INJURY_PENDING", payload: { seat: turn.seat, face, outcome }, actor: turn.seat }]);

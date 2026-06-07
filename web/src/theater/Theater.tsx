@@ -68,6 +68,13 @@ export function Theater({
     );
   }
 
+  // The injury check owns the whole screen too: its category die is thrown over the live
+  // board (the arena), then it raises its own dark panel for the verdict — so it sits beside
+  // the roll sequence, not nested in the shell here.
+  if (turn.phase === "INJURY_CHECK") {
+    return <InjuryCheck turn={turn} state={state} canDrive={canDrive} send={send} onMinimize={onMinimize} onCancel={cancel} />;
+  }
+
   const onLockIn = (allocations: Allocation[]) => {
     send({ kind: "allocate", allocations });
     send({ kind: "commit" });
@@ -77,9 +84,7 @@ export function Theater({
 
   return (
     <TheaterShell turn={turn} canDrive={canDrive} onMinimize={onMinimize} onCancel={cancel}>
-      {turn.pendingInjury ? (
-        <InjuryCheck turn={turn} state={state} canDrive={canDrive} send={send} />
-      ) : !turn.playerDice ? (
+      {!turn.playerDice ? (
         <div className="mt-6 text-center">
           <div className="theater__phase text-sm">Loading the action</div>
           <p className="mono text-sm text-paper-fade mt-3">

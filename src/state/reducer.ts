@@ -229,10 +229,15 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
       return { ...s, currentTurn: null, activeSeat: null, actedThisRound: acted };
     }
 
+    case "INJURY_CHECK_OPENED":
+      // Open the INJURY_CHECK window before the category die is thrown (RULES §4). The
+      // theater shows the "throw the injury" beat; the die lands on `roll_injury`.
+      if (!s.currentTurn) return s;
+      return withTurn(s, { ...s.currentTurn, phase: "INJURY_CHECK" });
     case "INJURY_PENDING":
       // Park the rolled-but-unapplied injury on the turn (RULES §4 INJURY_CHECK). The
       // box isn't marked until INJURY_MARKED/DOWNED/DEATH_LAST_STAND fire on resolve —
-      // this just opens the reveal/reaction window without closing the turn.
+      // this just lands the reveal/reaction window without closing the turn.
       if (!s.currentTurn) return s;
       return withTurn(s, {
         ...s.currentTurn,

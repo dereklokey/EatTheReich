@@ -106,10 +106,18 @@ export interface EventPayloads {
   ALLOCATION_COMMITTED: Record<string, never>;
 
   /**
+   * A GM Attack die got through at commit, so the INJURY_CHECK window opens — but the
+   * category die has NOT been thrown yet. The wounded vampire (or GM) throws it as its
+   * own beat via `roll_injury`, which lands the spectacle and parks INJURY_PENDING. This
+   * split exists so the injury roll is a visible, server-authoritative throw the table
+   * watches, not a value that's silently pre-rolled at commit.
+   */
+  INJURY_CHECK_OPENED: { seat: CharId };
+  /**
    * The injury d6 has been rolled but NOT yet applied (RULES §4 INJURY_CHECK). Parks
    * the rolled face + resolved outcome on the turn so the table sees the reveal and can
    * react (Chuck's hat to shrug it off) before `resolve_injury` marks the box. `outcome`
-   * is never `none` here — commit only parks when a GM die got through.
+   * is never `none` here — commit only opens the window when a GM die got through.
    */
   INJURY_PENDING: { seat: CharId; face: DieFace; outcome: InjuryOutcome };
   INJURY_MARKED: { seat: CharId; category: 0 | 1 | 2; box: 1 | 2; penalty?: string };

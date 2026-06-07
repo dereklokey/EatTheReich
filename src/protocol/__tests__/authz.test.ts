@@ -97,6 +97,7 @@ describe("authorizeIntent — a seated player", () => {
     const irynaTurn = withTurn("iryna");
     expect(authorizeIntent(irynaTurn, "iryna", { kind: "roll", playerPoolDice: 5 }).ok).toBe(true);
     expect(authorizeIntent(irynaTurn, "iryna", { kind: "add_bonus_dice", count: 1 }).ok).toBe(true);
+    expect(authorizeIntent(irynaTurn, "iryna", { kind: "roll_injury" }).ok).toBe(true);
     expect(authorizeIntent(irynaTurn, "iryna", { kind: "resolve_injury" }).ok).toBe(true);
     expect(authorizeIntent(irynaTurn, "iryna", { kind: "commit" }).ok).toBe(true);
     // Not iryna's turn → denied.
