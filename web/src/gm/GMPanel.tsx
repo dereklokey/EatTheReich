@@ -395,19 +395,30 @@ function ThreatsSection({ state, send }: { state: GameState; send: (i: Intent) =
         {state.board.threats.map((t) => {
           const isStaged = t.active === false;
           return (
-            <div key={t.id} className={`paper paper-tight mono text-sm ${isStaged ? "opacity-60" : ""}`}>
+            <div key={t.id} className="paper paper-tight mono text-sm">
               <div className="flex items-center gap-2">
                 <span className="flex-1">
                   {t.name}
                   {isStaged && <span className="mono text-[0.55rem] uppercase tracking-wide text-paper-fade border border-current px-1 ml-1.5 align-middle">staged</span>}
                 </span>
-                <button
-                  className={`text-xs underline ${isStaged ? "text-hazard-ink" : "text-paper-fade"}`}
-                  onClick={() => patch(t.id, { active: !isStaged })}
-                  title={isStaged ? "Bring this threat into play" : "Hold this threat off the board (hidden from players)"}
-                >
-                  {isStaged ? "activate" : "stage"}
-                </button>
+                {isStaged ? (
+                  <button
+                    className="display text-paper bg-blood px-2 py-0.5 text-xs"
+                    style={{ borderRadius: 2 }}
+                    onClick={() => patch(t.id, { active: true })}
+                    title="Bring this threat into play (players will see it)"
+                  >
+                    Activate
+                  </button>
+                ) : (
+                  <button
+                    className="text-xs underline text-paper-fade"
+                    onClick={() => patch(t.id, { active: false })}
+                    title="Hold this threat off the board (hidden from players)"
+                  >
+                    stage
+                  </button>
+                )}
                 <button className="text-xs underline text-blood" onClick={() => send({ kind: "remove_threat", id: t.id })}>remove</button>
               </div>
               <div className="flex items-center gap-3 mt-1 text-xs">

@@ -59,6 +59,7 @@ export function Board({
   events,
   mySeat,
   isGm,
+  onSetThreatActive,
   turnControls,
   onOpenSheet,
   onFrameScene,
@@ -70,6 +71,8 @@ export function Board({
   mySeat?: CharId | null;
   /** True for the GM seat: sees staged (not-yet-activated) threats; players never do (issue #12). */
   isGm?: boolean;
+  /** GM-only: bring a staged threat into play / hold one off the board, right from the card. */
+  onSetThreatActive?: (id: string, active: boolean) => void;
   /** The "Start a turn" controls, placed atop the main column (not over the crew rail). */
   turnControls?: ReactNode;
   onOpenSheet?: (id: CharId) => void;
@@ -231,10 +234,12 @@ export function Board({
               <div className="grid gap-2">
                 {visibleThreats.map((t) => {
                   // Only ever true for the GM (players never receive staged threats): a held-back
-                  // threat, dimmed and flagged so the GM can tell it isn't in the fight yet.
+                  // threat, flagged so the GM can tell it isn't in the fight yet. Don't dim it —
+                  // a dimmed card reads as disabled and would dim its own Activate button.
                   const staged = t.active === false;
+                  const gmCanStage = isGm && onSetThreatActive;
                   return (
-                    <div key={t.id} className={`paper paper-tight paper--threat ${paperCut(t.id)} ${t.rating <= 0 || staged ? "opacity-50" : ""}`} style={{ transform: `rotate(${cardTilt(t.id)}deg)` }}>
+                    <div key={t.id} className={`paper paper-tight paper--threat ${paperCut(t.id)} ${t.rating <= 0 ? "opacity-50" : ""}`} style={{ transform: `rotate(${cardTilt(t.id)}deg)` }}>
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="mono font-bold">
                           {t.name}
@@ -244,6 +249,26 @@ export function Board({
                       </div>
                       <RatingPips n={t.rating} tone="blood" />
                       {t.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {t.challenge}</div> : null}
+                      {gmCanStage && (
+                        staged ? (
+                          <button
+                            className="mt-1.5 display text-paper bg-blood px-2 py-0.5 text-xs"
+                            style={{ borderRadius: 2 }}
+                            onClick={() => onSetThreatActive!(t.id, true)}
+                            title="Bring this threat into play (players will see it)"
+                          >
+                            Activate
+                          </button>
+                        ) : (
+                          <button
+                            className="mt-1.5 mono text-[0.6rem] underline text-paper-fade"
+                            onClick={() => onSetThreatActive!(t.id, false)}
+                            title="Hold this threat off the board (hidden from players)"
+                          >
+                            stage
+                          </button>
+                        )
+                      )}
                     </div>
                   );
                 })}

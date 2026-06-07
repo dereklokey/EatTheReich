@@ -84,6 +84,7 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
           events={game.events}
           mySeat={ownChar}
           isGm={isGm}
+          onSetThreatActive={isGm ? (id, active) => game.send({ kind: "update_threat", id, patch: { active } }) : undefined}
           turnControls={<TurnControls state={game.state} mySeat={game.mySeat} onCompose={setComposeSeat} />}
           onOpenSheet={setSheetSeat}
           onFrameScene={isGm ? () => setGmOpen(true) : undefined}
