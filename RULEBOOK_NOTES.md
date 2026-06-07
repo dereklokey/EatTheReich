@@ -66,7 +66,9 @@ when their surfaces are built:
   deals 3 damage to it.
 - **Aura of Misfortune** (Rust-Witch): players discard 1–4 (modelled as
   `discardThreshold: 4`, which the engine already supports).
-- **Rust Curse** (Rust-Witch): end of round, one random item of a chosen PC degrades.
+- **Rust Curse** (Rust-Witch): end of round, one random item of a chosen PC degrades
+  (wired, issue #13 — GM names the PC, server rolls the item, `EQUIPMENT_DEGRADED` zeroes
+  its uses).
 - **Rending Claws** (Werhund): an Injury from it marks **all** boxes in the rolled
   category (Downed-like severity).
 - **Corrosive Fluids / Feed on Fear** (Chuck/Nicole advances): "when you mark an

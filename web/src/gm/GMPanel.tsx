@@ -4,6 +4,7 @@ import type { Intent } from "@shared/protocol/messages.js";
 import type { Objective, Threat, SecondaryObjective, RewardItem } from "@shared/domain/types.js";
 import { CHAR_IDS, type CharId, type SeatId, type GameEvent } from "@shared/events/types.js";
 import type { DieFace } from "@shared/domain/types.js";
+import { threatInPlay } from "@shared/domain/types.js";
 import { LOCATIONS_BY_SECTOR, LOCATIONS_BY_ID, type Sector, type LootRef } from "@shared/data/locations.js";
 import { SECONDARY_OBJECTIVE_REWARDS } from "@shared/data/rewards.js";
 import { seatName } from "@/game/seats";
@@ -152,7 +153,51 @@ function SessionSection({ state, send, events }: { state: GameState; send: (i: I
           </div>
         </div>
       )}
+
+      <RustCursePrompt state={state} send={send} events={events} />
     </Section>
+  );
+}
+
+/**
+ * Rust-Witch 'Rust Curse' (rulebook p56, issue #13): while the Rust-Witch is in play, the
+ * GM names a PC at end of round and the server rusts one of their items at random. Lives in
+ * the Session section beside reinforcements — the other end-of-round escalation. Hidden until
+ * a Rust-Witch is actually on the battlefield (a staged one imposes nothing, issue #12).
+ */
+function RustCursePrompt({ state, send, events }: { state: GameState; send: (i: Intent) => void; events: GameEvent[] }) {
+  const inPlay = state.board.threats.some((t) => threatInPlay(t) && (t.rules ?? []).includes("rust-curse"));
+  const firstClaimed = CHAR_IDS.find((id) => state.seats[id]?.claimed) ?? CHAR_IDS[0]!;
+  const [seat, setSeat] = useState<CharId>(firstClaimed);
+  const last = [...events].reverse().find((e) => e.type === "EQUIPMENT_DEGRADED");
+  const degrade = last?.type === "EQUIPMENT_DEGRADED" ? last.payload : undefined;
+  if (!inPlay) return null;
+  return (
+    <div className="mt-2 paper paper-tight">
+      <div className="mono text-[0.65rem] text-paper-fade mb-1.5">Rust Curse — corrode a PC’s gear (Rust-Witch, end of round)</div>
+      <div className="flex items-center gap-1.5">
+        <select className="mono flex-1 min-w-0 px-2 py-1 bg-paper text-paper-ink" value={seat} onChange={(e) => setSeat(e.target.value as CharId)} title="who the curse falls on">
+          {CHAR_IDS.map((id) => (
+            <option key={id} value={id}>{seatName(id)}{state.seats[id]?.claimed ? "" : " (unclaimed)"}</option>
+          ))}
+        </select>
+        <button
+          className="shrink-0 display bg-hazard-warm text-night-deep px-2 py-1 text-sm"
+          style={{ borderRadius: 2 }}
+          onClick={() => send({ kind: "rust_curse", seat })}
+          title="The server rolls one of this PC's items at random and rusts it into uselessness"
+        >
+          Rust an item
+        </button>
+      </div>
+      {degrade && (
+        <div className="mt-2 flex items-center gap-2 mono text-xs">
+          <Die kind="gm" value={degrade.roll} state="success" size="1.4rem" title={`rust roll: ${degrade.roll}`} />
+          <span className="flex-1 truncate">{seatName(degrade.seat)}’s {degrade.itemName}</span>
+          <span className="text-blood italic">rusted</span>
+        </div>
+      )}
+    </div>
   );
 }
 

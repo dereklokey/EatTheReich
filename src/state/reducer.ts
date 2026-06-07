@@ -314,6 +314,14 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
         if (cur === undefined || max === undefined) return c;
         return { ...c, equipmentUses: { ...c.equipmentUses, [e.payload.itemId]: Math.min(max, cur + 1) } };
       });
+    case "EQUIPMENT_DEGRADED":
+      // Rust Curse (issue #13): zero the item's remaining uses — rusted to uselessness.
+      // The server only ever picks a use-tracked item (handler `degradableEquipment`), so
+      // this leaves a clean 0 the GM can hand back via EQUIPMENT_RESTORED to "repair" it (§0).
+      return updateChar(s, e.payload.seat, (c) => ({
+        ...c,
+        equipmentUses: { ...c.equipmentUses, [e.payload.itemId]: 0 },
+      }));
     case "LOOT_ADDED":
       return updateChar(s, e.payload.seat, (c) => ({
         ...c,
