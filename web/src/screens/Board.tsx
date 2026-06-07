@@ -123,8 +123,10 @@ export function Board({
     <div className="substrate grain min-h-full p-4 pb-20 app-w">
       <div className="board-layout">
         {/* ───────── LEFT: the crew rail (issue #7) ───────── */}
-        <section className="crew-rail-wrap" aria-label="The crew">
-          <h2 className="crew-rail-head display text-paper text-xl mb-2">The crew</h2>
+        <section className="crew-rail-wrap" aria-label="F.A.N.G.">
+          <h2 className="crew-rail-head">
+            <span className="stamp fang-stamp">F.A.N.G.</span>
+          </h2>
           <div ref={crewRef} className="crew-rail">
             {orderedCrew.map((id) => (
               <CharCard

@@ -174,7 +174,10 @@
 }
 .composer__src-main { flex: 1; display: flex; flex-direction: column; line-height: 1; min-width: 0; }
 /* The same rubber-stamp impression as the loot "ACTIVE" tag (theme.css .stamp): a bordered
-   crimson stamp, set askew. align-self keeps the box hugging the word, not the column. */
+   crimson stamp, set askew. align-self keeps the box hugging the word, not the column.
+   The shared #stamp-ink filter (InkFilter, app root) inks it unevenly — broken edges +
+   patchy coverage — so each selection lands like a real pressed stamp. Dropped under
+   reduce-effects below (the global guardrail zeroes animation but not filter). */
 .composer__src-label {
   align-self: flex-start;
   font-family: var(--font-display);
@@ -190,7 +193,9 @@
   transform-origin: left center;
   opacity: 0.92;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  filter: url("#stamp-ink");
 }
+[data-effects="reduced"] .composer__src-label { filter: none; }
 .composer__src--base .composer__src-label { color: var(--hazard); border-color: var(--hazard); }
 .composer__src-sub {
   font-family: var(--font-mono);

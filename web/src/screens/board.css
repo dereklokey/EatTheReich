@@ -23,6 +23,25 @@
   display: none;
 }
 
+/* F.A.N.G. — the crew's name, rubber-stamped in blood red and centred over the
+   character column. Builds on .stamp (theme.css) but reads as a heading: bigger,
+   wider tracking, a touch heavier. The shared #stamp-ink SVG filter (InkFilter, mounted
+   at the app root) roughens the edges and knocks out ink patches so it reads like a real,
+   unevenly-pressed rubber stamp rather than clean type. */
+.fang-stamp {
+  font-size: 1.5rem;
+  letter-spacing: 0.18em;
+  padding: 0.12em 0.5em;
+  border-width: 3px;
+  opacity: 0.9;
+  filter: url("#stamp-ink");
+}
+/* Reduce-effects: drop the ink filter back to a clean stamp (matches the grain
+   guardrail in theme.css §reduce-effects). */
+[data-effects="reduced"] .fang-stamp {
+  filter: none;
+}
+
 /* Wide: a true left rail + the board to its right. */
 @media (min-width: 1024px) {
   .board-layout {
@@ -38,5 +57,7 @@
   }
   .crew-rail-head {
     display: block;
+    text-align: center;
+    margin-bottom: 0.75rem;
   }
 }

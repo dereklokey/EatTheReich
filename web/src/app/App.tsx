@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Entry } from "@/screens/Entry";
 import { Game } from "@/screens/Game";
+import { InkFilter } from "@/effects/InkFilter";
 import { cleanCode } from "@/net/api";
 
 /**
@@ -30,5 +31,10 @@ export function App() {
     location.hash = "#/";
   }, []);
 
-  return code ? <Game code={code} onExit={exit} /> : <Entry onEnter={enter} />;
+  return (
+    <>
+      <InkFilter />
+      {code ? <Game code={code} onExit={exit} /> : <Entry onEnter={enter} />}
+    </>
+  );
 }
