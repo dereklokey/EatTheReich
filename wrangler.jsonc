@@ -7,6 +7,16 @@
   "main": "src/worker/index.ts",
   "compatibility_date": "2025-01-01",
   "observability": { "enabled": true },
+  // Serve the built SPA (web/ → dist/) from the same Worker so the client's
+  // same-origin calls (POST /game, wss://host/game/:code) Just Work — no separate
+  // Pages deploy, no CORS. Static assets are served directly (no Worker invocation);
+  // `run_worker_first` forces /game paths to the Worker/DO instead of the SPA fallback.
+  // not_found_handling = SPA so a refresh on any path still loads index.html.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/game", "/game/*"]
+  },
   "durable_objects": {
     "bindings": [{ "name": "GAME", "class_name": "GameRoom" }]
   },
