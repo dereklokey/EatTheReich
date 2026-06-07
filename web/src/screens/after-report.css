@@ -37,9 +37,13 @@
 }
 .after-report__who {
   font-size: clamp(1.5rem, 4.5vw, 2.1rem);
-  line-height: 1;
+  /* Blackletter glyphs overrun their box (right side-bearing + tall ascenders); give the
+     name room so flourishes like the tail of a "k" aren't clipped. */
+  line-height: 1.18;
+  padding-right: 0.3em;
   color: var(--blood-bright);
   text-shadow: 0 0 16px rgba(255, 45, 74, 0.6);
+  overflow: visible;
 }
 .after-report__tag {
   font-size: 0.6rem;

@@ -49,8 +49,9 @@ export function TurnSummaryReport({ events, state }: { events: GameEvent[]; stat
     if (!summary) return;
     setShown({ seq: latest.seq, summary });
     play("stamp");
-    const dwell = Math.min(9000, 3600 + summary.lines.length * 750);
-    const t = setTimeout(() => setShown(null), reduced ? Math.min(dwell, 5000) : dwell);
+    // Lingers ~3× the first pass — there's a lot to read, and it's tap-to-dismiss anyway.
+    const dwell = Math.min(28000, 10000 + summary.lines.length * 2200);
+    const t = setTimeout(() => setShown(null), dwell);
     return () => clearTimeout(t);
   }, [events, reduced, play]);
 
