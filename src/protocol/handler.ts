@@ -74,10 +74,10 @@ function penaltyLabel(seat: CharId, category: 0 | 1 | 2): string | undefined {
   return CHARACTERS_BY_ID[seat]?.injuries[category]?.boxes[1]?.penalty;
 }
 
-/** Player discard threshold for an engagement: 3, raised by an engaged Rust-Witch (Aura of Misfortune). */
-function discardThreshold(state: GameState, engagedThreatIds: string[]): number {
+/** Player discard threshold: 3, raised while a Rust-Witch is in play (Aura of Misfortune). */
+function discardThreshold(state: GameState): number {
   const thresholds = state.board.threats
-    .filter((t) => engagedThreatIds.includes(t.id) && t.discardThreshold !== undefined)
+    .filter((t) => t.rating > 0 && t.discardThreshold !== undefined)
     .map((t) => t.discardThreshold as number);
   return Math.max(3, ...thresholds);
 }
@@ -143,7 +143,7 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       return ok([{ type: "SECONDARY_OBJECTIVE_REMOVED", payload: { id: intent.id } }]);
 
     case "start_turn":
-      return ok([{ type: "TURN_STARTED", payload: { seat: intent.seat, stat: intent.stat, engagedThreatIds: intent.engagedThreatIds, ...(intent.tags ? { tags: intent.tags } : {}) }, actor: intent.seat }]);
+      return ok([{ type: "TURN_STARTED", payload: { seat: intent.seat, stat: intent.stat, ...(intent.tags ? { tags: intent.tags } : {}) }, actor: intent.seat }]);
     case "cancel_turn": {
       const turn = state.currentTurn;
       if (!turn) return err("no turn in progress");
@@ -156,14 +156,14 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       // The player rolls; the Reich answers separately (`roll_gm`) so each side gets its
       // own beat at the table (issue #5). We still build the GM pool now from current
       // threats (RULES §4) and record it (POOL_BUILT) so everyone sees what's incoming.
-      const gmDice = buildGmPool(state.board.threats, turn.engagedThreatIds);
+      const gmDice = buildGmPool(state.board.threats);
       const playerResults = deps.roller.roll(intent.playerPoolDice);
       const events: EventInput[] = [
         { type: "POOL_BUILT", payload: { who: "player", dice: intent.playerPoolDice, sources: intent.sources ?? [] }, actor: turn.seat },
         { type: "POOL_BUILT", payload: { who: "gm", dice: gmDice } },
         { type: "DICE_ROLLED", payload: { who: "player", results: playerResults }, actor: turn.seat },
       ];
-      // Uncontested action (no engaged Threat → 0 GM dice): there's nothing for the Reich
+      // Uncontested action (no Threat in play → 0 GM dice): there's nothing for the Reich
       // to roll, so resolve its empty pool now and skip the GM-roll beat entirely.
       if (gmDice === 0) {
         events.push({ type: "DICE_ROLLED", payload: { who: "gm", results: [] } });
@@ -185,7 +185,7 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       const turn = state.currentTurn;
       if (!turn?.playerDice || !turn.gmDice) return err("dice not rolled yet");
 
-      const threshold = discardThreshold(state, turn.engagedThreatIds);
+      const threshold = discardThreshold(state);
       const { survivors } = resolvePlayerDice(turn.playerDice, threshold);
       const playerOnes = countOnes(turn.playerDice);
       let gmCount = gmSuccesses(turn.gmDice).length;
@@ -227,7 +227,7 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       // check, and never during a Last Stand (whose 8d6 are fixed).
       if (!turn || !turn.survivors || turn.pendingInjury || turn.lastStand) return err("can only add bonus dice during allocation");
       const count = Math.max(1, Math.min(8, Math.floor(intent.count)));
-      const threshold = discardThreshold(state, turn.engagedThreatIds);
+      const threshold = discardThreshold(state);
       const results = deps.roller.roll(count);
       const { survivors } = resolvePlayerDice(results, threshold);
       return ok([

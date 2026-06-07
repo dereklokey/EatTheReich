@@ -5,7 +5,7 @@ import type { CharId, SeatId } from "@shared/events/types.js";
 import type { Equipment } from "@shared/domain/character.js";
 import { STATS, type Stat } from "@shared/domain/types.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
-import { buildGmPool } from "@shared/engine/gmPool.js";
+import { buildGmPool, gmPoolContributions } from "@shared/engine/gmPool.js";
 import { seatName } from "@/game/seats";
 import { buildSuggestedPool, activePowers, itemsToSpend } from "./poolModel";
 import "./composer.css";
@@ -27,8 +27,11 @@ interface BloodSpend {
  *            the active loot into the pool, tick each printed bonus when the fiction is true.
  *   centre — the assembled pool reads back as a narrated list (each pick + its dice + an ✕
  *            to drop it), the editable total (suggest-don't-enforce), and the ROLL detonator.
- *   right  — the Threats, ordered closest-to-dead with the nearest pre-engaged; an
- *            "avoid — uncontested" card to slip past them; the live Reich pool in the gutter.
+ *   right  — the Reich pool the board produces (highest Attack + 1 per other Threat in
+ *            play, RULES §4), then a read-only card per live Threat showing the red dice it
+ *            contributes. There is no threat *selection*: the player can't pick what to
+ *            attack or "avoid," and avoiding never lowers the pool (rulebook p36). The roll
+ *            is uncontested only when no Threat is left in play.
  *
  * Rolling fires start_turn → use_equipment → change_blood → roll back-to-back, so the
  * server records the same events a Declare-then-Build flow would and the engine is untouched.
@@ -55,9 +58,15 @@ export function TurnComposer({
     () => (sheet ? [...STATS].sort((a, b) => (sheet.stats[b] ?? 0) - (sheet.stats[a] ?? 0))[0]! : "SHOOT"),
     [sheet],
   );
-  // Threats nearest to death first; the closest is auto-engaged as the obvious target.
+  // Threats nearest to death first — purely a reading order; the Reich pool is the same
+  // regardless of order (highest Attack + 1 per other Threat in play).
   const liveThreats = useMemo(
     () => state.board.threats.filter((t) => t.rating > 0).sort((a, b) => a.rating - b.rating || b.attack - a.attack),
+    [state.board.threats],
+  );
+  // The red dice each Threat brings, keyed by id so a card can read off its own contribution.
+  const reichByThreat = useMemo(
+    () => new Map(gmPoolContributions(state.board.threats).map((c) => [c.threat.id, c])),
     [state.board.threats],
   );
 
@@ -65,7 +74,6 @@ export function TurnComposer({
   const [used, setUsed] = useState<string[]>([]);
   const [powers, setPowers] = useState<string[]>([]);
   const [claimed, setClaimed] = useState<string[]>([]);
-  const [engaged, setEngaged] = useState<string[]>(() => (liveThreats[0] ? [liveThreats[0].id] : []));
   const [override, setOverride] = useState<number | null>(null);
   const [launched, setLaunched] = useState(false);
 
@@ -101,7 +109,7 @@ export function TurnComposer({
     [stat, sheet, gear, abilities, used, powers, claimed, char.equipmentUses],
   );
   const finalDice = override ?? suggested.total;
-  const reichPool = buildGmPool(state.board.threats, engaged);
+  const reichPool = buildGmPool(state.board.threats);
 
   // Toggling a thing's use resets its bonus claim (a fresh pick starts unclaimed).
   const toggleUse = (id: string) => {
@@ -113,7 +121,6 @@ export function TurnComposer({
     setClaimed((cur) => cur.filter((x) => x !== id));
   };
   const toggleClaim = (id: string) => setClaimed((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
-  const toggleEngage = (id: string) => setEngaged((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
 
   const roll = () => {
     if (launched) return;
@@ -122,7 +129,7 @@ export function TurnComposer({
       .map((id) => ({ amount: costOf(id), reason: abilities.find((p) => p.id === id)?.name ?? "ability" }))
       .filter((s) => s.amount > 0);
 
-    send({ kind: "start_turn", seat, stat, engagedThreatIds: engaged });
+    send({ kind: "start_turn", seat, stat });
     for (const itemId of itemsToSpend(gear, used, char.equipmentUses)) send({ kind: "use_equipment", seat, itemId });
     for (const s of bloodSpends) send({ kind: "change_blood", seat, delta: -s.amount, reason: s.reason });
     send({ kind: "roll", playerPoolDice: finalDice, sources: suggested.sources });
@@ -289,55 +296,55 @@ export function TurnComposer({
           <p className="mono text-[0.65rem] text-paper-fade text-center mt-2">
             {reichPool > 0
               ? `The Reich answers with ${reichPool} ${reichPool === 1 ? "die" : "dice"}.`
-              : "Uncontested — they never see you coming."}
+              : "Uncontested — no Threats left standing."}
           </p>
         </section>
 
-        {/* ───────── RIGHT: threats + the Reich pool gutter ───────── */}
+        {/* ───────── RIGHT: the Reich pool + the threats that feed it ───────── */}
         <section className="composer__threats">
-          <div className="composer__col-head">Threats — closest first</div>
-          <div className="composer__threat-rows">
-            <div className="composer__reich" title="Highest engaged Attack + 1 per other Threat in play (RULES §4)">
-              <span className="composer__reich-n">{reichPool}</span>
-              <span className="composer__reich-dice">
-                {Array.from({ length: Math.min(reichPool, 10) }, (_, i) => (
-                  <span key={i} className="minidie minidie--gm" />
-                ))}
-              </span>
-              <span className="mono text-[0.6rem] text-paper-fade">Reich rolls</span>
-            </div>
+          <div className="composer__col-head">The Reich</div>
 
-            <div className="composer__threat-list">
-              {liveThreats.length === 0 && (
-                <p className="mono text-xs text-paper-fade italic">The street is quiet. A pure Objective action.</p>
-              )}
-              {liveThreats.map((t) => (
-                <button
-                  key={t.id}
-                  disabled={!canDrive}
-                  className={`composer__threat ${engaged.includes(t.id) ? "composer__threat--on" : ""}`}
-                  onClick={() => toggleEngage(t.id)}
-                >
+          {/* Total sits ABOVE the cards — the pool the whole board produces. */}
+          <div className="composer__reich-banner" title="Highest Attack + 1 per other Threat in play (RULES §4)">
+            <span className="composer__reich-n">{reichPool}</span>
+            <span className="composer__reich-dice">
+              {Array.from({ length: Math.min(reichPool, 12) }, (_, i) => (
+                <span key={i} className="minidie minidie--threat" />
+              ))}
+            </span>
+            <span className="mono text-[0.6rem] text-paper-fade">
+              {reichPool > 0 ? "dice incoming" : "uncontested"}
+            </span>
+          </div>
+
+          <div className="composer__threat-list">
+            {liveThreats.length === 0 && (
+              <p className="mono text-xs text-paper-fade italic">No Threats in play — a clean, unanswered action.</p>
+            )}
+            {liveThreats.map((t) => {
+              const contrib = reichByThreat.get(t.id);
+              const dice = contrib?.dice ?? 0;
+              return (
+                <div key={t.id} className="composer__threat">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="mono font-bold text-paper-ink">{t.name}</span>
                     <span className="mono text-[0.65rem] text-blood">ATK {t.attack}</span>
                   </div>
-                  <div className="mono text-[0.6rem] text-paper-fade">
-                    rating {t.rating}
-                    {t.challenge ? ` · challenge ${t.challenge}` : ""}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="mono text-[0.6rem] text-paper-fade">
+                      rating {t.rating}
+                      {t.challenge ? ` · challenge ${t.challenge}` : ""}
+                    </span>
+                    <span className="composer__threat-dice" title={contrib?.anchor ? "full Attack — the most dangerous Threat" : "+1 for another Threat in play"}>
+                      {Array.from({ length: Math.min(dice, 8) }, (_, i) => (
+                        <span key={i} className="minidie minidie--threat" />
+                      ))}
+                      <span className="composer__threat-adds">+{dice}</span>
+                    </span>
                   </div>
-                </button>
-              ))}
-
-              <button
-                disabled={!canDrive}
-                className={`composer__threat composer__avoid ${engaged.length === 0 ? "composer__threat--on" : ""}`}
-                onClick={() => setEngaged([])}
-              >
-                <div className="mono font-bold text-paper-ink">Avoid — uncontested</div>
-                <div className="mono text-[0.6rem] text-paper-fade">Engage nothing · no counterattack</div>
-              </button>
-            </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       </div>

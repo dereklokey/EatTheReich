@@ -36,7 +36,7 @@ export function irynaClockTowerEvents(gameId: string): GameEvent[] {
     ev("SCENE_FRAMED", { objectives: [objective], threats: [threat] }),
     ev(
       "TURN_STARTED",
-      { seat: "iryna", stat: "SHOOT", engagedThreatIds: [threat.id], tags: ["ranged weapon", "elevated position"] },
+      { seat: "iryna", stat: "SHOOT", tags: ["ranged weapon", "elevated position"] },
       "iryna",
     ),
     ev(

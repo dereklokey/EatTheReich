@@ -70,7 +70,7 @@ export interface EventPayloads {
   THREAT_UPDATED: { id: string; patch: Partial<Threat> };
   THREAT_REMOVED: { id: string };
 
-  TURN_STARTED: { seat: CharId; stat?: Stat; engagedThreatIds?: string[]; tags?: string[] };
+  TURN_STARTED: { seat: CharId; stat?: Stat; tags?: string[] };
   /** Abort an in-progress turn without it counting as the character's action. */
   TURN_CANCELLED: { seat: CharId };
   POOL_BUILT: { who: "player" | "gm"; dice: number; sources?: PoolSource[] };

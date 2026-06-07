@@ -33,7 +33,7 @@ export type Intent =
   | { kind: "update_secondary_objective"; id: string; patch: Partial<SecondaryObjective> }
   | { kind: "complete_secondary_objective"; id: string; rewardChoice?: string }
   | { kind: "remove_secondary_objective"; id: string }
-  | { kind: "start_turn"; seat: CharId; stat: Stat; engagedThreatIds: string[]; tags?: string[] }
+  | { kind: "start_turn"; seat: CharId; stat: Stat; tags?: string[] }
   | { kind: "cancel_turn" }
   | { kind: "roll"; playerPoolDice: number; sources?: PoolSource[] }
   /** GM rolls the Reich's pool, after the player has rolled (RULES §4 — the two pools

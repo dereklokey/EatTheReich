@@ -89,7 +89,7 @@ describe("character catalog integrity", () => {
 });
 
 describe("crit-SPECIAL availability against real sheets", () => {
-  const anyCtx: ActionContext = { stat: "BRAWL", targetKind: "threat", solo: true, engagedThreatIds: [] };
+  const anyCtx: ActionContext = { stat: "BRAWL", targetKind: "threat", solo: true };
 
   it("Astrid's Apex Predator (unconditional crit) is always offered", () => {
     const ids = availableCritSpecials(ASTRID, anyCtx).map((s) => s.id);
@@ -105,7 +105,7 @@ describe("crit-SPECIAL availability against real sheets", () => {
   });
 
   it("Chuck's Elbow Grease is advance-gated AND condition-gated", () => {
-    const fixSolo: ActionContext = { stat: "FIX", targetKind: "objective", solo: true, engagedThreatIds: [] };
+    const fixSolo: ActionContext = { stat: "FIX", targetKind: "objective", solo: true };
     // Locked: not offered even in the right context.
     expect(availableCritSpecials(CHUCK, fixSolo).map((s) => s.id)).not.toContain("chuck-elbow-grease");
     // Unlocked + right context: offered.

@@ -3,6 +3,7 @@ import { sequenceRoller } from "../../domain/dice.js";
 import {
   buildPlayerPool,
   buildGmPool,
+  gmPoolContributions,
   resolvePlayerDice,
   gmSuccesses,
   reduceGmSuccessesPerOne,
@@ -60,15 +61,42 @@ describe("buildPlayerPool", () => {
   });
 });
 
-describe("buildGmPool — engagement", () => {
-  it("returns 0 when no threat is engaged (stealth/safety)", () => {
-    expect(buildGmPool([naziSquad()], [])).toBe(0);
+describe("buildGmPool — derived from the Threats in play", () => {
+  it("returns its Attack for a single Threat in play", () => {
+    expect(buildGmPool([naziSquad()])).toBe(3); // attack 3, no others
   });
 
-  it("adds +1 per additional threat in play", () => {
+  it("returns 0 when no Threat is in play (all defeated → uncontested)", () => {
+    const dead = { ...naziSquad(), rating: 0, attack: 0 };
+    expect(buildGmPool([])).toBe(0);
+    expect(buildGmPool([dead])).toBe(0);
+  });
+
+  it("adds +1 per additional Threat in play (no player selection)", () => {
     const squad = infantrySquad(); // attack 3
     const police = policePatrol(); // attack 2
-    expect(buildGmPool([squad, police], [squad.id])).toBe(4); // 3 + 1
+    expect(buildGmPool([squad, police])).toBe(4); // 3 + 1
+  });
+});
+
+describe("gmPoolContributions — per-Threat breakdown", () => {
+  it("anchors on the highest Attack, adds 1 for each other Threat, and sums to the pool", () => {
+    const squad = infantrySquad(); // attack 3
+    const police = policePatrol(); // attack 2
+    const byName = Object.fromEntries(
+      gmPoolContributions([police, squad]).map((c) => [c.threat.name, c]), // order shouldn't matter
+    );
+    expect(byName["Infantry Squad"]).toMatchObject({ dice: 3, anchor: true });
+    expect(byName["Police Patrol"]).toMatchObject({ dice: 1, anchor: false });
+    const total = Object.values(byName).reduce((n, c) => n + c.dice, 0);
+    expect(total).toBe(buildGmPool([squad, police]));
+  });
+
+  it("ignores defeated Threats", () => {
+    const dead = { ...infantrySquad(), rating: 0, attack: 0 };
+    expect(gmPoolContributions([dead, policePatrol()])).toEqual([
+      expect.objectContaining({ dice: 2, anchor: true }), // only the live Police Patrol
+    ]);
   });
 });
 

@@ -10,7 +10,7 @@ const withTurn = (seat: GameState["activeSeat"]): GameState => ({
   ...base(),
   activeSeat: seat,
   currentTurn: seat
-    ? { seat, phase: "DECLARE", engagedThreatIds: [], tags: [], allocations: [], challengeConsumed: {} }
+    ? { seat, phase: "DECLARE", tags: [], allocations: [], challengeConsumed: {} }
     : null,
 });
 
@@ -22,7 +22,7 @@ describe("authorizeIntent — GM", () => {
       { kind: "end_round" },
       { kind: "change_blood", seat: "iryna", delta: 1 },
       { kind: "release_seat", seat: "nicole" },
-      { kind: "start_turn", seat: "flint", stat: "SHOOT", engagedThreatIds: [] },
+      { kind: "start_turn", seat: "flint", stat: "SHOOT" },
       { kind: "delete_game" },
     ];
     for (const i of intents) expect(authorizeIntent(s, "gm", i).ok).toBe(true);

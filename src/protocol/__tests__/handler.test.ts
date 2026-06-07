@@ -49,7 +49,7 @@ describe("processIntent — server rolls the dice (anti-fudge)", () => {
   it("the player roll casts only the player pool, but builds + shows the GM pool", () => {
     const d = makeDriver();
     d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
-    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "iryna");
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
 
     // The player rolls their 6 dice; the Reich's pool is built (and recorded) but NOT
     // thrown yet — that's the GM's separate beat (issue #5).
@@ -58,7 +58,7 @@ describe("processIntent — server rolls the dice (anti-fudge)", () => {
     const byType = (t: string) => events.filter((e) => e.type === t);
     expect(byType("POOL_BUILT").map((e) => e.payload)).toEqual([
       { who: "player", dice: 6, sources: [] },
-      { who: "gm", dice: 3 }, // server computed from the engaged threat's Attack
+      { who: "gm", dice: 3 }, // server computed from the in-play Threat's Attack
     ]);
     expect(byType("DICE_ROLLED").map((e) => e.payload)).toEqual([
       { who: "player", results: [6, 5, 4, 2, 2, 1] }, // no GM roll in this event batch
@@ -70,7 +70,7 @@ describe("processIntent — server rolls the dice (anti-fudge)", () => {
   it("roll_gm then throws the Reich's pool of the recorded size", () => {
     const d = makeDriver();
     d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
-    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "iryna");
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
     d.run({ kind: "roll", playerPoolDice: 6 }, sequenceRoller([6, 5, 4, 2, 2, 1]), "iryna");
 
     const gmEvents = d.run({ kind: "roll_gm" }, sequenceRoller([6, 4, 1]), "gm");
@@ -79,10 +79,11 @@ describe("processIntent — server rolls the dice (anti-fudge)", () => {
     expect(d.state.currentTurn?.gmDice).toEqual([6, 4, 1]);
   });
 
-  it("an uncontested action (no engaged Threat) resolves the empty Reich pool with the player roll", () => {
+  it("an uncontested action (no Threat in play) resolves the empty Reich pool with the player roll", () => {
     const d = makeDriver();
-    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
-    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: [] }, sequenceRoller([]), "iryna");
+    // No Threats on the board → the Reich has nothing to roll (RULES §4 BUILD_GM_POOL).
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
 
     const events = d.run({ kind: "roll", playerPoolDice: 4 }, sequenceRoller([6, 5, 2, 1]), "iryna");
     // 0 GM dice → the player roll already carries the empty GM roll; no GM beat to wait on.
@@ -102,7 +103,7 @@ describe("processIntent — server rolls the dice (anti-fudge)", () => {
   it("rejects roll_gm before the player has rolled, and again once the Reich has rolled", () => {
     const d = makeDriver();
     d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
-    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "iryna");
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
     expect(d.fail({ kind: "roll_gm" }).ok).toBe(false); // player hasn't rolled
 
     d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 4]), "iryna");
@@ -115,7 +116,7 @@ describe("processIntent — full §12-A turn driven by intents", () => {
   it("reduces the Objective 6 → 3 and takes no Injury", () => {
     const d = makeDriver();
     d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
-    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "iryna");
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
     d.run({ kind: "roll", playerPoolDice: 6 }, sequenceRoller([6, 5, 4, 2, 2, 1]), "iryna");
     d.run({ kind: "roll_gm" }, sequenceRoller([6, 4, 1]), "gm");
     d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
@@ -144,7 +145,7 @@ describe("processIntent — full §12-A turn driven by intents", () => {
   it("commit parks the injury for the INJURY_CHECK window; resolve_injury then applies it", () => {
     const d = makeDriver();
     d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
-    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "astrid");
+    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL" }, sequenceRoller([]), "astrid");
     // player rolls two successes, GM rolls 6,6,4 = 3 successes
     d.run({ kind: "roll", playerPoolDice: 3 }, sequenceRoller([5, 4, 2]), "astrid");
     d.run({ kind: "roll_gm" }, sequenceRoller([6, 6, 4]), "gm");
@@ -177,7 +178,7 @@ describe("processIntent — Last Stand (RULES §5)", () => {
     const d = makeDriver();
     d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
     d.seed(allSixMarked); // all 6 boxes already marked, but not yet dead
-    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "iryna");
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
     // player 5,4 (2 successes); GM 6,2,2 (1 success)
     d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 4]), "iryna");
     d.run({ kind: "roll_gm" }, sequenceRoller([6, 2, 2]), "gm");
@@ -235,7 +236,7 @@ describe("processIntent — mid-allocation bonus dice (RULES §4)", () => {
   function intoAllocation(seat: "iryna" = "iryna") {
     const d = makeDriver();
     d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
-    d.run({ kind: "start_turn", seat, stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), seat);
+    d.run({ kind: "start_turn", seat, stat: "SHOOT" }, sequenceRoller([]), seat);
     d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 2]), seat); // 1 survivor (5)
     d.run({ kind: "roll_gm" }, sequenceRoller([6, 2, 2]), "gm"); // GM 1 succ
     d.run({ kind: "resolve_discard" }, sequenceRoller([]), seat);
@@ -259,16 +260,16 @@ describe("processIntent — mid-allocation bonus dice (RULES §4)", () => {
   it("rejects bonus dice outside the allocation phase", () => {
     const d = makeDriver();
     d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
-    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "iryna");
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
     // No discard yet → no survivors → not in allocation.
     expect(d.fail({ kind: "add_bonus_dice", count: 1 }, "iryna").ok).toBe(false);
   });
 
-  it("respects an engaged Rust-Witch's raised discard threshold", () => {
+  it("respects an in-play Rust-Witch's raised discard threshold", () => {
     const rustWitch: Threat = { id: "rw", name: "Rust-Witch", kind: "threat", rating: 3, attack: 2, startingAttack: 2, reinforces: false, restoresAtZero: false, discardThreshold: 4 };
     const d = makeDriver();
     d.run({ kind: "frame_scene", objectives: [objective], threats: [rustWitch] });
-    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["rw"] }, sequenceRoller([]), "iryna");
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
     d.run({ kind: "roll", playerPoolDice: 1 }, sequenceRoller([6]), "iryna"); // crit survives
     d.run({ kind: "roll_gm" }, sequenceRoller([2, 2]), "gm"); // GM 0 succ (pool 2)
     d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
@@ -286,7 +287,7 @@ describe("processIntent — INJURY_CHECK window + reactive gear (RULES §4/§5)"
   function parkAnInjury(seat: "astrid" | "chuck") {
     const d = makeDriver();
     d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
-    d.run({ kind: "start_turn", seat, stat: "BRAWL", engagedThreatIds: ["thr1"] }, sequenceRoller([]), seat);
+    d.run({ kind: "start_turn", seat, stat: "BRAWL" }, sequenceRoller([]), seat);
     d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 4]), seat); // player 2 succ
     d.run({ kind: "roll_gm" }, sequenceRoller([6, 2, 2]), "gm"); // GM (3 dice) 1 succ
     d.run({ kind: "resolve_discard" }, sequenceRoller([]), seat);
@@ -385,7 +386,7 @@ describe("processIntent — pre-discard passives", () => {
   it("Corpse Eater (Chuck) grants +1 Blood on a rolled 1", () => {
     const d = makeDriver();
     d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
-    d.run({ kind: "start_turn", seat: "chuck", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "chuck");
+    d.run({ kind: "start_turn", seat: "chuck", stat: "SHOOT" }, sequenceRoller([]), "chuck");
     d.run({ kind: "roll", playerPoolDice: 3 }, sequenceRoller([1, 5, 4]), "chuck");
     d.run({ kind: "roll_gm" }, sequenceRoller([4, 4, 4]), "gm");
     const events = d.run({ kind: "resolve_discard" }, sequenceRoller([]), "chuck");
@@ -398,7 +399,7 @@ describe("processIntent — pre-discard passives", () => {
     const setup = () => {
       const d = makeDriver();
       d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
-      d.run({ kind: "start_turn", seat: "cosgrave", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "cosgrave");
+      d.run({ kind: "start_turn", seat: "cosgrave", stat: "SHOOT" }, sequenceRoller([]), "cosgrave");
       d.run({ kind: "roll", playerPoolDice: 4 }, sequenceRoller([1, 1, 5, 6]), "cosgrave");
       d.run({ kind: "roll_gm" }, sequenceRoller([6, 4, 4]), "gm"); // GM 3 successes
       return d;
@@ -449,7 +450,7 @@ describe("processIntent — cancelling a turn", () => {
   it("aborts the turn without marking the character as having acted", () => {
     const d = makeDriver();
     d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
-    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT", engagedThreatIds: ["thr1"] }, sequenceRoller([]), "iryna");
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
     expect(d.state.currentTurn).not.toBeNull();
 
     d.run({ kind: "cancel_turn" }, sequenceRoller([]), "iryna");

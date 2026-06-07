@@ -251,10 +251,6 @@
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
   animation: minidie-drop var(--motion-base) var(--ease-impact) both;
 }
-.minidie--gm {
-  background: radial-gradient(70% 60% at 32% 28%, #fff8ea 0%, transparent 60%), var(--die-gm);
-  border-color: #cdbf9f;
-}
 .minidie--bonus { box-shadow: 0 0 0 1px var(--hazard), 0 1px 0 rgba(0, 0, 0, 0.4); }
 @keyframes minidie-drop {
   0% { transform: translateY(-120%) rotate(-18deg); opacity: 0; }
@@ -283,20 +279,15 @@
 }
 .composer__roll { align-self: center; margin-top: 1rem; }
 
-/* ───────── RIGHT: threats + the Reich gutter ───────── */
-.composer__threat-rows { display: flex; gap: 0.6rem; align-items: stretch; }
-
-/* The Reich pool sits to the LEFT of the threats — the dice the GM will roll back. */
-.composer__reich {
-  flex: 0 0 auto;
+/* ───────── RIGHT: the Reich pool, then the threats that feed it ───────── */
+/* The total sits ABOVE the cards — the dice the whole board rolls back. */
+.composer__reich-banner {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  min-width: 3.6rem;
-  padding: 0.5rem 0.4rem;
-  border-right: 2px solid color-mix(in srgb, var(--blood) 55%, transparent);
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.6rem;
+  border-bottom: 2px solid color-mix(in srgb, var(--blood) 55%, transparent);
 }
 .composer__reich-n {
   font-family: var(--font-display);
@@ -306,30 +297,35 @@
   text-shadow: 0 0 14px rgba(255, 45, 74, 0.5);
 }
 .composer__reich-dice {
+  flex: 1;
   display: flex;
   flex-wrap: wrap;
   gap: 0.15rem;
-  justify-content: center;
-  max-width: 3.4rem;
+  align-items: center;
 }
 
-.composer__threat-list { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+/* A red Reich die — danger the board is bringing (vs the bone GM dice in the theater). */
+.minidie--threat {
+  background: radial-gradient(70% 60% at 32% 28%, #ffd0d8 0%, transparent 60%), var(--blood);
+  border-color: color-mix(in srgb, var(--blood) 65%, #000);
+}
+
+.composer__threat-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .composer__threat {
   text-align: left;
   padding: 0.5rem 0.6rem;
   border: 1px solid var(--paper-shadow);
-  border-left: 3px solid transparent;
+  border-left: 3px solid color-mix(in srgb, var(--blood) 55%, transparent);
   border-radius: 2px;
   background:
     linear-gradient(0deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.04)),
     var(--paper);
-  transition: transform var(--motion-fast) var(--ease-impact), border-color var(--motion-fast), box-shadow var(--motion-fast);
 }
-.composer__threat:hover:not(:disabled) { transform: translateY(-1px); }
-.composer__threat:disabled { cursor: not-allowed; }
-.composer__threat--on {
-  border-left-color: var(--blood);
-  box-shadow: 0 0 0 1px var(--blood), 0 6px 14px rgba(0, 0, 0, 0.4);
+/* The red dice this threat adds to the pool, with its running count. */
+.composer__threat-dice { display: flex; align-items: center; gap: 0.18rem; }
+.composer__threat-adds {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--blood);
+  margin-left: 0.15rem;
 }
-.composer__avoid { border-style: dashed; }
-.composer__avoid.composer__threat--on { border-left-color: var(--hazard); box-shadow: 0 0 0 1px var(--hazard), 0 6px 14px rgba(0, 0, 0, 0.4); }

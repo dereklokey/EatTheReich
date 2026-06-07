@@ -45,8 +45,8 @@ describe("Golden A — Iryna clock-tower turn", () => {
     });
     expect(pool.total).toBe(6);
 
-    // BUILD_GM_POOL: one engaged threat, no others → its Attack = 3.
-    const gmPool = buildGmPool([threat], [threat.id]);
+    // BUILD_GM_POOL: one Threat in play, no others → its Attack = 3.
+    const gmPool = buildGmPool([threat]);
     expect(gmPool).toBe(3);
 
     // ROLL (injected): player 6,5,4,2,2,1 ; GM 6,4,1.
@@ -114,10 +114,10 @@ describe("Golden B — Reinforcements", () => {
 
     // A later objective roll that round: Squad at 0 → GM rolls 2 (Police Attack),
     // NOT 3.
-    expect(buildGmPool([deadSquad, livePolice], [livePolice.id])).toBe(2);
+    expect(buildGmPool([deadSquad, livePolice])).toBe(2);
 
-    // Had the Squad still been alive, engaging it: 4 = Squad Attack 3 + 1 extra.
-    expect(buildGmPool([squad, police], [squad.id])).toBe(4);
+    // Had the Squad still been alive: 4 = Squad Attack 3 + 1 for the extra Threat.
+    expect(buildGmPool([squad, police])).toBe(4);
   });
 
   it("end-of-round: Police +1 → 3; Squad regains 1d6 rating and Attack floor(3/2)=1", () => {
@@ -202,7 +202,7 @@ describe("Golden E — SPECIAL gating (Chuck's Elbow Grease)", () => {
   it("is offered as a crit-target ONLY on a solo FIX Objective action", () => {
     const offered = availableCritSpecials(
       CHUCK,
-      { stat: "FIX", targetKind: "objective", solo: true, engagedThreatIds: [] },
+      { stat: "FIX", targetKind: "objective", solo: true },
       unlocked,
     );
     expect(offered.map((s) => s.id)).toContain("chuck-elbow-grease");
@@ -210,9 +210,9 @@ describe("Golden E — SPECIAL gating (Chuck's Elbow Grease)", () => {
 
   it("never appears on a non-FIX or non-solo or non-Objective action", () => {
     const ctxs: ActionContext[] = [
-      { stat: "FIX", targetKind: "objective", solo: false, engagedThreatIds: [] },
-      { stat: "BRAWL", targetKind: "objective", solo: true, engagedThreatIds: [] },
-      { stat: "FIX", targetKind: "threat", solo: true, engagedThreatIds: [] },
+      { stat: "FIX", targetKind: "objective", solo: false },
+      { stat: "BRAWL", targetKind: "objective", solo: true },
+      { stat: "FIX", targetKind: "threat", solo: true },
     ];
     for (const ctx of ctxs) {
       const offered = availableCritSpecials(CHUCK, ctx, unlocked);

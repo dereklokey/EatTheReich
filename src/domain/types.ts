@@ -107,8 +107,6 @@ export interface ActionContext {
   targetKind: "objective" | "threat";
   /** True when this is the only target of the action (RULES §10 — Elbow Grease). */
   solo: boolean;
-  /** Threat ids this action is engaged with (RULES §3 engagement). */
-  engagedThreatIds: string[];
   /** GM-confirmed narration tags satisfied this action (e.g. "ranged weapon", "melee"). */
   tags?: string[];
 }

@@ -89,7 +89,6 @@ export interface TurnState {
    *  they retire. Skips the GM pool, discard, and injury check; not a normal turn. */
   lastStand?: boolean;
   stat?: Stat;
-  engagedThreatIds: string[];
   tags: string[];
 
   playerPool?: { total: number; sources: PoolSource[] };

@@ -108,7 +108,8 @@ export function TheaterShell({
             {seatName(turn.seat)}’s turn
             <span className="mono text-xs text-paper-fade ml-2">
               {turn.stat ?? "—"}
-              {turn.engagedThreatIds.length > 0 && ` · vs ${turn.engagedThreatIds.length} threat${turn.engagedThreatIds.length === 1 ? "" : "s"}`}
+              {turn.gmPoolSize !== undefined &&
+                (turn.gmPoolSize > 0 ? ` · Reich rolls ${turn.gmPoolSize}` : " · uncontested")}
             </span>
           </h2>
           {canDrive && (

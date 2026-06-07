@@ -50,17 +50,21 @@ lower its Attack. Attack only changes when (a) something explicitly reduces Atta
 ability/SPECIAL/secondary-objective reward), or (b) rating hits 0, at which point Attack is
 set to 0 too (defeated — no longer deals damage, but may reinforce, §8).
 
-**Engagement.** The GM's pool exists only because of *engaged* Threats. Engagement is
-**per-action**: when a player acts, the GM rolls dice = the **highest Attack among the
-Threats engaged with this action, +1 per additional Threat in play.** If no Threat is
-engaged, **the GM rolls zero dice and the player cannot be injured this turn.** This is how
-the system models stealth/safety: an unaware or unengaged enemy contributes no Attack dice.
-(See §4 BUILD_GM_POOL and §11 for the stealth pattern.)
+**The Reich pool is a board property, not a target choice.** When a player acts, the GM
+rolls dice = the **highest Attack among the Threats *in play*, +1 per additional Threat in
+play.** The acting player does **not** pick which Threat to "attack" or to "avoid": the
+rulebook is explicit that a Threat you are "engaged with **or actively avoiding**" still
+rolls its Attack (rulebook p36), so there is no avoidance discount and no per-action
+selection. Successes are still split freely across any Objectives/Threats during ALLOCATE,
+but the *incoming* Attack dice are fixed by what's on the board. If **no Threat is in play**,
+the GM rolls zero dice and the player cannot be injured this turn — the action is
+*uncontested*. This is the only uncontested case (the table killed everything, or the GM
+framed a Threat-free scene). (See §4 BUILD_GM_POOL; stealth/safety is GM scene-framing, §11.)
 
 **One Threat vs many.** A group (e.g. a squad) may be modeled by the GM as a *single*
 Threat (one rating, one Attack) or as *several* separate Threats. The "+1 per additional
 Threat" rule only bites in the second case. Engine implication: Threats are a list; the GM
-pool is derived as `max(attack of engaged) + (count of all threats in play − 1)` — see §4.
+pool is derived as `max(attack of threats in play) + (count of threats in play − 1)` — see §4.
 
 Players may split successes across any Objectives and Threats in play, as fiction allows.
 
@@ -76,8 +80,8 @@ DECLARE → BUILD_PLAYER_POOL → BUILD_GM_POOL → ROLL
 → PRE_DISCARD_HOOKS → DISCARD → ALLOCATE → POST_ALLOCATE → INJURY_CHECK → DONE
 ```
 
-**DECLARE** — player narrates the action, picks the **stat**, and selects which **Threat(s)**
-(if any) this action is engaged with.
+**DECLARE** — player narrates the action and picks the **stat**. There is **no** Threat
+selection: the Reich pool is derived from the Threats in play (BUILD_GM_POOL), not chosen.
 
 **BUILD_PLAYER_POOL** — pool = stat rating, then add:
 - `+1` per **equipment** item used (spends 1 use of that item).
@@ -92,11 +96,11 @@ DECLARE → BUILD_PLAYER_POOL → BUILD_GM_POOL → ROLL
   new narrated details satisfy new requirements (§ allocate). Support adding dice mid-allocation.
 - Player may narrate gear/abilities *without* paying → no die ("narrative only").
 
-**BUILD_GM_POOL** — `max(Attack of engaged Threats) + (totalThreatsInPlay − 1)`. With one
-engaged Threat and no others, that's just its Attack. With no engaged Threat, **0**.
-GM-overridable. (Worked example: Infantry Squad killed, only Police Patrol Attack 2 left →
-GM rolls 2; if the Squad were still in play the objective roll would face 4 = Squad's
-attack(3) +1 for the extra Threat. See §12.)
+**BUILD_GM_POOL** — `max(Attack of Threats in play) + (totalThreatsInPlay − 1)`. With one
+Threat in play and no others, that's just its Attack. With **no** Threat in play, **0**
+(uncontested). GM-overridable. (Worked example: Infantry Squad killed, only Police Patrol
+Attack 2 left → GM rolls 2; if the Squad were still in play the objective roll would face
+4 = Squad's attack(3) +1 for the extra Threat. See §12.)
 
 **ROLL** — server rolls both pools; raw results broadcast to all (the shared dice spectacle).
 
@@ -291,18 +295,18 @@ advances, active loot slot.
 
 ## 11. Patterns the engine must support (from common play situations)
 
-- **Safe stealth:** action with **no engaged Threat** → GM rolls 0 → allocate to Objective
-  with no Injury risk. The danger only "turns on" when a Threat becomes engaged.
+- **Safe stealth:** with **no Threat in play**, the GM rolls 0 → allocate to the Objective
+  with no Injury risk. The danger only "turns on" when the GM puts a Threat on the board.
 - **Guarded-but-not-fighting:** model as an Objective with a **Challenge** (soaks successes)
   rather than a Threat (which would roll damage). Represents "hard to do quietly," not
   "fights back."
-- **Stealth breaking:** a poor stealth roll is resolved as its own turn (GM rolled 0 if no
-  Threat was engaged). Its *consequence* — "the guard spots you" — is a **GM state change
-  that promotes a Threat to engaged for future turns**, optionally with a one-off GM-applied
-  "free Attack." It is **not** a second player roll in the same turn. Engine: provide a GM
-  control to flip a Threat to engaged mid-scene, decoupled from the player's roll.
-- **Engaging multiple Threats** in one action: GM pool = highest engaged Attack + 1 per
-  additional Threat in play (§4).
+- **Stealth breaking:** an unaware enemy is simply **not in play** yet. Its *consequence* —
+  "the guard spots you" — is a **GM state change that adds the Threat to the board** (rating
+  + Attack) for future turns, optionally with a one-off GM-applied "free Attack." It is
+  **not** a second player roll in the same turn. Engine: the GM adds/edits Threats mid-scene,
+  decoupled from the player's roll.
+- **Multiple Threats** in play: GM pool = highest Attack in play + 1 per additional Threat
+  in play (§4) — never a per-action choice of which to face.
 - **Use-restore** (Scavenger, Ammunition Depot "restore all firearms"): model as a distinct
   restore event, not merely a counter you can only decrement.
 - **Loot active-slot:** a character may hold multiple loot items; **exactly one loot-slot

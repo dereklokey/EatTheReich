@@ -17,8 +17,8 @@ export interface PlayerDiceResult {
  * DISCARD (RULES §4): discard all player dice ≤ threshold. Survivors:
  *   4–5 = success (1 unit), 6 = critical (2 units, can activate a SPECIAL).
  *
- * `threshold` defaults to 3 and is per-engagement overridable — the Rust-Witch
- * raises it to 4 so only 5–6 survive (the 6 is still a crit).
+ * `threshold` defaults to 3 and is raised while a Rust-Witch is in play (Aura of
+ * Misfortune) to 4, so only 5–6 survive (the 6 is still a crit).
  */
 export function resolvePlayerDice(
   dice: readonly DieFace[],
