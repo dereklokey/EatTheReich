@@ -78,17 +78,15 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
           onRelease={game.releaseSeat}
         />
       ) : (
-        <>
-          <TurnControls state={game.state} mySeat={game.mySeat} onCompose={setComposeSeat} />
-          <Board
-            state={game.state}
-            online={game.online}
-            events={game.events}
-            mySeat={ownChar}
-            onOpenSheet={setSheetSeat}
-            onFrameScene={isGm ? () => setGmOpen(true) : undefined}
-          />
-        </>
+        <Board
+          state={game.state}
+          online={game.online}
+          events={game.events}
+          mySeat={ownChar}
+          turnControls={<TurnControls state={game.state} mySeat={game.mySeat} onCompose={setComposeSeat} />}
+          onOpenSheet={setSheetSeat}
+          onFrameScene={isGm ? () => setGmOpen(true) : undefined}
+        />
       )}
 
       {game.state?.currentTurn?.lastStand ? (

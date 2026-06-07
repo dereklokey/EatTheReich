@@ -32,6 +32,7 @@ export function Board({
   online,
   events,
   mySeat,
+  turnControls,
   onOpenSheet,
   onFrameScene,
 }: {
@@ -40,6 +41,8 @@ export function Board({
   events: GameEvent[];
   /** This device's own character (null for the GM / unseated), floated to the top of the rail. */
   mySeat?: CharId | null;
+  /** The "Start a turn" controls, placed atop the main column (not over the crew rail). */
+  turnControls?: ReactNode;
   onOpenSheet?: (id: CharId) => void;
   /** GM-only: open the GM panel to frame the first scene (shown as an empty-state CTA). */
   onFrameScene?: () => void;
@@ -92,9 +95,7 @@ export function Board({
   const orderedCrew = [...CHAR_IDS].sort((a, b) => crewRank(a) - crewRank(b));
   return (
     <div className="substrate grain min-h-full p-4 pb-20 app-w">
-      <BoardHeader state={state} />
-
-      <div className="board-layout mt-3">
+      <div className="board-layout">
         {/* ───────── LEFT: the crew rail (issue #7) ───────── */}
         <section className="crew-rail-wrap" aria-label="The crew">
           <h2 className="crew-rail-head display text-paper text-xl mb-2">The crew</h2>
@@ -124,6 +125,9 @@ export function Board({
 
         {/* ───────── RIGHT: the board ───────── */}
         <div className="board-main min-w-0 flex flex-col gap-4">
+          {turnControls}
+          <BoardHeader state={state} />
+
           {loc && (
             <div className="paper">
               <div className="mono text-[0.6rem] uppercase tracking-wide text-paper-fade">Scene</div>

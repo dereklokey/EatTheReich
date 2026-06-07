@@ -33,23 +33,23 @@ export function TurnControls({
 
   if (startable.length === 0) return null;
 
+  // Rendered inside the board's main column (Game passes this as Board's `turnControls`
+  // slot), so it lines up over the scene/objectives/threats — not over the crew rail.
   return (
-    <div className="app-w px-4 mt-3">
-      <div className="paper paper-tight flex flex-wrap items-center gap-2">
-        <span className="mono text-xs text-paper-fade">
-          {mySeat === "gm" ? "Start a turn:" : "Your move:"}
-        </span>
-        {startable.map((id) => (
-          <button
-            key={id}
-            className="display text-paper bg-blood px-3 py-1 text-sm"
-            style={{ borderRadius: 2 }}
-            onClick={() => onCompose(id)}
-          >
-            {mySeat === "gm" ? seatName(id) : "Take your turn"}
-          </button>
-        ))}
-      </div>
+    <div className="paper paper-tight flex flex-wrap items-center gap-2">
+      <span className="mono text-xs text-paper-fade">
+        {mySeat === "gm" ? "Start a turn:" : "Your move:"}
+      </span>
+      {startable.map((id) => (
+        <button
+          key={id}
+          className="display text-paper bg-blood px-3 py-1 text-sm"
+          style={{ borderRadius: 2 }}
+          onClick={() => onCompose(id)}
+        >
+          {mySeat === "gm" ? seatName(id) : "Take your turn"}
+        </button>
+      ))}
     </div>
   );
 }
