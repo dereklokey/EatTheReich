@@ -1,0 +1,42 @@
+/* Board layout (issue #7): a left crew rail beside the main board on wide screens,
+   stacking to a compact crew strip above the board on narrow ones. The breakpoint is
+   1024px — matching the objectives/threats two-up split. */
+
+.board-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+/* The crew rail itself is the positioning context for the blood-share arc (it wraps
+   the cards + the <BloodArc>), so it must stay `position: relative`. */
+.crew-rail {
+  position: relative;
+  display: grid;
+  gap: 0.6rem;
+}
+
+/* Narrow: crew becomes a compact wrapping strip above the board. */
+.crew-rail {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.crew-rail-head {
+  display: none;
+}
+
+/* Wide: a true left rail + the board to its right. */
+@media (min-width: 1024px) {
+  .board-layout {
+    grid-template-columns: minmax(190px, 224px) minmax(0, 1fr);
+    align-items: start; /* let the sticky rail have room to pin */
+  }
+  .crew-rail-wrap {
+    position: sticky;
+    top: 3.6rem; /* clears the sticky top bar */
+  }
+  .crew-rail {
+    grid-template-columns: 1fr; /* one card per row, vertical */
+  }
+  .crew-rail-head {
+    display: block;
+  }
+}

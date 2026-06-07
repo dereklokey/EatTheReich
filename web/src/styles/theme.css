@@ -186,6 +186,11 @@ body {
 }
 .paper-tight { padding: 0.6rem 0.7rem; }
 
+/* Shared app width (issue #7): fill small/normal screens edge-to-edge, but cap and
+   centre on very wide monitors so cards/columns never stretch awkwardly. The top bar,
+   safety bar, turn controls, and board all share this so they line up. */
+.app-w { width: 100%; max-width: 1500px; margin-inline: auto; }
+
 /* Rubber-stamped label, e.g. RECEIVED / a seat tag (§4) */
 .stamp {
   font-family: var(--font-display);

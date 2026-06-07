@@ -24,7 +24,7 @@ export function SafetyBar({ state, send }: { state: GameState; send: (i: Intent)
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-[100] bg-night-deep/95 border-t border-paper-shadow/30">
-      <div className="mx-auto max-w-5xl flex items-center gap-3 px-4 py-2">
+      <div className="app-w flex items-center gap-3 px-4 py-2">
         <button
           className="font-mono text-sm font-bold px-3 py-1.5 bg-paper text-paper-ink"
           style={{ borderRadius: 3 }}

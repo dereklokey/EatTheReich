@@ -180,7 +180,7 @@ function TopBar({
 }) {
   return (
     <div className="sticky top-0 z-40 bg-night-deep/95 border-b border-paper-shadow/30">
-      <div className="mx-auto max-w-5xl flex items-center gap-3 px-4 py-2">
+      <div className="app-w flex items-center gap-3 px-4 py-2">
         <span className="mono text-xs text-paper-fade">code</span>
         <span className="display tracking-widest text-hazard text-lg">{code}</span>
         <span className={`dot ${status === "open" ? "dot-online" : "dot-away"}`} title={status} />

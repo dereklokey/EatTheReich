@@ -34,7 +34,7 @@ export function TurnControls({
   if (startable.length === 0) return null;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 mt-3">
+    <div className="app-w px-4 mt-3">
       <div className="paper paper-tight flex flex-wrap items-center gap-2">
         <span className="mono text-xs text-paper-fade">
           {mySeat === "gm" ? "Start a turn:" : "Your move:"}

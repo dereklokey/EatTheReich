@@ -8,6 +8,7 @@ import { seatName } from "@/game/seats";
 import { useEffects } from "@/effects/EffectsContext";
 import { useSound } from "@/effects/SoundContext";
 import "./blood-arc.css";
+import "./board.css";
 
 /** A live blood-share spectacle: a crimson arc from giver to receiver (§6). */
 interface ShareArc {
@@ -82,130 +83,141 @@ export function Board({
     state.board.objectives.length === 0 &&
     state.board.threats.length === 0 &&
     secondary.length === 0;
+  // Claimed (in-play) characters rise to the top of the rail; unclaimed sink below.
+  // Array.sort is stable, so CHAR_IDS order holds within each group.
+  const orderedCrew = [...CHAR_IDS].sort(
+    (a, b) => Number(state.seats[b]?.claimed ?? false) - Number(state.seats[a]?.claimed ?? false),
+  );
   return (
-    <div className="substrate grain min-h-full p-4 pb-20 mx-auto max-w-5xl">
+    <div className="substrate grain min-h-full p-4 pb-20 app-w">
       <BoardHeader state={state} />
 
-      {loc && (
-        <div className="paper mt-3">
-          <div className="mono text-[0.6rem] uppercase tracking-wide text-paper-fade">Scene</div>
-          <p className="display text-2xl leading-tight">{loc.name}</p>
-        </div>
-      )}
-
-      {empty && onFrameScene && (
-        <div className="paper mt-4 text-center">
-          <p className="display text-xl">No scene yet</p>
-          <p className="mono text-xs text-paper-fade mt-1">Load a location or add objectives and threats to set the board.</p>
-          <button
-            className="display text-paper bg-blood px-4 py-2 mt-3"
-            style={{ borderRadius: 2 }}
-            onClick={onFrameScene}
-          >
-            Frame a scene
-          </button>
-        </div>
-      )}
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <section>
-          <h2 className="display text-paper text-xl mb-2">Objectives</h2>
-          {state.board.objectives.length === 0 && <Empty>No objectives yet.</Empty>}
-          <div className="grid gap-2">
-            {state.board.objectives.map((o) => (
-              <div key={o.id} className="paper paper-tight">
-                <div className="flex items-baseline justify-between">
-                  <span className="mono font-bold">{o.name}</span>
-                  <RatingPips n={o.rating} tone="hazard" />
-                </div>
-                {o.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {o.challenge}</div> : null}
-              </div>
+      <div className="board-layout mt-3">
+        {/* ───────── LEFT: the crew rail (issue #7) ───────── */}
+        <section className="crew-rail-wrap" aria-label="The crew">
+          <h2 className="crew-rail-head display text-paper text-xl mb-2">The crew</h2>
+          <div ref={crewRef} className="crew-rail">
+            {orderedCrew.map((id) => (
+              <CharCard
+                key={id}
+                id={id}
+                innerRef={(el) => {
+                  if (el) cardRefs.current.set(id, el);
+                  else cardRefs.current.delete(id);
+                }}
+                char={state.characters[id]}
+                claimed={state.seats[id]?.claimed ?? false}
+                online={online.includes(id)}
+                active={state.activeSeat === id}
+                // Whose turn (§6): the active vampire takes a warm spotlight; the rest
+                // recede while someone holds the floor. A state change, not ambient motion.
+                recede={!!state.activeSeat && state.activeSeat !== id && (state.seats[id]?.claimed ?? false)}
+                fx={arc ? (arc.fromId === id ? "bleed" : arc.toId === id ? "flood" : undefined) : undefined}
+                onOpen={onOpenSheet ? () => onOpenSheet(id) : undefined}
+              />
             ))}
+            {arc && <BloodArc key={arc.seq} arc={arc} />}
           </div>
-
-          {secondary.length > 0 && (
-            <div className="mt-3">
-              <h3 className="mono text-[0.7rem] uppercase tracking-wide text-paper-fade mb-1.5">Secondary objectives</h3>
-              <div className="grid gap-2">
-                {secondary.map((o) => {
-                  const done = o.rating <= 0;
-                  return (
-                    <div key={o.id} className={`paper paper-tight ${done ? "opacity-60" : ""}`}>
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className={`mono ${done ? "line-through" : ""}`}>
-                          {o.name}
-                          {o.rescueFor && <span className="text-blood"> (rescue)</span>}
-                        </span>
-                        {done ? <span className="mono text-[0.6rem] text-hazard-ink font-bold">done</span> : <RatingPips n={o.rating} tone="hazard" />}
-                      </div>
-                      {!done && o.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {o.challenge}</div> : null}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </section>
 
-        <section>
-          <h2 className="display text-paper text-xl mb-2">Threats</h2>
-          {state.board.threats.length === 0 && <Empty>The street is quiet. For now.</Empty>}
-          <div className="grid gap-2">
-            {state.board.threats.map((t) => (
-              <div key={t.id} className={`paper paper-tight ${t.rating <= 0 ? "opacity-50" : ""}`}>
-                <div className="flex items-baseline justify-between">
-                  <span className="mono font-bold">{t.name}</span>
-                  <span className="mono text-xs text-blood">ATK {t.attack}</span>
-                </div>
-                <RatingPips n={t.rating} tone="blood" />
-                {t.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {t.challenge}</div> : null}
-              </div>
-            ))}
-          </div>
+        {/* ───────── RIGHT: the board ───────── */}
+        <div className="board-main min-w-0 flex flex-col gap-4">
+          {loc && (
+            <div className="paper">
+              <div className="mono text-[0.6rem] uppercase tracking-wide text-paper-fade">Scene</div>
+              <p className="display text-2xl leading-tight">{loc.name}</p>
+            </div>
+          )}
 
-          {sceneLoot.length > 0 && (
-            <div className="mt-3">
-              <h3 className="mono text-[0.7rem] uppercase tracking-wide text-paper-fade mb-1.5">Loot within reach</h3>
+          {empty && onFrameScene && (
+            <div className="paper text-center">
+              <p className="display text-xl">No scene yet</p>
+              <p className="mono text-xs text-paper-fade mt-1">Load a location or add objectives and threats to set the board.</p>
+              <button
+                className="display text-paper bg-blood px-4 py-2 mt-3"
+                style={{ borderRadius: 2 }}
+                onClick={onFrameScene}
+              >
+                Frame a scene
+              </button>
+            </div>
+          )}
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <section>
+              <h2 className="display text-paper text-xl mb-2">Objectives</h2>
+              {state.board.objectives.length === 0 && <Empty>No objectives yet.</Empty>}
               <div className="grid gap-2">
-                {sceneLoot.map((l, i) => (
-                  <div key={i} className="paper paper-tight">
-                    <div className="mono font-bold text-sm">{l.name}</div>
-                    {l.bonus && <div className="mono text-[0.65rem] text-blood">{l.bonus}</div>}
-                    {l.note && <div className="mono text-[0.65rem] text-paper-fade italic">{l.note}</div>}
+                {state.board.objectives.map((o) => (
+                  <div key={o.id} className="paper paper-tight">
+                    <div className="flex items-baseline justify-between">
+                      <span className="mono font-bold">{o.name}</span>
+                      <RatingPips n={o.rating} tone="hazard" />
+                    </div>
+                    {o.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {o.challenge}</div> : null}
                   </div>
                 ))}
               </div>
-              <p className="mono text-[0.6rem] text-paper-fade mt-1">The GM hands these out as you earn them (rulebook p39).</p>
-            </div>
-          )}
-        </section>
-      </div>
 
-      <section className="mt-6">
-        <h2 className="display text-paper text-xl mb-2">The crew</h2>
-        <div ref={crewRef} className="relative grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {CHAR_IDS.map((id) => (
-            <CharCard
-              key={id}
-              id={id}
-              innerRef={(el) => {
-                if (el) cardRefs.current.set(id, el);
-                else cardRefs.current.delete(id);
-              }}
-              char={state.characters[id]}
-              claimed={state.seats[id]?.claimed ?? false}
-              online={online.includes(id)}
-              active={state.activeSeat === id}
-              // Whose turn (§6): the active vampire takes a warm spotlight; the rest
-              // recede while someone holds the floor. A state change, not ambient motion.
-              recede={!!state.activeSeat && state.activeSeat !== id && (state.seats[id]?.claimed ?? false)}
-              fx={arc ? (arc.fromId === id ? "bleed" : arc.toId === id ? "flood" : undefined) : undefined}
-              onOpen={onOpenSheet ? () => onOpenSheet(id) : undefined}
-            />
-          ))}
-          {arc && <BloodArc key={arc.seq} arc={arc} />}
+              {secondary.length > 0 && (
+                <div className="mt-3">
+                  <h3 className="mono text-[0.7rem] uppercase tracking-wide text-paper-fade mb-1.5">Secondary objectives</h3>
+                  <div className="grid gap-2">
+                    {secondary.map((o) => {
+                      const done = o.rating <= 0;
+                      return (
+                        <div key={o.id} className={`paper paper-tight ${done ? "opacity-60" : ""}`}>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className={`mono ${done ? "line-through" : ""}`}>
+                              {o.name}
+                              {o.rescueFor && <span className="text-blood"> (rescue)</span>}
+                            </span>
+                            {done ? <span className="mono text-[0.6rem] text-hazard-ink font-bold">done</span> : <RatingPips n={o.rating} tone="hazard" />}
+                          </div>
+                          {!done && o.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {o.challenge}</div> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <section>
+              <h2 className="display text-paper text-xl mb-2">Threats</h2>
+              {state.board.threats.length === 0 && <Empty>The street is quiet. For now.</Empty>}
+              <div className="grid gap-2">
+                {state.board.threats.map((t) => (
+                  <div key={t.id} className={`paper paper-tight ${t.rating <= 0 ? "opacity-50" : ""}`}>
+                    <div className="flex items-baseline justify-between">
+                      <span className="mono font-bold">{t.name}</span>
+                      <span className="mono text-xs text-blood">ATK {t.attack}</span>
+                    </div>
+                    <RatingPips n={t.rating} tone="blood" />
+                    {t.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {t.challenge}</div> : null}
+                  </div>
+                ))}
+              </div>
+
+              {sceneLoot.length > 0 && (
+                <div className="mt-3">
+                  <h3 className="mono text-[0.7rem] uppercase tracking-wide text-paper-fade mb-1.5">Loot within reach</h3>
+                  <div className="grid gap-2">
+                    {sceneLoot.map((l, i) => (
+                      <div key={i} className="paper paper-tight">
+                        <div className="mono font-bold text-sm">{l.name}</div>
+                        {l.bonus && <div className="mono text-[0.65rem] text-blood">{l.bonus}</div>}
+                        {l.note && <div className="mono text-[0.65rem] text-paper-fade italic">{l.note}</div>}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mono text-[0.6rem] text-paper-fade mt-1">The GM hands these out as you earn them (rulebook p39).</p>
+                </div>
+              )}
+            </section>
+          </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 }
