@@ -136,6 +136,27 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(byKind.enemy).toBe("Anathema — Reich 6s scored +2 successes (struck twice)");
   });
 
+  it("a Paratrooper whiff line notes the Rapid Deployment +2 rating (#22)", () => {
+    const { ev } = log();
+    const para: Threat = { id: "para", name: "Paratrooper Squad", kind: "threat", rating: 8, attack: 4, startingAttack: 3, reinforces: true, restoresAtZero: true, rules: ["rapid-deployment"] };
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "iryna" }, "iryna"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [para] }),
+      ev("TURN_STARTED", { seat: "iryna", stat: "SHOOT" }, "iryna"),
+      ev("DICE_DISCARDED", { playerSurvivors: [5], gmSuccessCount: 0 }),
+      ev("DIE_ALLOCATED", { kind: "feed", units: 1 }, "iryna"),
+      ev("GM_WHIFF", { threatId: "para", name: "Paratrooper Squad", attack: 4, rating: 8 }),
+      ev("ALLOCATION_COMMITTED", {}, "iryna"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    const byKind = Object.fromEntries(summary.lines.map((l) => [l.kind, l.text]));
+    expect(byKind.whiff).toBe("Shots go wide — Paratrooper Squad presses the attack (ATK +1 → 4, Rapid Deployment +2 rating → 8)");
+  });
+
   it("returns null for an empty turn and for a non-commit seq", () => {
     const events = irynaClockTowerEvents("g-iryna");
     const state = reduce(events);

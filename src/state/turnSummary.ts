@@ -85,7 +85,7 @@ export function summarizeCommittedTurn(
   const specials: string[] = [];
   const bloodChanges: { reason: string; delta: number }[] = [];
   const passives: { id: string; detail?: string; bloodDelta?: number; gmSuccessDelta?: number }[] = [];
-  let whiff: { name: string; attack: number } | null = null;
+  let whiff: { name: string; attack: number; rating?: number } | null = null;
   let injury: { kind: "injury" | "downed"; penalty?: string } | null = null;
   let bonus = 0;
   let bonusLabel: string | undefined;
@@ -115,7 +115,7 @@ export function summarizeCommittedTurn(
         passives.push({ id: e.payload.passiveId, detail: e.payload.detail, bloodDelta: e.payload.bloodDelta, gmSuccessDelta: e.payload.gmSuccessDelta });
         break;
       case "GM_WHIFF":
-        whiff = { name: e.payload.name, attack: e.payload.attack };
+        whiff = { name: e.payload.name, attack: e.payload.attack, rating: e.payload.rating };
         break;
       case "INJURY_MARKED":
         injury = { kind: "injury", penalty: e.payload.penalty };
@@ -201,7 +201,12 @@ export function summarizeCommittedTurn(
 
   if (bonus > 0) lines.push({ kind: "bonus", text: `Rolled ${bonus} bonus ${plural(bonus, "die", "dice")}${bonusLabel ? ` (${bonusLabel})` : ""}` });
 
-  if (whiff) lines.push({ kind: "whiff", emphasis: true, text: `Shots go wide — ${whiff.name} presses the attack (ATK +1 → ${whiff.attack})` });
+  if (whiff)
+    lines.push({
+      kind: "whiff",
+      emphasis: true,
+      text: `Shots go wide — ${whiff.name} presses the attack (ATK +1 → ${whiff.attack}${whiff.rating !== undefined ? `, Rapid Deployment +2 rating → ${whiff.rating}` : ""})`,
+    });
 
   if (injury?.kind === "downed") lines.push({ kind: "downed", emphasis: true, text: "Downed — out of the fight" });
   else if (injury?.kind === "injury") lines.push({ kind: "injury", emphasis: true, text: `Took an Injury${injury.penalty ? ` — ${injury.penalty}` : ""}` });

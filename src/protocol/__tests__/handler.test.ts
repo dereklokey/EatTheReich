@@ -207,6 +207,21 @@ describe("processIntent — GM whiff escalates the anchor at the action's conclu
     expect(events.map((e) => e.type)).toEqual(["ALLOCATION_COMMITTED"]); // no whiff bump
     expect(d.state.board.threats[0]?.attack).toBe(3); // unchanged
   });
+
+  it("a Paratrooper anchor whiff also climbs +2 rating (Rapid Deployment, #22)", () => {
+    const para: Threat = { id: "para", name: "Paratrooper Squad", kind: "threat", rating: 6, attack: 3, startingAttack: 3, reinforces: true, restoresAtZero: true, rules: ["rapid-deployment"] };
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [para] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: 1 }, sequenceRoller([5]), "iryna");
+    d.run({ kind: "roll_gm" }, sequenceRoller([1, 2, 3]), "gm"); // zero successes → a whiff
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), "iryna");
+
+    const events = d.run({ kind: "commit" }, sequenceRoller([]), "iryna");
+    expect(events[0]).toMatchObject({ type: "GM_WHIFF", payload: { threatId: "para", attack: 4, rating: 8 } });
+    expect(d.state.board.threats[0]).toMatchObject({ attack: 4, rating: 8 }); // ATK 3→4, rating 6→8
+  });
 });
 
 describe("processIntent — SPECIAL self-buff applies its Blood", () => {
@@ -558,6 +573,17 @@ describe("processIntent — end of round reinforcements", () => {
     expect(applied?.type === "REINFORCEMENTS_APPLIED" && applied.payload.log).toEqual([
       { threatId: "squad", name: "Infantry Squad", restoreRoll: 4, attackBefore: 0, attackAfter: 1, reason: "defeated this round → +4 rating, Attack reset to floor(3/2)" },
     ]);
+  });
+
+  it("a Paratrooper in play gains +1 Attack AND +2 rating, logged with ratingDelta (Rapid Deployment, #22)", () => {
+    const para: Threat = { id: "para", name: "Paratrooper Squad", kind: "threat", rating: 6, attack: 3, startingAttack: 3, reinforces: true, restoresAtZero: true, rules: ["rapid-deployment"] };
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [], threats: [para] });
+    const events = d.run({ kind: "end_round", reducedToZeroThreatIds: [] }, sequenceRoller([]));
+
+    expect(d.state.board.threats[0]).toMatchObject({ attack: 4, rating: 8 }); // ATK 3→4, rating 6→8
+    const applied = events.find((e) => e.type === "REINFORCEMENTS_APPLIED");
+    expect(applied?.type === "REINFORCEMENTS_APPLIED" && applied.payload.log?.[0]).toMatchObject({ attackAfter: 4, ratingDelta: 2 });
   });
 });
 

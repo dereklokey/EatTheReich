@@ -16,10 +16,11 @@ import {
   applyOneAllocation,
   emptyAccumulator,
   clampBlood,
+  reinforce,
   type BoardState,
 } from "../index.js";
 import { markInjury, emptyInjuryTrack, defaultCategoryFromD6 } from "../injury.js";
-import { naziSquad, infantrySquad, policePatrol, einherjar } from "../../data/threats.js";
+import { naziSquad, infantrySquad, policePatrol, einherjar, paratrooperSquad } from "../../data/threats.js";
 import { feedBlockedByBloodless } from "../../domain/types.js";
 
 describe("buildPlayerPool", () => {
@@ -195,6 +196,29 @@ describe("discard & gm successes", () => {
 
   it("GM dice have no crit: a 6 is one success", () => {
     expect(gmSuccesses([6, 6, 4, 3]).length).toBe(3);
+  });
+});
+
+describe("reinforce — Paratrooper 'Rapid Deployment' (rulebook p61, issue #22)", () => {
+  it("a +1 Attack escalation (rule 2) also adds +2 rating, logged as ratingDelta", () => {
+    const para = paratrooperSquad(); // rating 6, attack 3, reinforces
+    const { threats, log } = reinforce({ threats: [para], reducedToZeroThisRound: new Set(), roller: sequenceRoller([]) });
+    expect(threats[0]).toMatchObject({ attack: 4, rating: 8 }); // ATK 3→4, rating 6→8
+    expect(log[0]).toMatchObject({ attackBefore: 3, attackAfter: 4, ratingDelta: 2 });
+  });
+
+  it("does NOT add +2 when defeated this round — that path resets Attack, not adds (no ratingDelta)", () => {
+    const para = { ...paratrooperSquad(), rating: 0, attack: 0 };
+    const { threats, log } = reinforce({ threats: [para], reducedToZeroThisRound: new Set([para.id]), roller: sequenceRoller([5]) });
+    expect(threats[0]).toMatchObject({ rating: 5, attack: 1 }); // 0 + 1d6(5); floor(3/2)=1 — no extra +2
+    expect(log[0]?.ratingDelta).toBeUndefined();
+  });
+
+  it("an ordinary Threat's +1 escalation leaves rating untouched (no ratingDelta)", () => {
+    const squad = infantrySquad(); // rating 6, attack 3, no rapid rule
+    const { threats, log } = reinforce({ threats: [squad], reducedToZeroThisRound: new Set(), roller: sequenceRoller([]) });
+    expect(threats[0]).toMatchObject({ attack: 4, rating: 6 }); // ATK +1, rating unchanged
+    expect(log[0]?.ratingDelta).toBeUndefined();
   });
 });
 

@@ -76,7 +76,9 @@ export interface EventPayloads {
    * fiction it is and the client can sound the callout. `attack` is the resolved new value
    * (deterministic on replay).
    */
-  GM_WHIFF: { threatId: string; name: string; attack: number };
+  /** `rating` is the resolved new rating, present only when the whiffed anchor is a Paratrooper
+   *  'Rapid Deployment' (#22): its +1 Attack is a Reinforcement bump, so the rating climbs +2. */
+  GM_WHIFF: { threatId: string; name: string; attack: number; rating?: number };
 
   TURN_STARTED: { seat: CharId; stat?: Stat; tags?: string[] };
   /** Abort an in-progress turn without it counting as the character's action. */

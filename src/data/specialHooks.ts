@@ -208,11 +208,10 @@ export const SPECIAL_HOOKS: SpecialHook[] = [
     source: { kind: "enemy", threat: "Paratrooper Squad", tag: "rapid-deployment" },
     rule: "When its Attack +1 via Reinforcement, its rating also +2.",
     hook: "ROUND_END",
-    trigger: "reinforcement applies its +1 Attack",
+    trigger: "a Reinforcement +1 Attack (end-of-round rule 2, or the action-conclusion whiff)",
     resolution: "auto",
     actor: "system",
-    status: "planned",
-    issue: 22,
+    status: "implemented",
   },
   {
     id: "enemy.crash-and-burn",

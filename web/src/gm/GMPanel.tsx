@@ -146,6 +146,7 @@ function SessionSection({ state, send, events }: { state: GameState; send: (i: I
                   <span className="text-blood">
                     ATK {l.attackBefore}
                     {l.attackAfter !== l.attackBefore && <> → {l.attackAfter}</>}
+                    {l.ratingDelta ? <span className="font-bold"> · +{l.ratingDelta} rating</span> : null}
                   </span>
                 )}
               </div>

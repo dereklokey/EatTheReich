@@ -39,6 +39,9 @@ export interface ReinforceLogEntry {
   restoreRoll?: number; // 1d6 applied to rating
   attackBefore: number;
   attackAfter: number;
+  /** Rating gained from a special on the +1 Attack escalation (Paratrooper 'Rapid Deployment'
+   *  adds +2). Present only when an escalation bumps the rating beyond the normal restore. */
+  ratingDelta?: number;
   reason: string;
 }
 
@@ -95,8 +98,20 @@ export function reinforce(input: ReinforceInput): ReinforceResult {
     // Rule 2: still in play → Attack +1 (nazi forces closing in). The zero-success bump
     // is applied earlier, at the conclusion of the whiffing action (see whiffAnchor).
     const attackAfter = t.attack + 1;
-    out.push({ ...t, attack: attackAfter });
-    log.push({ threatId: t.id, name: t.name, attackBefore, attackAfter, reason: "still in play → Attack +1" });
+    // Paratrooper 'Rapid Deployment' (#22, rulebook p61): Attack added via Reinforcement also
+    // adds +2 Threat rating. Rule 1's defeated-reset sets Attack to floor(start/2) — not an
+    // "add" — so it doesn't trigger; the whiff's +1 (rule 3) is handled in gmWhiffEvent.
+    const rapid = (t.rules ?? []).includes("rapid-deployment");
+    const ratingAfter = rapid ? t.rating + 2 : t.rating;
+    out.push({ ...t, attack: attackAfter, rating: ratingAfter });
+    log.push({
+      threatId: t.id,
+      name: t.name,
+      attackBefore,
+      attackAfter,
+      ...(rapid ? { ratingDelta: 2 } : {}),
+      reason: rapid ? "still in play → Attack +1, Rapid Deployment +2 rating" : "still in play → Attack +1",
+    });
   }
 
   return { threats: out, log };

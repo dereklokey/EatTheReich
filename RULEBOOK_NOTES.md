@@ -71,7 +71,10 @@ when their surfaces are built:
   before the player passives that cancel successes; `DICE_DISCARDED.anathemaBonus` feeds the
   after-action report, and the roll-results / allocation readouts flag "⚠ Anathema").
 - **Rapid Deployment** (Paratrooper Squad): when its Attack +1 via Reinforcement,
-  also +2 rating.
+  also +2 rating (wired, issue #22 — applies to BOTH "+1 Attack" Reinforcement bumps:
+  end-of-round rule 2 in `reinforce()` [`ratingDelta` in the breakdown] and the
+  action-conclusion whiff in `gmWhiffEvent`/`GM_WHIFF.rating`. Rule 1's defeated-reset
+  sets Attack to floor(start/2) — not an "add" — so it doesn't trigger).
 - **Crash and Burn** (Motorcycle Squad): grants every engaged vampire a SPECIAL that
   deals 3 damage to it.
 - **Aura of Misfortune** (Rust-Witch): players discard 1–4 (modelled as

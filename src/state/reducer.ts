@@ -116,10 +116,15 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
     case "THREAT_REMOVED":
       return withBoard(s, { ...s.board, threats: s.board.threats.filter((t) => t.id !== e.payload.id) });
     case "GM_WHIFF":
-      // The Reich whiffed → the anchor Threat presses the attack (+1, carried resolved).
+      // The Reich whiffed → the anchor Threat presses the attack (+1, carried resolved). A
+      // Paratrooper 'Rapid Deployment' (#22) also climbs +2 rating, carried resolved too.
       return withBoard(s, {
         ...s.board,
-        threats: s.board.threats.map((t) => (t.id === e.payload.threatId ? { ...t, attack: e.payload.attack } : t)),
+        threats: s.board.threats.map((t) =>
+          t.id === e.payload.threatId
+            ? { ...t, attack: e.payload.attack, ...(e.payload.rating !== undefined ? { rating: e.payload.rating } : {}) }
+            : t,
+        ),
       });
 
     case "TURN_STARTED":

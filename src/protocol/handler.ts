@@ -117,7 +117,13 @@ function gmWhiffEvent(state: GameState): EventInput | null {
   const turn = state.currentTurn;
   const anchor = turn ? whiffAnchor(state.board.threats, turn.gmDice ?? []) : null;
   if (!anchor) return null;
-  return { type: "GM_WHIFF", payload: { threatId: anchor.id, name: anchor.name, attack: anchor.attack + 1 } };
+  // Paratrooper 'Rapid Deployment' (#22, rulebook p61): the whiff's +1 Attack is itself a
+  // Reinforcement bump, so the anchor's rating also climbs +2.
+  const rapid = (anchor.rules ?? []).includes("rapid-deployment");
+  return {
+    type: "GM_WHIFF",
+    payload: { threatId: anchor.id, name: anchor.name, attack: anchor.attack + 1, ...(rapid ? { rating: anchor.rating + 2 } : {}) },
+  };
 }
 
 /** Find an item by id across the character's sheet equipment and earned loot. */
