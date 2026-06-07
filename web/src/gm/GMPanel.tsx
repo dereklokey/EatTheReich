@@ -394,10 +394,13 @@ function ThreatsSection({ state, send }: { state: GameState; send: (i: Intent) =
       <div className="flex flex-col gap-1.5">
         {state.board.threats.map((t) => {
           const isStaged = t.active === false;
+          // Match the board: a staged threat dims its info (name + stat steppers) but never
+          // its action buttons, which would then read as disabled.
+          const dim = isStaged ? "opacity-50" : "";
           return (
             <div key={t.id} className="paper paper-tight mono text-sm">
               <div className="flex items-center gap-2">
-                <span className="flex-1">
+                <span className={`flex-1 ${dim}`}>
                   {t.name}
                   {isStaged && <span className="mono text-[0.55rem] uppercase tracking-wide text-paper-fade border border-current px-1 ml-1.5 align-middle">staged</span>}
                 </span>
@@ -421,7 +424,7 @@ function ThreatsSection({ state, send }: { state: GameState; send: (i: Intent) =
                 )}
                 <button className="text-xs underline text-blood" onClick={() => send({ kind: "remove_threat", id: t.id })}>remove</button>
               </div>
-              <div className="flex items-center gap-3 mt-1 text-xs">
+              <div className={`flex items-center gap-3 mt-1 text-xs ${dim}`}>
                 <span className="flex items-center gap-1">rating <Stepper value={t.rating} onChange={(v) => patch(t.id, { rating: v })} /></span>
                 <span className="flex items-center gap-1">ATK <Stepper value={t.attack} onChange={(v) => patch(t.id, { attack: v })} /></span>
                 <span className="flex items-center gap-1">chal <Stepper value={t.challenge ?? 0} onChange={(v) => patch(t.id, { challenge: v })} /></span>
