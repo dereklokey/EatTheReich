@@ -4,6 +4,7 @@ import type { GameState, TurnState, CharacterRuntime } from "@shared/state/types
 import type { PlayerDie } from "@shared/engine/dice.js";
 import type { Allocation } from "@shared/engine/allocate.js";
 import { applyOneAllocation, emptyAccumulator } from "@shared/engine/allocate.js";
+import { boardGrantedSpecials } from "@shared/engine/specials.js";
 import { feedBlockedByBloodless, anathemaInPlay } from "@shared/domain/types.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
 import { Die, tiltFor } from "@/components/dice/Die";
@@ -111,11 +112,12 @@ export function AllocationTray({
     setCardFx((m) => ({ ...m, [id]: { seq: ++fxSeq.current, kind } }));
   };
 
-  const place = (alloc: Omit<Allocation, "units">) => {
+  const place = (alloc: Omit<Allocation, "units">, unitsOverride?: number) => {
     if (picked === null) return;
     const die = survivors[picked];
     if (!die) return;
-    const units = die.units;
+    // A board-granted SPECIAL (Crash & Burn, #23) deals a flat amount, NOT the crit's 2 units.
+    const units = unitsOverride ?? die.units;
     setAssign((cur) => cur.map((a, i) => (i === picked ? { ...alloc, units } : a)));
     setPicked(null);
     play(ALLOC_CUE[alloc.kind]);
@@ -138,8 +140,15 @@ export function AllocationTray({
     } else if (alloc.kind === "feed" && !reduced) {
       setFeedSeq((n) => n + 1);
     } else if (alloc.kind === "special" && alloc.specialId && !reduced) {
-      const name = specials.find((s) => s.id === alloc.specialId)?.name ?? "SPECIAL";
+      const bs = boardSpecials.find((b) => b.id === alloc.specialId);
+      const name = bs?.name ?? specials.find((s) => s.id === alloc.specialId)?.name ?? "SPECIAL";
       setSpecial({ seq: ++fxSeq.current, name });
+      // A board-granted damage SPECIAL also slams the granting Threat (Crash & Burn → −3):
+      // burst its card, escalating to the kill burst when the hit finishes it.
+      if (bs) {
+        const thr = preview.board.threats.find((t) => t.id === bs.threatId);
+        fireCard(bs.threatId, thr && thr.rating - units <= 0 ? "kill" : "spray");
+      }
     }
   };
 
@@ -167,6 +176,9 @@ export function AllocationTray({
   // Vampirjäger 'Anathema' (#21): the Reich's 6s scored 2 successes each — the inflated incoming
   // count below is correct, so flag WHY so the table isn't surprised more dice got through.
   const anathemaSixes = anathemaInPlay(state.board.threats) ? (turn.gmDice ?? []).filter((f) => f === 6).length : 0;
+  // Motorcycle 'Crash & Burn' (#23): board-granted crit-SPECIALs every acting vampire gets while
+  // the squad is in play — spend a crit to deal a flat 3 to it. Read off the live board.
+  const boardSpecials = boardGrantedSpecials(state.board.threats);
 
   return (
     <div>
@@ -311,6 +323,22 @@ export function AllocationTray({
             hint={sp.text}
             onClick={() => critPicked && place({ kind: "special", specialId: sp.id })}
             placed={placedOn((a) => a.kind === "special" && a.specialId === sp.id)}
+            onUnplace={unassign}
+          />
+        ))}
+        {/* Board-granted SPECIALs (Crash & Burn, #23) — every vampire gets these while the
+            granting Threat is in play. Crit-only like sheet specials; spend a crit → deal 3. */}
+        {boardSpecials.map((bs) => (
+          <TargetCard
+            key={bs.id}
+            special
+            armed={critPicked}
+            blocked={picked !== null && !critPicked}
+            label={bs.name}
+            sub={`SPECIAL · critical only · deal ${bs.damage} to it`}
+            hint={bs.hint}
+            onClick={() => critPicked && place({ kind: "special", specialId: bs.id, targetId: bs.threatId }, bs.damage)}
+            placed={placedOn((a) => a.kind === "special" && a.specialId === bs.id)}
             onUnplace={unassign}
           />
         ))}

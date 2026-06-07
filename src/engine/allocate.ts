@@ -1,4 +1,5 @@
 import type { Objective, Threat } from "../domain/types.js";
+import { isBoardSpecialId } from "./specials.js";
 
 /**
  * ALLOCATE (RULES §4). Each surviving die is assigned to exactly one target.
@@ -137,6 +138,17 @@ export function applyOneAllocation(
       break;
     case "special":
       if (a.specialId) next.specialsActivated.push(a.specialId);
+      // A board-granted damage SPECIAL (Crash & Burn, RULES §7 / issue #23) carries the granting
+      // Threat as `targetId` and its flat damage in `units`; spending a crit here inflicts that
+      // damage directly — independent of the crit's own 2 units, and bypassing Challenge (it's
+      // not a normal attack). rating 0 → Attack 0 (RULES §3), same as eliminate.
+      if (isBoardSpecialId(a.specialId) && a.targetId) {
+        const thr = next.board.threats.find((t) => t.id === a.targetId);
+        if (thr) {
+          thr.rating = Math.max(0, thr.rating - a.units);
+          if (thr.rating === 0) thr.attack = 0;
+        }
+      }
       break;
   }
 

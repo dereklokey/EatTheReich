@@ -73,7 +73,7 @@ feel).
 | Bloodless | Einherjar | `ALLOCATE` | message / system | ✅ |
 | Anathema | Vampirjäger | `ROLL_RESULTS` | auto / system | ✅ |
 | Rapid Deployment | Paratrooper | `ROUND_END` | auto / system | ✅ |
-| Crash & Burn | Motorcycle | `ALLOCATE` | select / player | ⬜ #23 |
+| Crash & Burn | Motorcycle | `ALLOCATE` | select / player | ✅ |
 | Rending Claws | Werhund | `INJURY` | acknowledge / gm | ⬜ #24 |
 | Unlowerable Challenge | Werhund | `ALLOCATE` | message / system | ⬜ #25 |
 

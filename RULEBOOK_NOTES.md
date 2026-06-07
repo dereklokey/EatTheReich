@@ -76,7 +76,11 @@ when their surfaces are built:
   action-conclusion whiff in `gmWhiffEvent`/`GM_WHIFF.rating`. Rule 1's defeated-reset
   sets Attack to floor(start/2) — not an "add" — so it doesn't trigger).
 - **Crash and Burn** (Motorcycle Squad): grants every engaged vampire a SPECIAL that
-  deals 3 damage to it.
+  deals 3 damage to it (wired, issue #23 — the FIRST board-granted SPECIAL.
+  `boardGrantedSpecials(threats)` synthesises a crit-SPECIAL per in-play Motorcycle Squad
+  [`crash-and-burn:<threatId>`]; the allocation tray offers it to every acting vampire,
+  and `applyOneAllocation` recognises the id [`isBoardSpecialId`] to inflict the carried
+  flat damage on the target Threat, bypassing Challenge).
 - **Aura of Misfortune** (Rust-Witch): players discard 1–4 (modelled as
   `discardThreshold: 4`, which the engine already supports).
 - **Rust Curse** (Rust-Witch): end of round, one random item of a chosen PC degrades

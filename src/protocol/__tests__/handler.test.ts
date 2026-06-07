@@ -548,6 +548,33 @@ describe("processIntent — Vampirjäger 'Anathema' (rulebook p64, issue #21)", 
   });
 });
 
+describe("processIntent — Motorcycle 'Crash & Burn' board-granted SPECIAL (#23)", () => {
+  const moto: Threat = { id: "moto", name: "Motorcycle Squad", kind: "threat", rating: 10, attack: 3, startingAttack: 3, reinforces: false, restoresAtZero: false, rules: ["crash-and-burn"] };
+
+  it("spending a crit on the granted SPECIAL deals a flat 3 to the squad through to the board", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [moto] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([6, 4]), "iryna"); // a crit (6) + a success
+    d.run({ kind: "roll_gm" }, sequenceRoller([4, 2, 2]), "gm"); // one success → no whiff
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
+    d.run(
+      {
+        kind: "allocate",
+        allocations: [
+          { kind: "special", specialId: "crash-and-burn:moto", targetId: "moto", units: 3 },
+          { kind: "defend", units: 1 }, // shave the lone GM success so commit closes cleanly
+        ],
+      },
+      sequenceRoller([]),
+      "iryna",
+    );
+    d.run({ kind: "commit" }, sequenceRoller([]), "iryna");
+
+    expect(d.state.board.threats[0]).toMatchObject({ id: "moto", rating: 7 }); // 10 − 3, not the crit's 2
+  });
+});
+
 describe("processIntent — end of round reinforcements", () => {
   it("server rolls the 1d6 restore and emits the new threat list", () => {
     const squad: Threat = { id: "squad", name: "Infantry Squad", kind: "threat", rating: 0, attack: 0, startingAttack: 3, reinforces: true, restoresAtZero: true };

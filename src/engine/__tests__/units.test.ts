@@ -17,10 +17,11 @@ import {
   emptyAccumulator,
   clampBlood,
   reinforce,
+  boardGrantedSpecials,
   type BoardState,
 } from "../index.js";
 import { markInjury, emptyInjuryTrack, defaultCategoryFromD6 } from "../injury.js";
-import { naziSquad, infantrySquad, policePatrol, einherjar, paratrooperSquad } from "../../data/threats.js";
+import { naziSquad, infantrySquad, policePatrol, einherjar, paratrooperSquad, motorcycleSquad } from "../../data/threats.js";
 import { feedBlockedByBloodless } from "../../domain/types.js";
 
 describe("buildPlayerPool", () => {
@@ -280,6 +281,44 @@ describe("allocation: feed, defend, eliminate", () => {
     );
     expect(r.board.threats[0]!.rating).toBe(0);
     expect(r.board.threats[0]!.attack).toBe(0);
+  });
+});
+
+describe("board-granted SPECIAL: Motorcycle 'Crash & Burn' (rulebook p61, issue #23)", () => {
+  it("boardGrantedSpecials offers a Crash & Burn special per in-play Motorcycle Squad", () => {
+    const moto = motorcycleSquad();
+    const specials = boardGrantedSpecials([moto]);
+    expect(specials).toHaveLength(1);
+    expect(specials[0]).toMatchObject({ id: `crash-and-burn:${moto.id}`, threatId: moto.id, damage: 3 });
+  });
+
+  it("offers nothing for staged, defeated, or ordinary Threats", () => {
+    expect(boardGrantedSpecials([{ ...motorcycleSquad(), active: false }])).toHaveLength(0); // staged (#12)
+    expect(boardGrantedSpecials([{ ...motorcycleSquad(), rating: 0 }])).toHaveLength(0); // defeated
+    expect(boardGrantedSpecials([infantrySquad()])).toHaveLength(0); // no crash-and-burn rule
+  });
+
+  it("spending a crit on it inflicts the carried flat damage on the target Threat", () => {
+    const moto = motorcycleSquad(); // rating 10
+    const board: BoardState = { objectives: [], threats: [moto] };
+    const acc = applyOneAllocation(emptyAccumulator(board, 0), { kind: "special", specialId: `crash-and-burn:${moto.id}`, targetId: moto.id, units: 3 });
+    expect(acc.board.threats[0]!.rating).toBe(7); // 10 − 3, NOT the crit's 2
+    expect(acc.specialsActivated).toContain(`crash-and-burn:${moto.id}`);
+  });
+
+  it("damage that finishes the squad forces its Attack to 0 (RULES §3)", () => {
+    const moto = { ...motorcycleSquad(), rating: 2 };
+    const board: BoardState = { objectives: [], threats: [moto] };
+    const acc = applyOneAllocation(emptyAccumulator(board, 0), { kind: "special", specialId: `crash-and-burn:${moto.id}`, targetId: moto.id, units: 3 });
+    expect(acc.board.threats[0]!).toMatchObject({ rating: 0, attack: 0 });
+  });
+
+  it("a sheet SPECIAL (non-board id) records but does NOT touch the board", () => {
+    const moto = motorcycleSquad();
+    const board: BoardState = { objectives: [], threats: [moto] };
+    const acc = applyOneAllocation(emptyAccumulator(board, 0), { kind: "special", specialId: "flint-ravenous", targetId: moto.id, units: 2 });
+    expect(acc.board.threats[0]!.rating).toBe(10); // untouched
+    expect(acc.specialsActivated).toContain("flint-ravenous");
   });
 });
 

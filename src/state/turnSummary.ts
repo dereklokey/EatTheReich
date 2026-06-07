@@ -1,6 +1,7 @@
 import type { GameState } from "./types.js";
 import type { GameEvent, CharId } from "../events/types.js";
 import { CHARACTERS_BY_ID } from "../data/characters.js";
+import { isBoardSpecialId } from "../engine/specials.js";
 
 /**
  * After-action report (the resolution accounting). A turn's whole story already lives in
@@ -83,6 +84,9 @@ export function summarizeCommittedTurn(
   let defend = 0;
   let feed = 0;
   const specials: string[] = [];
+  // Board-granted damage SPECIALs (Crash & Burn, #23) — captured with target + damage so the
+  // report shows "dealt N to X" / the kill, not the ugly namespaced id via powerName.
+  const boardSpecialHits: { targetId?: string; units: number }[] = [];
   const bloodChanges: { reason: string; delta: number }[] = [];
   const passives: { id: string; detail?: string; bloodDelta?: number; gmSuccessDelta?: number }[] = [];
   let whiff: { name: string; attack: number; rating?: number } | null = null;
@@ -106,7 +110,10 @@ export function summarizeCommittedTurn(
         else if (e.payload.kind === "eliminate") add(eliminate, e.payload.targetId, e.payload.units);
         else if (e.payload.kind === "defend") defend += e.payload.units;
         else if (e.payload.kind === "feed") feed += e.payload.units;
-        else if (e.payload.kind === "special" && e.payload.specialId) specials.push(e.payload.specialId);
+        else if (e.payload.kind === "special" && e.payload.specialId) {
+          if (isBoardSpecialId(e.payload.specialId)) boardSpecialHits.push({ targetId: e.payload.targetId, units: e.payload.units });
+          else specials.push(e.payload.specialId);
+        }
         break;
       case "BLOOD_CHANGED":
         bloodChanges.push({ reason: e.payload.reason ?? "Blood", delta: e.payload.delta });
@@ -146,6 +153,16 @@ export function summarizeCommittedTurn(
     const grant = bloodChanges.find((b) => b.reason === name && b.delta > 0);
     if (grant) foldedReasons.add(name);
     lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}` });
+  }
+
+  // Board-granted damage SPECIALs (Crash & Burn, #23): the crit inflicted a flat amount on the
+  // granting Threat. If it finished the Threat AND no eliminate die already claims the kill, this
+  // line owns the kill; otherwise it just reports the damage (the eliminate loop owns the kill).
+  for (const h of boardSpecialHits) {
+    const t = state.board.threats.find((x) => x.id === h.targetId);
+    const name = t?.name ?? "the enemy";
+    if (t && t.rating <= 0 && !eliminate.has(h.targetId ?? "")) lines.push({ kind: "kill", emphasis: true, text: `Crash & Burn — Eliminated ${name}!` });
+    else lines.push({ kind: "special", emphasis: true, text: `Crash & Burn — dealt ${h.units} to ${name}${t ? ` (now ${t.rating})` : ""}` });
   }
 
   // Einherjar 'Painless' (#19): the Reich's 1s steeled an enemy — surface the raise so the

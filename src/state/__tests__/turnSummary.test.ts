@@ -157,6 +157,48 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(byKind.whiff).toBe("Shots go wide — Paratrooper Squad presses the attack (ATK +1 → 4, Rapid Deployment +2 rating → 8)");
   });
 
+  it("reports a Motorcycle 'Crash & Burn' board-granted SPECIAL hit and its kill (#23)", () => {
+    const { ev } = log();
+    const moto: Threat = { id: "moto", name: "Motorcycle Squad", kind: "threat", rating: 3, attack: 3, startingAttack: 3, reinforces: false, restoresAtZero: false, rules: ["crash-and-burn"] };
+    // The −3 finishes the squad (rating 3 → 0; removal waits for end-of-round) and NO eliminate
+    // die hit it, so the SPECIAL line owns the kill.
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "astrid" }, "astrid"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [moto] }),
+      ev("TURN_STARTED", { seat: "astrid", stat: "BRAWL" }, "astrid"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 0 }),
+      ev("DIE_ALLOCATED", { kind: "special", specialId: "crash-and-burn:moto", targetId: "moto", units: 3 }, "astrid"),
+      ev("ALLOCATION_COMMITTED", {}, "astrid"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    const byKind = Object.fromEntries(summary.lines.map((l) => [l.kind, l.text]));
+    expect(byKind.kill).toBe("Crash & Burn — Eliminated Motorcycle Squad!");
+  });
+
+  it("a Crash & Burn hit that doesn't finish the squad reports the damage dealt (#23)", () => {
+    const { ev } = log();
+    const moto: Threat = { id: "moto", name: "Motorcycle Squad", kind: "threat", rating: 7, attack: 3, startingAttack: 3, reinforces: false, restoresAtZero: false, rules: ["crash-and-burn"] };
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "astrid" }, "astrid"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [moto] }),
+      ev("TURN_STARTED", { seat: "astrid", stat: "BRAWL" }, "astrid"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 0 }),
+      ev("DIE_ALLOCATED", { kind: "special", specialId: "crash-and-burn:moto", targetId: "moto", units: 3 }, "astrid"),
+      ev("ALLOCATION_COMMITTED", {}, "astrid"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    const byKind = Object.fromEntries(summary.lines.map((l) => [l.kind, l.text]));
+    expect(byKind.special).toBe("Crash & Burn — dealt 3 to Motorcycle Squad (now 4)");
+  });
+
   it("returns null for an empty turn and for a non-commit seq", () => {
     const events = irynaClockTowerEvents("g-iryna");
     const state = reduce(events);
