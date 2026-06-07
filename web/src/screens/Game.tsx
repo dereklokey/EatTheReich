@@ -84,6 +84,7 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
             state={game.state}
             online={game.online}
             events={game.events}
+            mySeat={ownChar}
             onOpenSheet={setSheetSeat}
             onFrameScene={isGm ? () => setGmOpen(true) : undefined}
           />

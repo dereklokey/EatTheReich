@@ -31,12 +31,15 @@ export function Board({
   state,
   online,
   events,
+  mySeat,
   onOpenSheet,
   onFrameScene,
 }: {
   state: GameState;
   online: SeatId[];
   events: GameEvent[];
+  /** This device's own character (null for the GM / unseated), floated to the top of the rail. */
+  mySeat?: CharId | null;
   onOpenSheet?: (id: CharId) => void;
   /** GM-only: open the GM panel to frame the first scene (shown as an empty-state CTA). */
   onFrameScene?: () => void;
@@ -83,11 +86,10 @@ export function Board({
     state.board.objectives.length === 0 &&
     state.board.threats.length === 0 &&
     secondary.length === 0;
-  // Claimed (in-play) characters rise to the top of the rail; unclaimed sink below.
-  // Array.sort is stable, so CHAR_IDS order holds within each group.
-  const orderedCrew = [...CHAR_IDS].sort(
-    (a, b) => Number(state.seats[b]?.claimed ?? false) - Number(state.seats[a]?.claimed ?? false),
-  );
+  // Rail order: your own character first, then the rest of the in-play crew, then the
+  // unclaimed seats. Array.sort is stable, so CHAR_IDS order holds within each rank.
+  const crewRank = (id: CharId) => (id === mySeat ? 0 : state.seats[id]?.claimed ? 1 : 2);
+  const orderedCrew = [...CHAR_IDS].sort((a, b) => crewRank(a) - crewRank(b));
   return (
     <div className="substrate grain min-h-full p-4 pb-20 app-w">
       <BoardHeader state={state} />
