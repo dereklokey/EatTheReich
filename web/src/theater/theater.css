@@ -244,3 +244,49 @@
   100% { opacity: 1; transform: scale(1) rotate(0); }
 }
 .flashback-card { animation: case-file-in 420ms var(--ease-impact) both; }
+
+/* The flashback call-to-action under the dice (issue #9): when the roll comes up weak the
+   table's eye needs to land here, so it's a full-width panel that breathes a mauve/blood
+   glow — plainly the way out, not a quiet link. Flavor on top, the mechanical line beneath.
+   The beckon pulse is auto-neutralised under [data-effects="reduced"] (theme.css), leaving a
+   still-prominent static glow. */
+.flashback-cta {
+  display: block;
+  width: 100%;
+  margin-top: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.65rem 0.85rem;
+  border-radius: 3px;
+  color: var(--paper);
+  background: linear-gradient(135deg, rgba(58, 37, 64, 0.96), rgba(36, 22, 42, 0.96));
+  border: 1px solid var(--dusk-mauve);
+  border-left: 4px solid var(--blood-bright);
+  animation: flashback-beckon 1.8s ease-in-out infinite;
+  transition: transform var(--motion-fast) var(--ease-impact), filter var(--motion-fast);
+}
+.flashback-cta:hover { transform: translateY(-1px); filter: brightness(1.12); }
+.flashback-cta:active { transform: translateY(1px); }
+.flashback-cta__flavor {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.04rem;
+  line-height: 1.18;
+  color: #ead9f0;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+.flashback-cta__action {
+  display: block;
+  margin-top: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: var(--blood-bright);
+}
+@keyframes flashback-beckon {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(255, 45, 74, 0.16), 0 0 13px rgba(255, 45, 74, 0.10); }
+  50% { box-shadow: 0 0 0 1px rgba(255, 45, 74, 0.5), 0 0 22px rgba(255, 45, 74, 0.32); }
+}
+/* Reduced effects: hold a clearly-visible static glow instead of the pulse. */
+[data-effects="reduced"] .flashback-cta { box-shadow: 0 0 0 1px rgba(255, 45, 74, 0.4), 0 0 16px rgba(255, 45, 74, 0.22); }

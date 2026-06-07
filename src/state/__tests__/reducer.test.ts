@@ -44,7 +44,7 @@ describe("reducer — sessions reset flashbacks (RULES §9 / §3A)", () => {
     const { ev, all } = log();
     ev("GAME_CREATED", { createdAt: 1 });
     ev("SESSION_STARTED", {});
-    ev("FLASHBACK_TRIGGERED", { seat: "chuck", context: "opera", question: "q" }, "chuck");
+    ev("FLASHBACK_TRIGGERED", { seat: "chuck" }, "chuck");
     let s = reduce(all);
     expect(s.characters.chuck.flashbackUsedThisSession).toBe(true);
     expect(s.session).toEqual({ number: 1, active: true });

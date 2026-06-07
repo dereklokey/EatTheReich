@@ -35,7 +35,7 @@ export function RollReveal({
   isGm: boolean;
   /** Active player, weak roll, flashback still in hand this session (RULES §9, issue #9). */
   canFlashback: boolean;
-  onFlashback: (context: string, question: string) => void;
+  onFlashback: () => void;
   onRollGm: () => void;
   onResolve: () => void;
 }) {
@@ -60,19 +60,21 @@ export function RollReveal({
           {player.length === 0 && <span className="mono text-paper-fade italic">No dice in the pool.</span>}
         </div>
         {/* The roll came up short and a flashback's still in hand — offer the reroll right
-            under the dice it would replace (RULES §9). Cutting to it adds 2 dice and rolls
-            the whole pool again; the second result stands. */}
+            under the dice it would replace (RULES §9). It's a suggestion, but a loud one: a
+            glowing panel so it plainly reads as the way out, not a stray link (issue #9). */}
         {canFlashback && (
           <button
-            className="mono text-xs mt-2 px-2 py-1 bg-dusk-mauve text-paper"
-            style={{ borderRadius: 2 }}
+            className="flashback-cta"
             title="Once per session: narrate a past F.A.N.G. scene, then reroll with +2 dice"
             onClick={() => {
               play("concussion");
               setFlashback(true);
             }}
           >
-            Cut to a flashback · +2 dice, reroll
+            <span className="flashback-cta__flavor">
+              Your luck has failed you — but a moment from your past might turn the tide.
+            </span>
+            <span className="flashback-cta__action">Trigger a flashback › reroll +2 dice</span>
           </button>
         )}
       </div>
@@ -112,8 +114,8 @@ export function RollReveal({
       {flashback && (
         <FlashbackPrompt
           onCancel={() => setFlashback(false)}
-          onConfirm={(context, question) => {
-            onFlashback(context, question);
+          onConfirm={() => {
+            onFlashback();
             setFlashback(false);
           }}
         />

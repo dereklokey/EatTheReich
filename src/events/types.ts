@@ -134,7 +134,8 @@ export interface EventPayloads {
   /** Staged loot reveal (issue #15): show/hide one scene "Loot within reach" item (by name) to players. */
   SCENE_LOOT_REVEALED: { name: string; revealed: boolean };
 
-  FLASHBACK_TRIGGERED: { seat: CharId; context: string; question: string };
+  /** The flashback scene is narrated out loud, not typed — the event just records who spent it. */
+  FLASHBACK_TRIGGERED: { seat: CharId };
   ROUND_ENDED: Record<string, never>;
   /** `log` is the per-threat breakdown (incl. each restore's 1d6) for "shown with the dice it rolled" (CLAUDE.md §4). */
   REINFORCEMENTS_APPLIED: { threats: Threat[]; log?: ReinforceLogEntry[]; note?: string };

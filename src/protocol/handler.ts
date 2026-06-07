@@ -421,7 +421,7 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       // back onto the results screen with the new throw; the Reich's dice, if rolled, stand.
       const results = deps.roller.roll(turn.playerDice.length + FLASHBACK_BONUS_DICE);
       return ok([
-        { type: "FLASHBACK_TRIGGERED", payload: { seat: intent.seat, context: intent.context, question: intent.question }, actor: intent.seat },
+        { type: "FLASHBACK_TRIGGERED", payload: { seat: intent.seat }, actor: intent.seat },
         { type: "DICE_ROLLED", payload: { who: "player", results }, actor: intent.seat },
       ]);
     }

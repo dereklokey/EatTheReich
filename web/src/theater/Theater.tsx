@@ -59,7 +59,7 @@ export function Theater({
         canDrive={canDrive}
         isGm={mySeat === "gm"}
         canFlashback={canFlashback}
-        onFlashback={(context, question) => send({ kind: "trigger_flashback", seat: turn.seat, context, question })}
+        onFlashback={() => send({ kind: "trigger_flashback", seat: turn.seat })}
         onRollGm={() => send({ kind: "roll_gm" })}
         onResolve={() => send({ kind: "resolve_discard" })}
         onMinimize={onMinimize}

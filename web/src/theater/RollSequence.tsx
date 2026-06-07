@@ -26,7 +26,7 @@ export function RollSequence(props: {
   canDrive: boolean;
   isGm: boolean;
   canFlashback: boolean;
-  onFlashback: (context: string, question: string) => void;
+  onFlashback: () => void;
   onRollGm: () => void;
   onResolve: () => void;
   onMinimize: () => void;
@@ -75,7 +75,7 @@ function FullSequence({
   canDrive: boolean;
   isGm: boolean;
   canFlashback: boolean;
-  onFlashback: (context: string, question: string) => void;
+  onFlashback: () => void;
   onRollGm: () => void;
   onResolve: () => void;
   onMinimize: () => void;

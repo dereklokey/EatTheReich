@@ -1,33 +1,21 @@
-import { useState } from "react";
-
 /**
- * The flashback prompt (RULES §9, rulebook p41). Cut when the active player's roll comes up
- * weak (≤2 successes): they narrate a brief past F.A.N.G. scene, then add 2 dice and reroll
- * the whole pool — the second result stands. It lives on the roll-results screen now (issue
- * #9), so the trigger sits next to the dice it's about to replace, not on the character sheet.
- *
- * Freeform on purpose: pick from the d6 tables at the table or invent one — the app just
- * records what was said. Both fields are required so the narrative beat actually happens.
+ * The flashback confirmation (RULES §9, rulebook p41). Eat the Reich is played out loud, so
+ * there's nothing to type here — the player narrates a moment from a past F.A.N.G. mission at
+ * the table. This is just the "are you sure" beat before the reroll commits (issue #9): cut
+ * to it and you add 2 dice and roll your whole pool again — the second result stands.
  */
-export function FlashbackPrompt({
-  onCancel,
-  onConfirm,
-}: {
-  onCancel: () => void;
-  onConfirm: (context: string, question: string) => void;
-}) {
-  const [context, setContext] = useState("");
-  const [question, setQuestion] = useState("");
+export function FlashbackPrompt({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
   return (
     <div className="fixed inset-0 z-[74] grid place-items-center p-4 flashback-wash">
-      <div className="paper w-full max-w-md flashback-card">
-        <h3 className="display text-xl">Flashback</h3>
-        <p className="mono text-xs text-paper-fade mt-1">A scene from before. Answer it, then reroll with +2 dice.</p>
-        <input className="mono w-full mt-3 px-2 py-1.5 bg-paper-shadow/40" placeholder="context (where/when)" value={context} onChange={(e) => setContext(e.target.value)} />
-        <input className="mono w-full mt-2 px-2 py-1.5 bg-paper-shadow/40" placeholder="the question the table asks you" value={question} onChange={(e) => setQuestion(e.target.value)} />
-        <div className="mt-4 flex justify-end gap-2">
-          <button className="mono text-sm underline text-paper-fade" onClick={onCancel}>cancel</button>
-          <button className="display bg-blood text-paper px-4 py-1.5" style={{ borderRadius: 2 }} disabled={!context.trim() || !question.trim()} onClick={() => onConfirm(context.trim(), question.trim())}>
+      <div className="paper w-full max-w-sm flashback-card text-center">
+        <h3 className="display text-2xl">Cut to a flashback?</h3>
+        <p className="mono text-xs text-paper-fade mt-2 leading-relaxed">
+          Narrate a moment from a past F.A.N.G. mission out loud — then add 2 dice and reroll your
+          whole pool. The second result stands; there’s no taking it back.
+        </p>
+        <div className="mt-5 flex justify-center gap-4">
+          <button className="mono text-sm underline text-paper-fade" onClick={onCancel}>not yet</button>
+          <button className="display bg-blood text-paper px-5 py-2" style={{ borderRadius: 2 }} onClick={onConfirm}>
             Cut to it
           </button>
         </div>

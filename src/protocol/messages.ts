@@ -63,7 +63,9 @@ export type Intent =
   | { kind: "loot_add"; seat: CharId; item: Equipment }
   | { kind: "loot_activate"; seat: CharId; itemId: string }
   | { kind: "unlock_advance"; seat: CharId; advanceId: string }
-  | { kind: "trigger_flashback"; seat: CharId; context: string; question: string }
+  /** Cut to a flashback (RULES §9): a once-per-session reroll on a weak roll. The scene is
+   *  narrated out loud at the table, so the intent carries no text — just the seat (issue #9). */
+  | { kind: "trigger_flashback"; seat: CharId }
   | { kind: "gm_override"; note?: string; patch?: { objectives?: Objective[]; threats?: Threat[] } }
   /** GM rewind: drop the event log back to `toSeq` (§3.2). Handled by the room, not the reducer. */
   | { kind: "rewind"; toSeq: number }
