@@ -129,8 +129,10 @@ export function Board({
           <BoardHeader state={state} />
 
           {loc && (
-            <div className="paper">
-              <div className="mono text-[0.6rem] uppercase tracking-wide text-paper-fade">Scene</div>
+            <div className={`paper scene--s${loc.sector}`}>
+              <div className="mono text-[0.6rem] uppercase tracking-wide text-paper-fade">
+                Scene <span className="text-paper-fade">· sector {loc.sector}</span>
+              </div>
               <p className="display text-2xl leading-tight">{loc.name}</p>
             </div>
           )}
@@ -155,7 +157,7 @@ export function Board({
               {state.board.objectives.length === 0 && <Empty>No objectives yet.</Empty>}
               <div className="grid gap-2">
                 {state.board.objectives.map((o) => (
-                  <div key={o.id} className="paper paper-tight">
+                  <div key={o.id} className="paper paper-tight paper--objective">
                     <div className="flex items-baseline justify-between">
                       <span className="mono font-bold">{o.name}</span>
                       <RatingPips n={o.rating} tone="hazard" />
@@ -172,7 +174,7 @@ export function Board({
                     {secondary.map((o) => {
                       const done = o.rating <= 0;
                       return (
-                        <div key={o.id} className={`paper paper-tight ${done ? "opacity-60" : ""}`}>
+                        <div key={o.id} className={`paper paper-tight paper--objective ${done ? "opacity-60" : ""}`}>
                           <div className="flex items-baseline justify-between gap-2">
                             <span className={`mono ${done ? "line-through" : ""}`}>
                               {o.name}
@@ -194,7 +196,7 @@ export function Board({
               {state.board.threats.length === 0 && <Empty>The street is quiet. For now.</Empty>}
               <div className="grid gap-2">
                 {state.board.threats.map((t) => (
-                  <div key={t.id} className={`paper paper-tight ${t.rating <= 0 ? "opacity-50" : ""}`}>
+                  <div key={t.id} className={`paper paper-tight paper--threat ${t.rating <= 0 ? "opacity-50" : ""}`}>
                     <div className="flex items-baseline justify-between">
                       <span className="mono font-bold">{t.name}</span>
                       <span className="mono text-xs text-blood">ATK {t.attack}</span>
@@ -280,11 +282,19 @@ function CharCard({
     : recede
       ? { opacity: 0.62 }
       : undefined;
+  // As injuries pile up (0–6 boxes marked), the card drains of colour toward grey —
+  // a vampire visibly fading. A blood-share fx (card-bleed/flood) momentarily overrides
+  // the filter, then it returns when that class drops.
+  const wear = Math.min(1, char.injuries.reduce((s, n) => s + n, 0) / 6);
   return (
     <div
       ref={innerRef}
       className={`paper ${onOpen ? "cursor-pointer" : ""} ${char.dead ? "opacity-40" : char.downed ? "opacity-70 -rotate-1" : ""} ${fx ? `card-${fx}` : ""}`}
-      style={{ transition: "transform 220ms var(--ease-impact), box-shadow 220ms, opacity 220ms", ...spotlight }}
+      style={{
+        transition: "transform 220ms var(--ease-impact), box-shadow 220ms, opacity 220ms, filter 220ms",
+        ...(wear > 0 ? { filter: `grayscale(${(wear * 0.85).toFixed(2)}) brightness(${(1 - wear * 0.12).toFixed(2)})` } : {}),
+        ...spotlight,
+      }}
       onClick={onOpen}
       title={onOpen ? "open sheet" : undefined}
     >

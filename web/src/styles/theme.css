@@ -32,6 +32,11 @@
   --critical:     var(--blood-bright);
   --discard:      #4a4458;
 
+  /* Card-tint accents (board colour-coding). Threats read blood-red, Objectives a
+     muted ledger-green; the scene card escalates by sector cool(3) → amber(2) → blood(1). */
+  --verdant:      #4d7c3a;   /* muted ledger green — Objectives */
+  --sector-cool:  #3f6f8c;   /* scene tint, sector 3 (furthest from danger) */
+
   /* ---- Type voices (DESIGN.md §3) ---- */
   --font-mono:    "Courier Prime", "Courier New", ui-monospace, monospace;
   --font-display: "Oswald", "Arial Narrow", system-ui, sans-serif;
@@ -185,6 +190,34 @@ body {
     radial-gradient(40% 30% at 12% 88%, rgba(120,90,40,0.08), transparent 60%);
 }
 .paper-tight { padding: 0.6rem 0.7rem; }
+
+/* Card tints: faint colour washes layered over the manila paper so the dossier look
+   holds (the grain ::after + torn clip-path + shadow are untouched). */
+.paper--threat {
+  background:
+    linear-gradient(0deg, color-mix(in srgb, var(--blood) 13%, transparent), color-mix(in srgb, var(--blood) 8%, transparent)),
+    var(--paper);
+  border-color: color-mix(in srgb, var(--blood) 40%, var(--paper-shadow));
+}
+.paper--objective {
+  background:
+    linear-gradient(0deg, color-mix(in srgb, var(--verdant) 15%, transparent), color-mix(in srgb, var(--verdant) 9%, transparent)),
+    var(--paper);
+  border-color: color-mix(in srgb, var(--verdant) 40%, var(--paper-shadow));
+}
+/* Scene card, tinted by sector: cool & distant (3) → amber warning (2) → blood endgame (1). */
+.scene--s3 {
+  background: linear-gradient(0deg, color-mix(in srgb, var(--sector-cool) 15%, transparent), transparent), var(--paper);
+  border-color: color-mix(in srgb, var(--sector-cool) 42%, var(--paper-shadow));
+}
+.scene--s2 {
+  background: linear-gradient(0deg, color-mix(in srgb, var(--hazard-warm) 17%, transparent), transparent), var(--paper);
+  border-color: color-mix(in srgb, var(--hazard-warm) 44%, var(--paper-shadow));
+}
+.scene--s1 {
+  background: linear-gradient(0deg, color-mix(in srgb, var(--blood) 17%, transparent), transparent), var(--paper);
+  border-color: color-mix(in srgb, var(--blood) 44%, var(--paper-shadow));
+}
 
 /* Shared app width (issue #7): fill small/normal screens edge-to-edge, but cap and
    centre on very wide monitors so cards/columns never stretch awkwardly. The top bar,
