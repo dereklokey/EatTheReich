@@ -91,6 +91,14 @@ export interface EventPayloads {
   };
   DICE_DISCARDED: { playerSurvivors?: DieFace[]; gmSuccessCount?: number };
   /**
+   * An enemy special raised its own Challenge for THIS action (Einherjar 'Painless', rulebook
+   * p55: each 1 in the Reich's Attack roll bumps the Einherjar's Challenge by 1). Fired at the
+   * roll-results window after the GM roll, off the aggregate pool's 1s; the reducer parks the
+   * raise on the turn so the allocation soak matches, and it resets next turn. A logged,
+   * GM-overridable default (CLAUDE.md §0). `amount` is the raise (= `ones` for Painless).
+   */
+  ENEMY_CHALLENGE_RAISED: { threatId: string; threatName: string; amount: number; ones: number; rule: string };
+  /**
    * Mid-allocation bonus dice (RULES §4 — the pool is NOT frozen at roll time). A newly
    * narrated advantage adds `count` dice now; the server rolls and discards them, and the
    * survivors join the allocation tray. `label` tags their pool source.

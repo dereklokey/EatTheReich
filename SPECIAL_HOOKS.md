@@ -69,7 +69,7 @@ feel).
 | Powering up | Stahlsoldat | `ROUND_END` | auto / system | ✅ |
 | Aura of Misfortune | Rust-Witch | `ROLL_RESULTS` | auto / system | ✅ |
 | Rust Curse | Rust-Witch | `ROUND_END` | select / gm | ✅ |
-| Painless | Einherjar | `ROLL_RESULTS` | auto / system | ⬜ #19 |
+| Painless | Einherjar | `ROLL_RESULTS` | auto / system | ✅ |
 | Bloodless | Einherjar | `ALLOCATE` | message / system | ⬜ #20 |
 | Anathema | Vampirjäger | `ROLL_RESULTS` | auto / system | ⬜ #21 |
 | Rapid Deployment | Paratrooper | `ROUND_END` | auto / system | ⬜ #22 |

@@ -22,6 +22,7 @@ import {
 import { CHARACTERS_BY_ID } from "../data/characters.js";
 import { flashbackTriggerable, FLASHBACK_BONUS_DICE } from "../data/flashbacks.js";
 import { threatInPlay } from "../domain/types.js";
+import type { DieFace } from "../domain/types.js";
 import type { Equipment } from "../domain/character.js";
 
 /**
@@ -130,6 +131,26 @@ function findEquipment(state: GameState, seat: CharId, itemId: string): Equipmen
  *  it onto the battlefield — never while it's staged (#12) or already defeated (rating 0). */
 function rustWitchInPlay(state: GameState): boolean {
   return state.board.threats.some((t) => threatInPlay(t) && (t.rules ?? []).includes("rust-curse"));
+}
+
+/**
+ * Einherjar 'Painless' (rulebook p55, issue #19): each 1 in the Reich's Attack roll raises this
+ * enemy's Challenge by 1 for the action. The 1s are counted across the WHOLE aggregate pool (it's
+ * a property of the board, not of which Threat the player faces), and every in-play 'painless'
+ * Threat soaks that much extra this turn. Returns one raise event per affected Threat (none when
+ * the roll held no 1s, or no 'painless' Threat is in play). A staged/defeated Einherjar imposes
+ * nothing — gated on {@link threatInPlay}, mirroring the Aura/Rust-Curse treatment.
+ */
+function painlessRaises(state: GameState, gmDice: readonly DieFace[]): EventInput[] {
+  const ones = countOnes(gmDice);
+  if (ones === 0) return [];
+  return state.board.threats
+    .filter((t) => threatInPlay(t) && (t.rules ?? []).includes("painless"))
+    .map((t) => ({
+      type: "ENEMY_CHALLENGE_RAISED" as const,
+      payload: { threatId: t.id, threatName: t.name, amount: ones, ones, rule: "painless" },
+      actor: "system" as const,
+    }));
 }
 
 /** A PC's gear eligible to rust (issue #13): sheet equipment + earned loot that still has
@@ -262,6 +283,9 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       }
 
       events.push({ type: "DICE_DISCARDED", payload: { playerSurvivors: survivors.map((s) => s.face), gmSuccessCount: gmCount } });
+      // Einherjar 'Painless' (#19): the Reich's own 1s raise its Challenge for this action.
+      // Read off the raw GM roll (independent of the player passives above) at this same window.
+      events.push(...painlessRaises(state, turn.gmDice));
       return ok(events);
     }
 

@@ -85,6 +85,35 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(summary.lines[0]).toMatchObject({ kind: "special", text: "Activated Ravenous (+3 Blood)" });
   });
 
+  it("surfaces an Einherjar 'Painless' raise and folds it into the soak (#19)", () => {
+    const { ev } = log();
+    const objective: Objective = { id: "obj", name: "Smash through", kind: "objective", rating: 8 };
+    const einherjar: Threat = { id: "einh", name: "Einherjar", kind: "threat", rating: 7, attack: 3, startingAttack: 3, reinforces: true, restoresAtZero: true, rules: ["painless"] };
+
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "iryna" }, "iryna"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [objective], threats: [einherjar] }),
+      ev("TURN_STARTED", { seat: "iryna", stat: "SHOOT" }, "iryna"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6, 5, 4], gmSuccessCount: 0 }),
+      ev("ENEMY_CHALLENGE_RAISED", { threatId: "einh", threatName: "Einherjar", amount: 2, ones: 2, rule: "painless" }, "system"),
+      // 4 units onto the Einherjar: 2 soaked by the raise, 2 shed → 7 → 5.
+      ev("DIE_ALLOCATED", { kind: "eliminate", targetId: "einh", units: 2 }, "iryna"),
+      ev("DIE_ALLOCATED", { kind: "eliminate", targetId: "einh", units: 1 }, "iryna"),
+      ev("DIE_ALLOCATED", { kind: "eliminate", targetId: "einh", units: 1 }, "iryna"),
+      ev("ALLOCATION_COMMITTED", {}, "iryna"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    expect(state.board.threats[0]?.rating).toBe(5); // soak applied authoritatively
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    const byKind = Object.fromEntries(summary.lines.map((l) => [l.kind, l.text]));
+    expect(byKind.enemy).toBe("Painless — Einherjar's Challenge +2 (Reich 1s)");
+    // The hit line counts the post-soak drop, not the raw units.
+    expect(byKind.eliminate).toBe("Hit Einherjar — −2 rating (now 5)");
+  });
+
   it("returns null for an empty turn and for a non-commit seq", () => {
     const events = irynaClockTowerEvents("g-iryna");
     const state = reduce(events);

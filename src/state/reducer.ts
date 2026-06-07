@@ -175,6 +175,16 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
           : {}),
       });
     }
+    case "ENEMY_CHALLENGE_RAISED": {
+      // Einherjar 'Painless' (rulebook p55): park the per-action Challenge raise on the turn so
+      // the allocation soak (DIE_ALLOCATED, via challengeBump) sees it. Additive per target (a
+      // second raise on the same enemy composes rather than overwrites), and dropped with the
+      // turn, so it never bleeds into the next action.
+      if (!s.currentTurn) return s;
+      const bump = { ...(s.currentTurn.challengeBump ?? {}) };
+      bump[e.payload.threatId] = (bump[e.payload.threatId] ?? 0) + e.payload.amount;
+      return withTurn(s, { ...s.currentTurn, challengeBump: bump });
+    }
     case "BONUS_DICE_ROLLED": {
       // The pool isn't frozen at roll time (RULES §4): append the new survivors to the
       // tray and record the rolled dice + pool source so replay stays faithful.
@@ -204,6 +214,7 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
         bloodGained: 0,
         challengeConsumed: turn.challengeConsumed,
         specialsActivated: [],
+        ...(turn.challengeBump ? { challengeBump: turn.challengeBump } : {}),
       };
       const next = applyOneAllocation(acc, alloc);
       let out: GameState = withBoard(s, {

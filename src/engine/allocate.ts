@@ -49,6 +49,13 @@ export interface AllocationAccumulator {
   challengeConsumed: Record<string, number>;
   /** SPECIAL ids activated (crit allocations to `special`). */
   specialsActivated: string[];
+  /**
+   * Extra Challenge a target soaks THIS turn beyond its printed value, keyed by target id.
+   * The Einherjar's 'Painless' (rulebook p55) raises its Challenge by the number of 1s in the
+   * Reich's Attack roll for this action; the engine records the raise as an event and threads
+   * the amount through here so the allocation soak matches. Per-turn — a fresh turn drops it.
+   */
+  challengeBump?: Record<string, number>;
 }
 
 export interface AllocationResult {
@@ -66,6 +73,7 @@ const cloneBoard = (b: BoardState): BoardState => ({
 export function emptyAccumulator(
   board: BoardState,
   gmDiceCount: number,
+  challengeBump?: Record<string, number>,
 ): AllocationAccumulator {
   return {
     board: cloneBoard(board),
@@ -73,6 +81,7 @@ export function emptyAccumulator(
     bloodGained: 0,
     challengeConsumed: {},
     specialsActivated: [],
+    ...(challengeBump ? { challengeBump } : {}),
   };
 }
 
@@ -90,10 +99,12 @@ export function applyOneAllocation(
     bloodGained: acc.bloodGained,
     challengeConsumed: { ...acc.challengeConsumed },
     specialsActivated: [...acc.specialsActivated],
+    ...(acc.challengeBump ? { challengeBump: acc.challengeBump } : {}),
   };
 
   const absorbChallenge = (id: string, declared: number | undefined, units: number): number => {
-    const cap = declared ?? 0;
+    // Printed Challenge + any per-turn raise (Einherjar 'Painless') is the soak this target gets.
+    const cap = (declared ?? 0) + (next.challengeBump?.[id] ?? 0);
     const used = next.challengeConsumed[id] ?? 0;
     const absorb = Math.min(units, Math.max(0, cap - used));
     next.challengeConsumed[id] = used + absorb;
