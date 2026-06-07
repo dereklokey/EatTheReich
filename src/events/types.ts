@@ -131,6 +131,15 @@ export interface EventPayloads {
 
   EQUIPMENT_USED: { seat: CharId; itemId: string };
   EQUIPMENT_RESTORED: { seat: CharId; itemId: string };
+  /**
+   * Rust Curse (rulebook p56, issue #13): the Rust-Witch corrodes one of a GM-chosen PC's
+   * items into uselessness — its remaining uses are zeroed. The server picks the item at
+   * random (`roll` = a d6 mapped over the eligible items, like injuries/reinforcements), so
+   * it's anti-fudge and replays deterministically — the chosen `itemId` is baked in and the
+   * reducer never re-rolls. A logged, GM-overridable default (CLAUDE.md §0); the GM can hand
+   * uses back via EQUIPMENT_RESTORED to "repair" it.
+   */
+  EQUIPMENT_DEGRADED: { seat: CharId; itemId: string; itemName: string; roll: DieFace };
   LOOT_ADDED: { seat: CharId; item: Equipment };
   LOOT_ACTIVATED: { seat: CharId; itemId: string };
   ADVANCE_UNLOCKED: { seat: CharId; advanceId: string };

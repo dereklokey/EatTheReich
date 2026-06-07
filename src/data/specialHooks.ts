@@ -166,8 +166,7 @@ export const SPECIAL_HOOKS: SpecialHook[] = [
     resolution: "select",
     actor: "gm",
     target: "player",
-    status: "planned",
-    issue: 13,
+    status: "implemented",
   },
   {
     id: "enemy.painless",

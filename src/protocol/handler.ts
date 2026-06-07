@@ -126,6 +126,24 @@ function findEquipment(state: GameState, seat: CharId, itemId: string): Equipmen
   );
 }
 
+/** A Rust-Witch is *in play* (issue #13). Its Rust Curse fires only once the GM has brought
+ *  it onto the battlefield — never while it's staged (#12) or already defeated (rating 0). */
+function rustWitchInPlay(state: GameState): boolean {
+  return state.board.threats.some((t) => threatInPlay(t) && (t.rules ?? []).includes("rust-curse"));
+}
+
+/** A PC's gear eligible to rust (issue #13): sheet equipment + earned loot that still has
+ *  uses left. Already-spent or use-less items are skipped so the curse wastes nothing — and
+ *  every eligible item is use-tracked, so the resulting zero is a clean, repairable degrade. */
+function degradableEquipment(state: GameState, seat: CharId): Array<{ id: string; name: string }> {
+  const runtime = state.characters[seat];
+  if (!runtime) return [];
+  const all = [...(CHARACTERS_BY_ID[seat]?.equipment ?? []), ...runtime.loot];
+  return all
+    .filter((item) => (runtime.equipmentUses[item.id] ?? 0) > 0)
+    .map((item) => ({ id: item.id, name: item.name }));
+}
+
 export function processIntent(state: GameState, intent: Intent, deps: IntentDeps): IntentResult {
   switch (intent.kind) {
     case "create_game":
@@ -367,6 +385,17 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
         { type: "REINFORCEMENTS_APPLIED", payload: { threats, log } },
         { type: "ROUND_ENDED", payload: {} },
       ]);
+    }
+
+    case "rust_curse": {
+      // Rust-Witch 'Rust Curse' (rulebook p56): the GM names the cursed PC; the server picks
+      // one of that PC's items at random (anti-fudge, replayable — like injuries) and rusts it.
+      if (!rustWitchInPlay(state)) return err("no Rust-Witch is in play");
+      const pool = degradableEquipment(state, intent.seat);
+      if (pool.length === 0) return err("that character has no equipment left to rust");
+      const roll = deps.roller.roll(1)[0]!;
+      const pick = pool[(roll - 1) % pool.length]!;
+      return ok([{ type: "EQUIPMENT_DEGRADED", payload: { seat: intent.seat, itemId: pick.id, itemName: pick.name, roll } }]);
     }
 
     case "change_blood":

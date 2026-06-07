@@ -312,7 +312,25 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
         const cur = c.equipmentUses[e.payload.itemId];
         const max = maxUses(e.payload.seat, e.payload.itemId, c);
         if (cur === undefined || max === undefined) return c;
-        return { ...c, equipmentUses: { ...c.equipmentUses, [e.payload.itemId]: Math.min(max, cur + 1) } };
+        return {
+          ...c,
+          equipmentUses: { ...c.equipmentUses, [e.payload.itemId]: Math.min(max, cur + 1) },
+          // Handing a use back repairs a Rust-cursed item (issue #13) — clear the marker.
+          degradedEquipment: (c.degradedEquipment ?? []).filter((id) => id !== e.payload.itemId),
+        };
+      });
+    case "EQUIPMENT_DEGRADED":
+      // Rust Curse (issue #13): zero the item's remaining uses AND flag it rusted (distinct
+      // from merely spent) so the sheet shows *why* it's dead. The server only ever picks a
+      // use-tracked item (handler `degradableEquipment`), so the GM can hand a use back via
+      // EQUIPMENT_RESTORED to "repair" it (§0), which clears the flag.
+      return updateChar(s, e.payload.seat, (c) => {
+        const degraded = c.degradedEquipment ?? [];
+        return {
+          ...c,
+          equipmentUses: { ...c.equipmentUses, [e.payload.itemId]: 0 },
+          degradedEquipment: degraded.includes(e.payload.itemId) ? degraded : [...degraded, e.payload.itemId],
+        };
       });
     case "LOOT_ADDED":
       return updateChar(s, e.payload.seat, (c) => ({

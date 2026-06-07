@@ -76,3 +76,14 @@
   100% { opacity: 0.85; transform: scale(1) rotate(-5deg); }
 }
 .stamp--slam { animation: stamp-slam 480ms var(--ease-impact) both; }
+
+/* Rust Curse (issue #13): an item rusted to uselessness reads struck-through with an amber
+   stamp — distinct from merely spent (all use-boxes ✕). Cleared when the GM repairs it (hands
+   a use back). A static treatment (no motion), so it's kept under reduce-effects. */
+.rusted-name {
+  text-decoration: line-through;
+  text-decoration-color: var(--hazard-warm);
+  color: var(--paper-fade);
+  opacity: 0.85;
+}
+.stamp--rust { color: var(--hazard-warm); border-color: var(--hazard-warm); }

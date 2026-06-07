@@ -526,6 +526,61 @@ describe("processIntent — end of round reinforcements", () => {
   });
 });
 
+describe("processIntent — Rust-Witch 'Rust Curse' (rulebook p56, issue #13)", () => {
+  // In-play Rust-Witch; Iryna's 4 use-tracked items are [rifle, sabre, runes, cigarettes].
+  const rustWitch: Threat = { id: "rw", name: "Rust-Witch", kind: "threat", rating: 5, attack: 2, startingAttack: 2, reinforces: false, restoresAtZero: false, rules: ["rust-curse"] };
+
+  it("rusts a server-rolled PC item to uselessness, logged with its die (anti-fudge)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [], threats: [rustWitch] });
+    const events = d.run({ kind: "rust_curse", seat: "iryna" }, sequenceRoller([2])); // (2-1)%4 → index 1 → sabre
+
+    const degraded = events.find((e) => e.type === "EQUIPMENT_DEGRADED");
+    expect(degraded?.type === "EQUIPMENT_DEGRADED" && degraded.payload).toEqual({
+      seat: "iryna",
+      itemId: "iryna-sabre",
+      itemName: "Magic cavalry sabre",
+      roll: 2,
+    });
+    expect(d.state.characters.iryna.equipmentUses["iryna-sabre"]).toBe(0);
+    // Flagged rusted (persists the *why* on the sheet, distinct from merely spent).
+    expect(d.state.characters.iryna.degradedEquipment).toContain("iryna-sabre");
+    // Nothing else touched.
+    expect(d.state.characters.iryna.equipmentUses["iryna-rifle"]).toBe(5);
+  });
+
+  it("handing a use back repairs the item — clears the rusted flag", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [], threats: [rustWitch] });
+    d.run({ kind: "rust_curse", seat: "iryna" }, sequenceRoller([1])); // index 0 → rifle
+    expect(d.state.characters.iryna.degradedEquipment).toContain("iryna-rifle");
+
+    d.run({ kind: "restore_equipment", seat: "iryna", itemId: "iryna-rifle" }, sequenceRoller([]), "iryna");
+    expect(d.state.characters.iryna.degradedEquipment).not.toContain("iryna-rifle");
+    expect(d.state.characters.iryna.equipmentUses["iryna-rifle"]).toBe(1); // one use handed back
+  });
+
+  it("only fires while a Rust-Witch is in play — not absent, not staged (#12)", () => {
+    const noWitch = makeDriver();
+    noWitch.run({ kind: "frame_scene", objectives: [], threats: [threat] });
+    expect(noWitch.fail({ kind: "rust_curse", seat: "iryna" }).ok).toBe(false);
+
+    const staged = makeDriver();
+    staged.run({ kind: "frame_scene", objectives: [], threats: [{ ...rustWitch, active: false }] });
+    expect(staged.fail({ kind: "rust_curse", seat: "iryna" }).ok).toBe(false);
+  });
+
+  it("skips spent gear and fizzles when the PC has nothing left to rust", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [], threats: [rustWitch] });
+    // Zero every one of Iryna's items, then there's nothing eligible left.
+    for (const itemId of ["iryna-rifle", "iryna-sabre", "iryna-runes", "iryna-cigarettes"]) {
+      d.seed([{ type: "EQUIPMENT_DEGRADED", payload: { seat: "iryna", itemId, itemName: itemId, roll: 1 } }]);
+    }
+    expect(d.fail({ kind: "rust_curse", seat: "iryna" }).ok).toBe(false);
+  });
+});
+
 describe("processIntent — cancelling a turn", () => {
   it("aborts the turn without marking the character as having acted", () => {
     const d = makeDriver();

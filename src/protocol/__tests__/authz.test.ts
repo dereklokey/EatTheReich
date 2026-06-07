@@ -85,6 +85,8 @@ describe("authorizeIntent — a seated player", () => {
   it("may not touch GM-only surfaces", () => {
     expect(authorizeIntent(s, "iryna", { kind: "frame_scene", objectives: [], threats: [] }).ok).toBe(false);
     expect(authorizeIntent(s, "iryna", { kind: "end_round" }).ok).toBe(false);
+    // Rust Curse names a *target* PC but is the GM's call — a player can't curse anyone (incl. self).
+    expect(authorizeIntent(s, "iryna", { kind: "rust_curse", seat: "iryna" }).ok).toBe(false);
     expect(authorizeIntent(s, "iryna", { kind: "release_seat", seat: "nicole" }).ok).toBe(false);
     expect(authorizeIntent(s, "iryna", { kind: "add_threat", threat: { id: "t", name: "n", kind: "threat", rating: 1, attack: 1, startingAttack: 1, reinforces: false, restoresAtZero: false } }).ok).toBe(false);
   });

@@ -55,6 +55,10 @@ export type Intent =
   | { kind: "last_stand_roll" }
   | { kind: "last_stand_commit"; allocations: Allocation[] }
   | { kind: "end_round"; reducedToZeroThreatIds?: string[] }
+  /** Rust-Witch 'Rust Curse' (rulebook p56, issue #13): at end of round the GM names the
+   *  cursed PC; the server rolls one of that PC's items at random and rusts it into
+   *  uselessness. GM-only (not self-scoped — `seat` is the *target*, not the actor). */
+  | { kind: "rust_curse"; seat: CharId }
   | { kind: "change_blood"; seat: CharId; delta: number; reason?: string }
   | { kind: "share_blood"; from: CharId; to: CharId; amount: number }
   | { kind: "heal"; seat: CharId; category: 0 | 1 | 2; box: 1 | 2 }

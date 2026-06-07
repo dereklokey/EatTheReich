@@ -68,7 +68,7 @@ feel).
 | Solo / no reinforce | Sniper, Tank, … | `ROUND_END` | auto / system | ✅ |
 | Powering up | Stahlsoldat | `ROUND_END` | auto / system | ✅ |
 | Aura of Misfortune | Rust-Witch | `ROLL_RESULTS` | auto / system | ✅ |
-| Rust Curse | Rust-Witch | `ROUND_END` | select / gm | ⬜ #13 |
+| Rust Curse | Rust-Witch | `ROUND_END` | select / gm | ✅ |
 | Painless | Einherjar | `ROLL_RESULTS` | auto / system | ⬜ #19 |
 | Bloodless | Einherjar | `ALLOCATE` | message / system | ⬜ #20 |
 | Anathema | Vampirjäger | `ROLL_RESULTS` | auto / system | ⬜ #21 |
