@@ -1,0 +1,77 @@
+/* Rust Curse announcement — a table-wide callout when the Rust-Witch corrodes a PC's gear
+   (EQUIPMENT_DEGRADED, issue #13). A rust/amber dossier card (corrosion, not bloodshed),
+   centered so it never collides with the top-anchored after-action report. Auto-zeroed under
+   reduce-effects (the component drops the --anim classes; tap + the JS timer still dismiss). */
+
+.rust-curse {
+  position: fixed;
+  inset: 0;
+  z-index: 85; /* over board/theater, under safety bar (100) + X-card (90) — matches after-report */
+  display: grid;
+  place-items: center;
+  pointer-events: none; /* backdrop lets clicks through; only the card catches taps */
+}
+
+.rust-curse__card {
+  pointer-events: auto;
+  cursor: pointer;
+  width: min(92vw, 30rem);
+  padding: 1rem 1.2rem 0.75rem;
+  text-align: center;
+  background: radial-gradient(130% 120% at 50% 0%, rgba(40, 24, 8, 0.98), rgba(20, 12, 6, 0.97));
+  border: 2px solid var(--hazard-warm);
+  outline: 1px solid rgba(232, 148, 28, 0.4);
+  outline-offset: 3px;
+  border-radius: 3px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.62), inset 0 0 26px rgba(232, 148, 28, 0.18);
+}
+.rust-curse__card--anim { animation: rust-curse-in 380ms var(--ease-impact) both; }
+
+.rust-curse__head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border-bottom: 1px solid rgba(232, 148, 28, 0.22);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+.rust-curse__title {
+  font-size: clamp(1.6rem, 5vw, 2.3rem);
+  line-height: 1.15;
+  padding: 0 0.25em; /* blackletter side-bearings overrun the box — give flourishes room */
+  color: var(--hazard-warm);
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 16px rgba(232, 148, 28, 0.5);
+}
+
+.rust-curse__body { display: flex; flex-direction: column; gap: 0.2rem; align-items: center; }
+.rust-curse__body--anim { animation: rust-curse-body-in 320ms var(--ease-impact) 130ms both; }
+.rust-curse__owner { font-size: 0.78rem; color: var(--paper-fade); letter-spacing: 0.08em; }
+.rust-curse__item {
+  font-size: clamp(1.2rem, 3.6vw, 1.7rem);
+  color: var(--paper);
+  line-height: 1.22;
+  padding: 0 0.2em;
+  text-shadow: 0 0 10px rgba(232, 148, 28, 0.35);
+}
+.rust-curse__verdict { font-size: 0.78rem; color: var(--hazard-warm); letter-spacing: 0.04em; margin-top: 0.2rem; }
+
+.rust-curse__dismiss {
+  text-align: center;
+  font-size: 0.55rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--paper-fade);
+  margin-top: 0.7rem;
+  opacity: 0.7;
+}
+
+@keyframes rust-curse-in {
+  0% { opacity: 0; transform: translateY(-12px) scale(0.95) rotate(-1deg); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+}
+@keyframes rust-curse-body-in {
+  0% { opacity: 0; transform: translateY(6px); filter: blur(2px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
