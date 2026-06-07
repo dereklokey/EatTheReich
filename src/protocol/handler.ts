@@ -114,7 +114,7 @@ function gmWhiffEvent(state: GameState): EventInput | null {
   const turn = state.currentTurn;
   const anchor = turn ? whiffAnchor(state.board.threats, turn.gmDice ?? []) : null;
   if (!anchor) return null;
-  return { type: "THREAT_UPDATED", payload: { id: anchor.id, patch: { attack: anchor.attack + 1 } } };
+  return { type: "GM_WHIFF", payload: { threatId: anchor.id, name: anchor.name, attack: anchor.attack + 1 } };
 }
 
 /** Find an item by id across the character's sheet equipment and earned loot. */

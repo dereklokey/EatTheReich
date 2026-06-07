@@ -69,6 +69,14 @@ export interface EventPayloads {
   THREAT_ADDED: { threat: Threat };
   THREAT_UPDATED: { id: string; patch: Partial<Threat> };
   THREAT_REMOVED: { id: string };
+  /**
+   * GM-whiff escalation (RULES §8, rulebook p38): the Reich's Attack roll landed zero
+   * successes, so the anchor (lead) Threat presses the attack — Attack +1 — at the moment
+   * the action concluded. Distinct from THREAT_UPDATED (a GM edit) so the log reads as the
+   * fiction it is and the client can sound the callout. `attack` is the resolved new value
+   * (deterministic on replay).
+   */
+  GM_WHIFF: { threatId: string; name: string; attack: number };
 
   TURN_STARTED: { seat: CharId; stat?: Stat; tags?: string[] };
   /** Abort an in-progress turn without it counting as the character's action. */

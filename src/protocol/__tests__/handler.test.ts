@@ -182,7 +182,8 @@ describe("processIntent — GM whiff escalates the anchor at the action's conclu
     // No GM die got through (zero successes), so the turn closes with no injury — but the
     // whiff presses the lead Threat right now, before ALLOCATION_COMMITTED.
     const events = d.run({ kind: "commit" }, sequenceRoller([]), "iryna");
-    expect(events.map((e) => e.type)).toEqual(["THREAT_UPDATED", "ALLOCATION_COMMITTED"]);
+    expect(events.map((e) => e.type)).toEqual(["GM_WHIFF", "ALLOCATION_COMMITTED"]);
+    expect(events[0]).toMatchObject({ type: "GM_WHIFF", payload: { threatId: "thr1", name: "Nazi Squad", attack: 4 } });
     expect(d.state.board.threats[0]?.attack).toBe(4); // 3 → 4, immediately
     expect(d.state.currentTurn).toBeNull();
   });

@@ -115,6 +115,12 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
       });
     case "THREAT_REMOVED":
       return withBoard(s, { ...s.board, threats: s.board.threats.filter((t) => t.id !== e.payload.id) });
+    case "GM_WHIFF":
+      // The Reich whiffed → the anchor Threat presses the attack (+1, carried resolved).
+      return withBoard(s, {
+        ...s.board,
+        threats: s.board.threats.map((t) => (t.id === e.payload.threatId ? { ...t, attack: e.payload.attack } : t)),
+      });
 
     case "TURN_STARTED":
       return {
