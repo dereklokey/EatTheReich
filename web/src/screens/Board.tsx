@@ -10,16 +10,30 @@ import { useSound } from "@/effects/SoundContext";
 import "./blood-arc.css";
 import "./board.css";
 
-/**
- * Pick one of the torn-corner variants for a card from a stable id, so cards don't all
- * share the same cut but a given card keeps its cut across re-renders (no flicker). 0 →
- * the base `.paper` polygon (no extra class); 1–3 → `.paper-cut-N`.
- */
-function paperCut(seed: string): string {
+/** Deterministic 32-bit string hash — stable per id, so a card's look never flickers. */
+function hash32(seed: string): number {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (Math.imul(h, 31) + seed.charCodeAt(i)) | 0;
-  const v = Math.abs(h) % 4;
+  return h;
+}
+
+/**
+ * Pick one of the torn-corner variants for a card from its id, so cards don't all share
+ * the same cut. 0 → the base `.paper` polygon (no extra class); 1–3 → `.paper-cut-N`.
+ */
+function paperCut(seed: string): string {
+  const v = Math.abs(hash32(seed)) % 4;
   return v === 0 ? "" : `paper-cut-${v}`;
+}
+
+/**
+ * A tiny stable tilt (degrees) so cards sit like loosely-stacked papers rather than a rigid
+ * grid. Id-hashed and decorrelated from the cut. Skipped on the wide cards (turn / round /
+ * scene), where a rotation would read as misalignment rather than character.
+ */
+const TILTS = [-0.8, -0.5, -0.3, 0.3, 0.5, 0.8];
+function cardTilt(seed: string): number {
+  return TILTS[Math.abs(hash32(`${seed}·tilt`)) % TILTS.length]!;
 }
 
 /** A live blood-share spectacle: a crimson arc from giver to receiver (§6). */
@@ -169,7 +183,7 @@ export function Board({
               {state.board.objectives.length === 0 && <Empty>No objectives yet.</Empty>}
               <div className="grid gap-2">
                 {state.board.objectives.map((o) => (
-                  <div key={o.id} className={`paper paper-tight paper--objective ${paperCut(o.id)}`}>
+                  <div key={o.id} className={`paper paper-tight paper--objective ${paperCut(o.id)}`} style={{ transform: `rotate(${cardTilt(o.id)}deg)` }}>
                     <div className="flex items-baseline justify-between">
                       <span className="mono font-bold">{o.name}</span>
                       <RatingPips n={o.rating} tone="hazard" />
@@ -186,7 +200,7 @@ export function Board({
                     {secondary.map((o) => {
                       const done = o.rating <= 0;
                       return (
-                        <div key={o.id} className={`paper paper-tight paper--objective ${paperCut(o.id)} ${done ? "opacity-60" : ""}`}>
+                        <div key={o.id} className={`paper paper-tight paper--objective ${paperCut(o.id)} ${done ? "opacity-60" : ""}`} style={{ transform: `rotate(${cardTilt(o.id)}deg)` }}>
                           <div className="flex items-baseline justify-between gap-2">
                             <span className={`mono ${done ? "line-through" : ""}`}>
                               {o.name}
@@ -208,7 +222,7 @@ export function Board({
               {state.board.threats.length === 0 && <Empty>The street is quiet. For now.</Empty>}
               <div className="grid gap-2">
                 {state.board.threats.map((t) => (
-                  <div key={t.id} className={`paper paper-tight paper--threat ${paperCut(t.id)} ${t.rating <= 0 ? "opacity-50" : ""}`}>
+                  <div key={t.id} className={`paper paper-tight paper--threat ${paperCut(t.id)} ${t.rating <= 0 ? "opacity-50" : ""}`} style={{ transform: `rotate(${cardTilt(t.id)}deg)` }}>
                     <div className="flex items-baseline justify-between">
                       <span className="mono font-bold">{t.name}</span>
                       <span className="mono text-xs text-blood">ATK {t.attack}</span>
@@ -227,7 +241,7 @@ export function Board({
               <h3 className="mono text-[0.7rem] uppercase tracking-wide text-paper-fade mb-1.5">Loot within reach</h3>
               <div className="grid gap-2 sm:grid-cols-2">
                 {sceneLoot.map((l, i) => (
-                  <div key={i} className={`paper paper-tight ${paperCut(`loot-${l.name}`)}`}>
+                  <div key={i} className={`paper paper-tight ${paperCut(`loot-${l.name}`)}`} style={{ transform: `rotate(${cardTilt(`loot-${l.name}`)}deg)` }}>
                     <div className="mono font-bold text-sm">{l.name}</div>
                     {l.bonus && <div className="mono text-[0.65rem] text-blood">{l.bonus}</div>}
                     {l.note && <div className="mono text-[0.65rem] text-paper-fade italic">{l.note}</div>}
@@ -286,26 +300,24 @@ function CharCard({
   fx?: "bleed" | "flood";
   onOpen?: () => void;
 }) {
-  const spotlight = active
-    ? {
-        transform: "translateY(-3px) scale(1.02)",
-        boxShadow: "0 0 0 2px var(--hazard-warm), 0 0 28px rgba(232,148,28,0.35), 0 14px 28px rgba(0,0,0,0.55)",
-      }
-    : recede
-      ? { opacity: 0.62 }
-      : undefined;
   // As injuries pile up (0–6 boxes marked), the card drains of colour toward grey —
   // a vampire visibly fading. A blood-share fx (card-bleed/flood) momentarily overrides
   // the filter, then it returns when that class drops.
   const wear = Math.min(1, char.injuries.reduce((s, n) => s + n, 0) / 6);
+  // Loose-paper tilt, composed with the downed "knocked-over" lean and the active lift —
+  // a single inline transform so it doesn't fight the Tailwind -rotate-1 it used to use.
+  const tilt = cardTilt(id) + (char.downed ? -1.2 : 0);
+  const transform = active ? `rotate(${tilt}deg) translateY(-3px) scale(1.02)` : `rotate(${tilt}deg)`;
   return (
     <div
       ref={innerRef}
-      className={`paper ${paperCut(id)} ${onOpen ? "cursor-pointer" : ""} ${char.dead ? "opacity-40" : char.downed ? "opacity-70 -rotate-1" : ""} ${fx ? `card-${fx}` : ""}`}
+      className={`paper ${paperCut(id)} ${onOpen ? "cursor-pointer" : ""} ${char.dead ? "opacity-40" : char.downed ? "opacity-70" : ""} ${fx ? `card-${fx}` : ""}`}
       style={{
         transition: "transform 220ms var(--ease-impact), box-shadow 220ms, opacity 220ms, filter 220ms",
+        transform,
         ...(wear > 0 ? { filter: `grayscale(${(wear * 0.85).toFixed(2)}) brightness(${(1 - wear * 0.12).toFixed(2)})` } : {}),
-        ...spotlight,
+        ...(active ? { boxShadow: "0 0 0 2px var(--hazard-warm), 0 0 28px rgba(232,148,28,0.35), 0 14px 28px rgba(0,0,0,0.55)" } : {}),
+        ...(recede ? { opacity: 0.62 } : {}),
       }}
       onClick={onOpen}
       title={onOpen ? "open sheet" : undefined}
