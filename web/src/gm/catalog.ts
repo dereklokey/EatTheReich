@@ -72,6 +72,8 @@ export function loadLocation(loc: Location): LoadedBoard {
       name: s.name,
       kind: "secondary",
       rating: s.rating,
+      // Staged by default (issue #15): the GM reveals each as the fiction offers it.
+      revealed: false,
       ...(s.rewardEquipment?.length ? { rewardEquipment: s.rewardEquipment } : {}),
     })),
   };

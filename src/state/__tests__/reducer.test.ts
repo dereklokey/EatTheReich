@@ -115,6 +115,28 @@ describe("reducer — board & blood", () => {
     expect(s.board.secondaryObjectives).toHaveLength(0);
   });
 
+  it("SCENE_LOOT_REVEALED toggles a scene loot item in/out of the revealed set (issue #15)", () => {
+    const { ev, all } = log();
+    ev("SCENE_FRAMED", { objectives: [], threats: [], locationId: "saint-medard-church" });
+    let s = reduce(all);
+    expect(s.board.revealedLoot ?? []).toEqual([]); // nothing revealed on a fresh scene
+
+    s = applyEvent(s, ev("SCENE_LOOT_REVEALED", { name: "Particularly huge cross", revealed: true }));
+    expect(s.board.revealedLoot).toEqual(["Particularly huge cross"]);
+
+    // Idempotent reveal — no duplicate.
+    s = applyEvent(s, ev("SCENE_LOOT_REVEALED", { name: "Particularly huge cross", revealed: true }));
+    expect(s.board.revealedLoot).toEqual(["Particularly huge cross"]);
+
+    s = applyEvent(s, ev("SCENE_LOOT_REVEALED", { name: "Particularly huge cross", revealed: false }));
+    expect(s.board.revealedLoot).toEqual([]);
+
+    // Framing a new scene clears the revealed set (fresh board).
+    s = applyEvent(s, ev("SCENE_LOOT_REVEALED", { name: "Particularly huge cross", revealed: true }));
+    s = applyEvent(s, ev("SCENE_FRAMED", { objectives: [], threats: [], locationId: "graveyard" }));
+    expect(s.board.revealedLoot ?? []).toEqual([]);
+  });
+
   it("BLOOD_CHANGED clamps 0–10; BLOOD_SHARED transfers within the cap", () => {
     const { ev, all } = log();
     ev("BLOOD_CHANGED", { seat: "flint", delta: 8 }, "flint");

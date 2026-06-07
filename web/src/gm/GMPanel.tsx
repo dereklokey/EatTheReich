@@ -285,12 +285,31 @@ function SecondaryRow({ o, state, send }: { o: SecondaryObjective; state: GameSt
   const patch = (p: Partial<SecondaryObjective>) => send({ kind: "update_secondary_objective", id: o.id, patch: p });
   // Slot-free gear (rulebook p39): granted as a no-slot asset to one player on completion.
   const grant = (g: RewardItem) => send({ kind: "loot_add", seat: recipient, item: newRewardGear(g.name, g.bonus, g.note) });
+  // Staged reveal (issue #15): an unrevealed secondary is hidden from players — dim its info
+  // (not the buttons) and offer the reveal toggle, mirroring staged threats.
+  const isHidden = o.revealed === false;
+  const dim = isHidden ? "opacity-30" : "";
 
   return (
     <div className="paper paper-tight mono text-sm">
       <div className="flex items-center gap-2">
-        <span className={`flex-1 ${done ? "line-through text-paper-fade" : ""}`}>{o.name}</span>
+        <span className={`flex-1 ${dim} ${done ? "line-through text-paper-fade" : ""}`}>
+          {o.name}
+          {isHidden && <span className="mono text-[0.55rem] uppercase tracking-wide text-paper-fade border border-current px-1 ml-1.5 align-middle">hidden</span>}
+        </span>
         {o.rescueFor && <span className="stamp text-[0.55rem]">rescue</span>}
+        {isHidden ? (
+          <button
+            className="display text-paper bg-blood px-2 py-0.5 text-xs"
+            style={{ borderRadius: 2 }}
+            onClick={() => patch({ revealed: true })}
+            title="Reveal this objective to the players"
+          >
+            Reveal
+          </button>
+        ) : (
+          <button className="text-xs underline text-paper-fade" onClick={() => patch({ revealed: false })} title="Hide this objective from the players">hide</button>
+        )}
         <button className="text-xs underline text-blood" onClick={() => send({ kind: "remove_secondary_objective", id: o.id })}>remove</button>
       </div>
 
@@ -326,7 +345,7 @@ function SecondaryRow({ o, state, send }: { o: SecondaryObjective; state: GameSt
         </>
       ) : (
         <>
-          <div className="flex items-center gap-3 mt-1 text-xs">
+          <div className={`flex items-center gap-3 mt-1 text-xs ${dim}`}>
             <span className="flex items-center gap-1">rating <Stepper value={o.rating} onChange={(v) => patch({ rating: v })} /></span>
             <span className="flex items-center gap-1">chal <Stepper value={o.challenge ?? 0} onChange={(v) => patch({ challenge: v })} /></span>
           </div>
@@ -491,6 +510,8 @@ function GrantLootSection({ state, send }: { state: GameState; send: (i: Intent)
   // here so it's reachable per-scene, not buried in the global suggestions list.
   const loc = state.board.locationId ? LOCATIONS_BY_ID[state.board.locationId] : undefined;
   const sceneLoot = loc?.loot ?? [];
+  // Staged reveal (issue #15): which scene loot the players can currently see.
+  const revealedLoot = state.board.revealedLoot ?? [];
 
   return (
     <Section title="Grant loot">
@@ -507,13 +528,24 @@ function GrantLootSection({ state, send }: { state: GameState; send: (i: Intent)
 
         {sceneLoot.length > 0 && (
           <div className="paper paper-tight">
-            <div className="mono text-[0.6rem] text-paper-fade mb-1">Special loot in {loc!.name} — tap to prefill</div>
-            <div className="flex flex-wrap gap-1">
-              {sceneLoot.map((l, i) => (
-                <button key={i} className="mono text-[0.65rem] underline text-blood text-left" title={l.bonus} onClick={() => pickSuggestion(l)}>
-                  {l.name}
-                </button>
-              ))}
+            <div className="mono text-[0.6rem] text-paper-fade mb-1">Special loot in {loc!.name} — reveal to players, or tap a name to prefill a grant</div>
+            <div className="flex flex-col gap-1">
+              {sceneLoot.map((l, i) => {
+                // Staged (issue #15): hidden from players until revealed; dim the name when hidden.
+                const hidden = !revealedLoot.includes(l.name);
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    <button className={`mono text-[0.65rem] underline text-blood text-left flex-1 min-w-0 ${hidden ? "opacity-40" : ""}`} title={l.bonus} onClick={() => pickSuggestion(l)}>
+                      {l.name}
+                    </button>
+                    {hidden ? (
+                      <button className="shrink-0 display text-paper bg-blood px-2 py-0.5 text-[0.6rem]" style={{ borderRadius: 2 }} onClick={() => send({ kind: "set_loot_revealed", name: l.name, revealed: true })} title="Reveal to players">reveal</button>
+                    ) : (
+                      <button className="shrink-0 mono text-[0.6rem] underline text-paper-fade" onClick={() => send({ kind: "set_loot_revealed", name: l.name, revealed: false })} title="Hide from players">hide</button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

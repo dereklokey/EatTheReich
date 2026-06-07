@@ -332,6 +332,13 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
       });
     case "SECONDARY_OBJECTIVE_REMOVED":
       return withBoard(s, { ...s.board, secondaryObjectives: s.board.secondaryObjectives.filter((o) => o.id !== e.payload.id) });
+    case "SCENE_LOOT_REVEALED": {
+      const current = s.board.revealedLoot ?? [];
+      const revealedLoot = e.payload.revealed
+        ? current.includes(e.payload.name) ? current : [...current, e.payload.name]
+        : current.filter((n) => n !== e.payload.name);
+      return withBoard(s, { ...s.board, revealedLoot });
+    }
 
     case "FLASHBACK_TRIGGERED":
       return updateChar(s, e.payload.seat, (c) => ({ ...c, flashbackUsedThisSession: true }));

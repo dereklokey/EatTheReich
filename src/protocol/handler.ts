@@ -144,6 +144,8 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       return ok([{ type: "SECONDARY_OBJECTIVE_COMPLETED", payload: { id: intent.id, ...(intent.rewardChoice ? { rewardChoice: intent.rewardChoice } : {}) } }]);
     case "remove_secondary_objective":
       return ok([{ type: "SECONDARY_OBJECTIVE_REMOVED", payload: { id: intent.id } }]);
+    case "set_loot_revealed":
+      return ok([{ type: "SCENE_LOOT_REVEALED", payload: { name: intent.name, revealed: intent.revealed } }]);
 
     case "start_turn":
       return ok([{ type: "TURN_STARTED", payload: { seat: intent.seat, stat: intent.stat, ...(intent.tags ? { tags: intent.tags } : {}) }, actor: intent.seat }]);

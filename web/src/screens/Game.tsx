@@ -85,6 +85,8 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
           mySeat={ownChar}
           isGm={isGm}
           onSetThreatActive={isGm ? (id, active) => game.send({ kind: "update_threat", id, patch: { active } }) : undefined}
+          onSetSecondaryRevealed={isGm ? (id, revealed) => game.send({ kind: "update_secondary_objective", id, patch: { revealed } }) : undefined}
+          onSetLootRevealed={isGm ? (name, revealed) => game.send({ kind: "set_loot_revealed", name, revealed }) : undefined}
           turnControls={<TurnControls state={game.state} mySeat={game.mySeat} onCompose={setComposeSeat} />}
           onOpenSheet={setSheetSeat}
           onFrameScene={isGm ? () => setGmOpen(true) : undefined}

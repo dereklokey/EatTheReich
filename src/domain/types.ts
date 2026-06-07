@@ -104,6 +104,13 @@ export interface SecondaryObjective {
   rewardChoice?: string;
   /** Gear this objective unlocks on completion (slot-free). Drives the GM gate (issue #4). */
   rewardEquipment?: RewardItem[];
+  /**
+   * Staged reveal (issue #15): `false` means the GM has placed this Secondary but is holding
+   * it back — hidden from players until revealed, mirroring a staged Threat. Omitted/`true` =
+   * visible. Scene-loaded secondaries default to `false`; rescue + manually-added ones default
+   * visible (no field). Legacy secondaries with no field are treated as visible.
+   */
+  revealed?: boolean;
 }
 
 /**

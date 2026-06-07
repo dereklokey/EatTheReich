@@ -123,6 +123,8 @@ export interface EventPayloads {
   SECONDARY_OBJECTIVE_UPDATED: { id: string; patch: Partial<SecondaryObjective> };
   SECONDARY_OBJECTIVE_COMPLETED: { id: string; rewardChoice?: string };
   SECONDARY_OBJECTIVE_REMOVED: { id: string };
+  /** Staged loot reveal (issue #15): show/hide one scene "Loot within reach" item (by name) to players. */
+  SCENE_LOOT_REVEALED: { name: string; revealed: boolean };
 
   FLASHBACK_TRIGGERED: { seat: CharId; context: string; question: string };
   ROUND_ENDED: Record<string, never>;

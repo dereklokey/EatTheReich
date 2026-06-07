@@ -60,6 +60,8 @@ export function Board({
   mySeat,
   isGm,
   onSetThreatActive,
+  onSetSecondaryRevealed,
+  onSetLootRevealed,
   turnControls,
   onOpenSheet,
   onFrameScene,
@@ -73,6 +75,10 @@ export function Board({
   isGm?: boolean;
   /** GM-only: bring a staged threat into play / hold one off the board, right from the card. */
   onSetThreatActive?: (id: string, active: boolean) => void;
+  /** GM-only: reveal / re-hide a staged secondary objective, right from the card (issue #15). */
+  onSetSecondaryRevealed?: (id: string, revealed: boolean) => void;
+  /** GM-only: reveal / re-hide a scene loot item (by name), right from the card (issue #15). */
+  onSetLootRevealed?: (name: string, revealed: boolean) => void;
   /** The "Start a turn" controls, placed atop the main column (not over the crew rail). */
   turnControls?: ReactNode;
   onOpenSheet?: (id: CharId) => void;
@@ -113,12 +119,16 @@ export function Board({
     return () => clearTimeout(t);
   }, [arc]);
 
-  const secondary = state.board.secondaryObjectives;
-  // Staged threats (issue #12) are the GM's to reveal: players never see one, so the board
-  // gives no hint a staged threat exists. The GM sees every threat, staged ones flagged.
+  // Staged content is the GM's to reveal: players never see a staged threat / unrevealed
+  // secondary objective / unrevealed loot, and the board gives no hint one exists. The GM
+  // sees everything, staged items flagged + dimmed (issues #12, #15).
   const visibleThreats = isGm ? state.board.threats : state.board.threats.filter((t) => t.active !== false);
+  const secondary = isGm
+    ? state.board.secondaryObjectives
+    : state.board.secondaryObjectives.filter((o) => o.revealed !== false);
   const loc = state.board.locationId ? LOCATIONS_BY_ID[state.board.locationId] : undefined;
-  const sceneLoot = loc?.loot ?? [];
+  const revealedLoot = state.board.revealedLoot ?? [];
+  const sceneLoot = (loc?.loot ?? []).filter((l) => isGm || revealedLoot.includes(l.name));
   const empty =
     !loc &&
     state.board.objectives.length === 0 &&
@@ -210,16 +220,46 @@ export function Board({
                   <div className="grid gap-2">
                     {secondary.map((o) => {
                       const done = o.rating <= 0;
+                      // GM-only: an unrevealed secondary is staged — dim its info (not the
+                      // Reveal button) and offer the reveal control, mirroring staged threats.
+                      const hidden = o.revealed === false;
+                      const gmCanReveal = isGm && onSetSecondaryRevealed;
+                      const dim = hidden ? "opacity-30" : "";
                       return (
                         <div key={o.id} className={`paper paper-tight paper--objective ${paperCut(o.id)} ${done ? "opacity-60" : ""}`} style={{ transform: `rotate(${cardTilt(o.id)}deg)` }}>
-                          <div className="flex items-baseline justify-between gap-2">
-                            <span className={`mono ${done ? "line-through" : ""}`}>
-                              {o.name}
-                              {o.rescueFor && <span className="text-blood"> (rescue)</span>}
-                            </span>
-                            {done ? <span className="mono text-[0.6rem] text-hazard-ink font-bold">done</span> : <RatingPips n={o.rating} tone="hazard" />}
+                          <div className="flex items-center gap-2">
+                            <div className={`flex-1 min-w-0 ${dim}`}>
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className={`mono ${done ? "line-through" : ""}`}>
+                                  {o.name}
+                                  {o.rescueFor && <span className="text-blood"> (rescue)</span>}
+                                  {hidden && <span className="mono text-[0.55rem] uppercase tracking-wide text-paper-fade border border-current px-1 ml-1.5 align-middle">hidden</span>}
+                                </span>
+                                {done ? <span className="mono text-[0.6rem] text-hazard-ink font-bold">done</span> : <RatingPips n={o.rating} tone="hazard" />}
+                              </div>
+                              {!done && o.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {o.challenge}</div> : null}
+                            </div>
+                            {gmCanReveal && (
+                              hidden ? (
+                                <button
+                                  className="shrink-0 display text-paper bg-blood px-2 py-1 text-xs"
+                                  style={{ borderRadius: 2 }}
+                                  onClick={() => onSetSecondaryRevealed!(o.id, true)}
+                                  title="Reveal this objective to the players"
+                                >
+                                  Reveal
+                                </button>
+                              ) : (
+                                <button
+                                  className="shrink-0 mono text-[0.6rem] underline text-paper-fade"
+                                  onClick={() => onSetSecondaryRevealed!(o.id, false)}
+                                  title="Hide this objective from the players"
+                                >
+                                  hide
+                                </button>
+                              )
+                            )}
                           </div>
-                          {!done && o.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {o.challenge}</div> : null}
                         </div>
                       );
                     })}
@@ -286,18 +326,50 @@ export function Board({
             </section>
           </div>
 
-          {/* Loot spans the full board width below both columns, two-up (issue #7). */}
+          {/* Loot spans the full board width below both columns, two-up (issue #7). Scene loot
+              is staged (issue #15): players see only revealed items; the GM sees all and reveals
+              each as the fiction offers it (unrevealed ones dimmed, with a Reveal button). */}
           {sceneLoot.length > 0 && (
             <section>
               <h3 className="mono text-[0.7rem] uppercase tracking-wide text-paper-fade mb-1.5">Loot within reach</h3>
               <div className="grid gap-2 sm:grid-cols-2">
-                {sceneLoot.map((l, i) => (
-                  <div key={i} className={`paper paper-tight ${paperCut(`loot-${l.name}`)}`} style={{ transform: `rotate(${cardTilt(`loot-${l.name}`)}deg)` }}>
-                    <div className="mono font-bold text-sm">{l.name}</div>
-                    {l.bonus && <div className="mono text-[0.65rem] text-blood">{l.bonus}</div>}
-                    {l.note && <div className="mono text-[0.65rem] text-paper-fade italic">{l.note}</div>}
-                  </div>
-                ))}
+                {sceneLoot.map((l, i) => {
+                  const hidden = !revealedLoot.includes(l.name);
+                  const gmCanReveal = isGm && onSetLootRevealed;
+                  const dim = hidden ? "opacity-30" : "";
+                  return (
+                    <div key={i} className={`paper paper-tight ${paperCut(`loot-${l.name}`)} flex items-center gap-2`} style={{ transform: `rotate(${cardTilt(`loot-${l.name}`)}deg)` }}>
+                      <div className={`flex-1 min-w-0 ${dim}`}>
+                        <div className="mono font-bold text-sm">
+                          {l.name}
+                          {hidden && <span className="mono text-[0.55rem] uppercase tracking-wide text-paper-fade border border-current px-1 ml-1.5 align-middle">hidden</span>}
+                        </div>
+                        {l.bonus && <div className="mono text-[0.65rem] text-blood">{l.bonus}</div>}
+                        {l.note && <div className="mono text-[0.65rem] text-paper-fade italic">{l.note}</div>}
+                      </div>
+                      {gmCanReveal && (
+                        hidden ? (
+                          <button
+                            className="shrink-0 display text-paper bg-blood px-2 py-1 text-xs"
+                            style={{ borderRadius: 2 }}
+                            onClick={() => onSetLootRevealed!(l.name, true)}
+                            title="Reveal this loot to the players"
+                          >
+                            Reveal
+                          </button>
+                        ) : (
+                          <button
+                            className="shrink-0 mono text-[0.6rem] underline text-paper-fade"
+                            onClick={() => onSetLootRevealed!(l.name, false)}
+                            title="Hide this loot from the players"
+                          >
+                            hide
+                          </button>
+                        )
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <p className="mono text-[0.6rem] text-paper-fade mt-1">The GM hands these out as you earn them (rulebook p39).</p>
             </section>

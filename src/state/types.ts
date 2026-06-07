@@ -61,6 +61,13 @@ export interface BoardSnapshot {
   /** The reference location last loaded (data/locations.ts). Names the current scene on
    *  the board and surfaces that location's special loot. Undefined for a hand-built board. */
   locationId?: string;
+  /**
+   * Names of the scene's "Loot within reach" items the GM has revealed (issue #15). Scene loot
+   * is derived from the location reference data and defaults HIDDEN — players see only items
+   * in this set; the GM sees all and reveals each as the fiction offers it. Resets when a new
+   * scene is framed (a fresh board). Undefined = nothing revealed yet.
+   */
+  revealedLoot?: string[];
 }
 
 export interface CharacterRuntime {

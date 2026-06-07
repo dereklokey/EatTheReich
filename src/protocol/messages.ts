@@ -33,6 +33,8 @@ export type Intent =
   | { kind: "update_secondary_objective"; id: string; patch: Partial<SecondaryObjective> }
   | { kind: "complete_secondary_objective"; id: string; rewardChoice?: string }
   | { kind: "remove_secondary_objective"; id: string }
+  /** GM reveals / re-hides one scene loot item (by name) for players (issue #15). */
+  | { kind: "set_loot_revealed"; name: string; revealed: boolean }
   | { kind: "start_turn"; seat: CharId; stat: Stat; tags?: string[] }
   | { kind: "cancel_turn" }
   | { kind: "roll"; playerPoolDice: number; sources?: PoolSource[] }
