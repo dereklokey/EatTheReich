@@ -198,24 +198,25 @@ export function Board({
                   </div>
                 ))}
               </div>
-
-              {sceneLoot.length > 0 && (
-                <div className="mt-3">
-                  <h3 className="mono text-[0.7rem] uppercase tracking-wide text-paper-fade mb-1.5">Loot within reach</h3>
-                  <div className="grid gap-2">
-                    {sceneLoot.map((l, i) => (
-                      <div key={i} className="paper paper-tight">
-                        <div className="mono font-bold text-sm">{l.name}</div>
-                        {l.bonus && <div className="mono text-[0.65rem] text-blood">{l.bonus}</div>}
-                        {l.note && <div className="mono text-[0.65rem] text-paper-fade italic">{l.note}</div>}
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mono text-[0.6rem] text-paper-fade mt-1">The GM hands these out as you earn them (rulebook p39).</p>
-                </div>
-              )}
             </section>
           </div>
+
+          {/* Loot spans the full board width below both columns, two-up (issue #7). */}
+          {sceneLoot.length > 0 && (
+            <section>
+              <h3 className="mono text-[0.7rem] uppercase tracking-wide text-paper-fade mb-1.5">Loot within reach</h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {sceneLoot.map((l, i) => (
+                  <div key={i} className="paper paper-tight">
+                    <div className="mono font-bold text-sm">{l.name}</div>
+                    {l.bonus && <div className="mono text-[0.65rem] text-blood">{l.bonus}</div>}
+                    {l.note && <div className="mono text-[0.65rem] text-paper-fade italic">{l.note}</div>}
+                  </div>
+                ))}
+              </div>
+              <p className="mono text-[0.6rem] text-paper-fade mt-1">The GM hands these out as you earn them (rulebook p39).</p>
+            </section>
+          )}
         </div>
       </div>
     </div>
