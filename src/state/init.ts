@@ -19,6 +19,7 @@ export function initCharacterRuntime(id: CharId): CharacterRuntime {
     injuries: emptyInjuryTrack(),
     triggeredPenalties: [],
     equipmentUses,
+    degradedEquipment: [],
     unlockedAdvances: [],
     loot: [],
     downed: false,

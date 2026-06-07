@@ -78,6 +78,12 @@ export interface CharacterRuntime {
   triggeredPenalties: string[];
   /** Remaining uses per item id (omitted = unlimited / not use-tracked). */
   equipmentUses: Record<string, number>;
+  /**
+   * Item ids rusted to uselessness by the Rust-Witch's Rust Curse (issue #13). Distinct from
+   * merely spent (0 uses through normal use): persists the *why* on the sheet — a struck-out
+   * "rusted" marker — until the GM hands a use back (EQUIPMENT_RESTORED) to repair it.
+   */
+  degradedEquipment: string[];
   unlockedAdvances: string[];
   loot: Equipment[];
   /** Active loot-slot item id (RULES §11 — exactly one active at a time). */

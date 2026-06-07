@@ -109,10 +109,12 @@ export function CharacterSheet({
           {sheet.equipment.map((e) => {
             const tracked = e.uses !== undefined;
             const remaining = char.equipmentUses[e.id] ?? e.uses ?? 0;
+            const rusted = (char.degradedEquipment ?? []).includes(e.id);
             return (
               <div key={e.id} className="mb-2 border-b border-paper-shadow/40 pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="mono text-sm flex-1">{e.name}</span>
+                  <span className={`mono text-sm flex-1 ${rusted ? "rusted-name" : ""}`}>{e.name}</span>
+                  {rusted && <span className="stamp stamp--rust text-[0.55rem]" title="Rusted by the Rust-Witch — useless until the GM repairs it">rusted</span>}
                   {tracked && (
                     <UseBoxes
                       total={e.uses ?? 0}
@@ -217,10 +219,12 @@ export function CharacterSheet({
               const active = char.activeLootSlot === item.id;
               const tracked = item.uses !== undefined;
               const remaining = char.equipmentUses[item.id] ?? item.uses ?? 0;
+              const rusted = (char.degradedEquipment ?? []).includes(item.id);
               return (
                 <div key={item.id} className="mb-2 border-b border-paper-shadow/40 pb-2">
                   <div className="flex items-center gap-2">
-                    <span className="mono text-sm flex-1">{item.name}</span>
+                    <span className={`mono text-sm flex-1 ${rusted ? "rusted-name" : ""}`}>{item.name}</span>
+                    {rusted && <span className="stamp stamp--rust text-[0.55rem]" title="Rusted by the Rust-Witch — useless until the GM repairs it">rusted</span>}
                     {tracked && (
                       <UseBoxes
                         total={item.uses ?? 0}

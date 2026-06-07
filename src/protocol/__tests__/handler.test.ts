@@ -543,8 +543,21 @@ describe("processIntent — Rust-Witch 'Rust Curse' (rulebook p56, issue #13)", 
       roll: 2,
     });
     expect(d.state.characters.iryna.equipmentUses["iryna-sabre"]).toBe(0);
+    // Flagged rusted (persists the *why* on the sheet, distinct from merely spent).
+    expect(d.state.characters.iryna.degradedEquipment).toContain("iryna-sabre");
     // Nothing else touched.
     expect(d.state.characters.iryna.equipmentUses["iryna-rifle"]).toBe(5);
+  });
+
+  it("handing a use back repairs the item — clears the rusted flag", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [], threats: [rustWitch] });
+    d.run({ kind: "rust_curse", seat: "iryna" }, sequenceRoller([1])); // index 0 → rifle
+    expect(d.state.characters.iryna.degradedEquipment).toContain("iryna-rifle");
+
+    d.run({ kind: "restore_equipment", seat: "iryna", itemId: "iryna-rifle" }, sequenceRoller([]), "iryna");
+    expect(d.state.characters.iryna.degradedEquipment).not.toContain("iryna-rifle");
+    expect(d.state.characters.iryna.equipmentUses["iryna-rifle"]).toBe(1); // one use handed back
   });
 
   it("only fires while a Rust-Witch is in play — not absent, not staged (#12)", () => {
