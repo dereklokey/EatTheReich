@@ -498,6 +498,41 @@ describe("processIntent — pre-discard passives", () => {
   });
 });
 
+describe("processIntent — Vampirjäger 'Anathema' (rulebook p64, issue #21)", () => {
+  // attack 3 → a 3-die Reich pool, so [6, 6, 4] is the whole roll: 3 base successes + 2 sixes.
+  const cadre: Threat = { id: "cadre", name: "Vampirjäger Cadre", kind: "threat", rating: 8, attack: 3, startingAttack: 3, reinforces: false, restoresAtZero: false, rules: ["anathema", "solo"] };
+
+  const discardWith = (threats: Threat[], gmFaces: DieFace[]) => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 4]), "iryna"); // no 1s → no passives
+    d.run({ kind: "roll_gm" }, sequenceRoller(gmFaces), "gm");
+    const events = d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
+    return events.find((e) => e.type === "DICE_DISCARDED");
+  };
+
+  it("each GM 6 scores 2 successes while the Cadre is in play, and records the bonus", () => {
+    const discard = discardWith([cadre], [6, 6, 4]);
+    expect(discard?.type === "DICE_DISCARDED" && discard.payload.gmSuccessCount).toBe(5); // 3 base + 2 sixes
+    expect(discard?.type === "DICE_DISCARDED" && discard.payload.anathemaBonus).toBe(2);
+  });
+
+  it("an ordinary Threat counts a 6 as one success (no bonus field)", () => {
+    const discard = discardWith([threat], [6, 6, 4]); // Nazi Squad, no anathema
+    expect(discard?.type === "DICE_DISCARDED" && discard.payload.gmSuccessCount).toBe(3);
+    expect(discard?.type === "DICE_DISCARDED" && discard.payload.anathemaBonus).toBeUndefined();
+  });
+
+  it("a staged Cadre imposes nothing (out of play, issue #12)", () => {
+    // Staged alone → uncontested (the GM pool is 0), so pair it with an in-play ordinary Threat
+    // to keep a Reich pool; the staged Cadre must still not boost the 6s.
+    const discard = discardWith([{ ...cadre, active: false }, { ...threat, attack: 3 }], [6, 6, 4]);
+    expect(discard?.type === "DICE_DISCARDED" && discard.payload.gmSuccessCount).toBe(3);
+    expect(discard?.type === "DICE_DISCARDED" && discard.payload.anathemaBonus).toBeUndefined();
+  });
+});
+
 describe("processIntent — end of round reinforcements", () => {
   it("server rolls the 1d6 restore and emits the new threat list", () => {
     const squad: Threat = { id: "squad", name: "Infantry Squad", kind: "threat", rating: 0, attack: 0, startingAttack: 3, reinforces: true, restoresAtZero: true };

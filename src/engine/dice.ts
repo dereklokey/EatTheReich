@@ -45,8 +45,26 @@ export function totalUnits(survivors: readonly PlayerDie[]): number {
 
 /**
  * GM successes (RULES §4/§5). GM dice have NO crit rule: a die ≥ threshold is one
- * success; a 6 is just one success. Standard threshold is ≥4.
+ * success; a 6 is just one success. Standard threshold is ≥4. Returns the successful
+ * faces (callers usually take `.length`); `whiffAnchor` relies on this plain semantics,
+ * so the Vampirjäger's 'Anathema' boost lives in {@link gmSuccessTally}, not here.
  */
 export function gmSuccesses(dice: readonly DieFace[], threshold = 4): DieFace[] {
   return dice.filter((f) => f >= threshold);
+}
+
+/** Count the 6s in a roll — the dice the Vampirjäger Cadre's 'Anathema' scores twice. */
+export function countSixes(dice: readonly DieFace[]): number {
+  return dice.reduce((n, f) => (f === 6 ? n + 1 : n), 0);
+}
+
+/**
+ * Total GM successes for an action as a COUNT (RULES §4/§5), applying the Vampirjäger Cadre's
+ * 'Anathema' (rulebook p64, issue #21): while it is in play, each GM Attack die showing a 6
+ * scores **2** successes instead of 1 — i.e. +1 per 6. Like Painless/Aura, Anathema is a board
+ * property — the Reich pool carries no per-Threat attribution (issue #8) — so the bonus rides
+ * the whole aggregate roll. With `anathema=false` this is exactly `gmSuccesses(...).length`.
+ */
+export function gmSuccessTally(dice: readonly DieFace[], anathema = false, threshold = 4): number {
+  return gmSuccesses(dice, threshold).length + (anathema ? countSixes(dice) : 0);
 }

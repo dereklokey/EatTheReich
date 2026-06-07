@@ -91,6 +91,8 @@ export function summarizeCommittedTurn(
   let bonusLabel: string | undefined;
   // Einherjar 'Painless' (#19): per-action Challenge the Reich's 1s heaped onto a Threat, by id.
   const challengeBump = new Map<string, number>();
+  // Vampirjäger 'Anathema' (#21): extra GM successes the Reich's 6s scored by double-counting.
+  let anathemaBonus = 0;
 
   const add = (m: Map<string, number>, id: string | undefined, units: number) => {
     if (!id) return;
@@ -128,6 +130,9 @@ export function summarizeCommittedTurn(
       case "ENEMY_CHALLENGE_RAISED":
         challengeBump.set(e.payload.threatId, (challengeBump.get(e.payload.threatId) ?? 0) + e.payload.amount);
         break;
+      case "DICE_DISCARDED":
+        anathemaBonus += e.payload.anathemaBonus ?? 0;
+        break;
     }
   }
 
@@ -148,6 +153,12 @@ export function summarizeCommittedTurn(
   for (const [id, amount] of challengeBump) {
     const name = state.board.threats.find((x) => x.id === id)?.name ?? "the enemy";
     lines.push({ kind: "enemy", text: `Painless — ${name}'s Challenge +${amount} (Reich ${plural(amount, "1", "1s")})` });
+  }
+
+  // Vampirjäger 'Anathema' (#21): the Reich's 6s struck twice — more dice got through than the
+  // faces suggest, so surface the extra successes the table felt as harder incoming Attack.
+  if (anathemaBonus > 0) {
+    lines.push({ kind: "enemy", text: `Anathema — Reich 6s scored +${anathemaBonus} success${anathemaBonus === 1 ? "" : "es"} (struck twice)` });
   }
 
   // Threats: a kill (now at 0) reads loud; otherwise the rating it shed. A 'Painless' raise

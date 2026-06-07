@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GameState, TurnState } from "@shared/state/types.js";
+import { anathemaInPlay } from "@shared/domain/types.js";
 import { seatName } from "@/game/seats";
 import { TheaterShell } from "./Theater";
 import { RollReveal } from "./RollReveal";
@@ -33,14 +34,17 @@ export function RollSequence(props: {
   onCancel: () => void;
 }) {
   const { reduced } = useEffects();
-  const { turn, canDrive, isGm, canFlashback, onFlashback, onRollGm, onResolve, onMinimize, onCancel } = props;
+  const { turn, state, canDrive, isGm, canFlashback, onFlashback, onRollGm, onResolve, onMinimize, onCancel } = props;
+  // Vampirjäger 'Anathema' (#21): while it's in play, the Reich's 6s score 2 successes — so the
+  // results readout reports the boosted hit count (the same predicate the server tallies with).
+  const anathema = anathemaInPlay(state.board.threats);
 
   // Reduced effects: no spectacle. The dark results panel runs the two-beat (player rolls,
   // then the GM rolls) with static dice — exactly what the calm path always did.
   if (reduced) {
     return (
       <TheaterShell turn={turn} canDrive={canDrive} onMinimize={onMinimize} onCancel={onCancel}>
-        <RollReveal turn={turn} canDrive={canDrive} isGm={isGm} canFlashback={canFlashback} onFlashback={onFlashback} onRollGm={onRollGm} onResolve={onResolve} />
+        <RollReveal turn={turn} canDrive={canDrive} isGm={isGm} anathema={anathema} canFlashback={canFlashback} onFlashback={onFlashback} onRollGm={onRollGm} onResolve={onResolve} />
       </TheaterShell>
     );
   }
@@ -48,6 +52,7 @@ export function RollSequence(props: {
   return (
     <FullSequence
       turn={turn}
+      anathema={anathema}
       canDrive={canDrive}
       isGm={isGm}
       canFlashback={canFlashback}
@@ -62,6 +67,7 @@ export function RollSequence(props: {
 
 function FullSequence({
   turn,
+  anathema,
   canDrive,
   isGm,
   canFlashback,
@@ -72,6 +78,7 @@ function FullSequence({
   onCancel,
 }: {
   turn: TurnState;
+  anathema: boolean;
   canDrive: boolean;
   isGm: boolean;
   canFlashback: boolean;
@@ -169,7 +176,7 @@ function FullSequence({
   if (phase === "results") {
     return (
       <TheaterShell turn={turn} canDrive={canDrive} onMinimize={onMinimize} onCancel={onCancel}>
-        <RollReveal turn={turn} canDrive={canDrive} isGm={isGm} canFlashback={canFlashback} onFlashback={onFlashback} onRollGm={onRollGm} onResolve={onResolve} />
+        <RollReveal turn={turn} canDrive={canDrive} isGm={isGm} anathema={anathema} canFlashback={canFlashback} onFlashback={onFlashback} onRollGm={onRollGm} onResolve={onResolve} />
       </TheaterShell>
     );
   }

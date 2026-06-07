@@ -114,6 +114,28 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(byKind.eliminate).toBe("Hit Einherjar — −2 rating (now 5)");
   });
 
+  it("surfaces a Vampirjäger 'Anathema' boost from the DICE_DISCARDED bonus (#21)", () => {
+    const { ev } = log();
+    const objective: Objective = { id: "obj", name: "Hold the line", kind: "objective", rating: 6 };
+    const cadre: Threat = { id: "cadre", name: "Vampirjäger Cadre", kind: "threat", rating: 8, attack: 3, startingAttack: 3, reinforces: false, restoresAtZero: false, rules: ["anathema"] };
+
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "iryna" }, "iryna"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [objective], threats: [cadre] }),
+      ev("TURN_STARTED", { seat: "iryna", stat: "SHOOT" }, "iryna"),
+      ev("DICE_DISCARDED", { playerSurvivors: [5, 4], gmSuccessCount: 5, anathemaBonus: 2 }),
+      ev("DIE_ALLOCATED", { kind: "defend", units: 2 }, "iryna"),
+      ev("ALLOCATION_COMMITTED", {}, "iryna"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    const byKind = Object.fromEntries(summary.lines.map((l) => [l.kind, l.text]));
+    expect(byKind.enemy).toBe("Anathema — Reich 6s scored +2 successes (struck twice)");
+  });
+
   it("returns null for an empty turn and for a non-commit seq", () => {
     const events = irynaClockTowerEvents("g-iryna");
     const state = reduce(events);

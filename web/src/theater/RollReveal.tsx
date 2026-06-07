@@ -25,6 +25,7 @@ export function RollReveal({
   turn,
   canDrive,
   isGm,
+  anathema = false,
   canFlashback,
   onFlashback,
   onRollGm,
@@ -33,6 +34,8 @@ export function RollReveal({
   turn: TurnState;
   canDrive: boolean;
   isGm: boolean;
+  /** Vampirjäger 'Anathema' (#21) in play: each GM 6 scores 2 successes — boosts the hit count. */
+  anathema?: boolean;
   /** Active player, weak roll, flashback still in hand this session (RULES §9, issue #9). */
   canFlashback: boolean;
   onFlashback: () => void;
@@ -45,7 +48,9 @@ export function RollReveal({
   const player = turn.playerDice ?? [];
   const gm = turn.gmDice; // undefined until the GM rolls
   const gmPool = turn.gmPoolSize ?? 0;
-  const gmHits = (gm ?? []).filter((f) => f >= 4).length;
+  const gmSixes = (gm ?? []).filter((f) => f === 6).length;
+  // Anathema double-scores 6s (#21), so the hit count the table reads must include the bonus.
+  const gmHits = (gm ?? []).filter((f) => f >= 4).length + (anathema ? gmSixes : 0);
 
   return (
     <div>
@@ -86,6 +91,9 @@ export function RollReveal({
           <>
             <div className="mono text-xs text-paper-fade mb-1">
               The Reich’s dice — <span className="text-blood">{gmHits} success{gmHits === 1 ? "" : "es"}</span>
+              {anathema && gmSixes > 0 ? (
+                <span className="text-blood font-bold" title="Vampirjäger 'Anathema' (rulebook p64): each GM 6 scores 2 successes."> · ⚠ Anathema (6s strike twice)</span>
+              ) : null}
             </div>
             <div className="tray">
               {gm.map((face, i) => (

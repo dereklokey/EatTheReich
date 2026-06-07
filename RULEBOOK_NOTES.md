@@ -65,7 +65,11 @@ when their surfaces are built:
   'bloodless' [issue #8 board model: no per-PC engagement]; the allocation tray greys the
   Feed target with the reason. Suggest-don't-enforce §0: Blood can still be set on the sheet,
   and any non-bloodless Threat in play reopens Feed).
-- **Anathema** (Vampirjäger Cadre): GM Attack dice score **2** successes each on a 6.
+- **Anathema** (Vampirjäger Cadre): GM Attack dice score **2** successes each on a 6
+  (wired, issue #21 — `gmSuccessTally(dice, anathemaInPlay)` folds +1 per 6 into the GM
+  success count at resolve_discard while a Cadre is in play [issue #8 board model: pool-wide],
+  before the player passives that cancel successes; `DICE_DISCARDED.anathemaBonus` feeds the
+  after-action report, and the roll-results / allocation readouts flag "⚠ Anathema").
 - **Rapid Deployment** (Paratrooper Squad): when its Attack +1 via Reinforcement,
   also +2 rating.
 - **Crash and Burn** (Motorcycle Squad): grants every engaged vampire a SPECIAL that

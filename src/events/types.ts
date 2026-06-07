@@ -89,7 +89,10 @@ export interface EventPayloads {
     bloodDelta?: number;
     gmSuccessDelta?: number;
   };
-  DICE_DISCARDED: { playerSurvivors?: DieFace[]; gmSuccessCount?: number };
+  /** `gmSuccessCount` is the post-Anathema, post-passive total. `anathemaBonus` records the
+   *  +successes the Vampirjäger's 'Anathema' (#21) added by double-scoring 6s — display-only,
+   *  for the after-action report; the reducer reads only `gmSuccessCount`. */
+  DICE_DISCARDED: { playerSurvivors?: DieFace[]; gmSuccessCount?: number; anathemaBonus?: number };
   /**
    * An enemy special raised its own Challenge for THIS action (Einherjar 'Painless', rulebook
    * p55: each 1 in the Reich's Attack roll bumps the Einherjar's Challenge by 1). Fired at the

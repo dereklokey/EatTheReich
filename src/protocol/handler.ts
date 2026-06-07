@@ -11,7 +11,8 @@ import {
   buildGmPool,
   whiffAnchor,
   resolvePlayerDice,
-  gmSuccesses,
+  gmSuccessTally,
+  countSixes,
   countOnes,
   reduceGmSuccessesPerOne,
   corpseEaterBlood,
@@ -21,7 +22,7 @@ import {
 } from "../engine/index.js";
 import { CHARACTERS_BY_ID } from "../data/characters.js";
 import { flashbackTriggerable, FLASHBACK_BONUS_DICE } from "../data/flashbacks.js";
-import { threatInPlay } from "../domain/types.js";
+import { threatInPlay, anathemaInPlay } from "../domain/types.js";
 import type { DieFace } from "../domain/types.js";
 import type { Equipment } from "../domain/character.js";
 
@@ -265,7 +266,12 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       const threshold = discardThreshold(state);
       const { survivors } = resolvePlayerDice(turn.playerDice, threshold);
       const playerOnes = countOnes(turn.playerDice);
-      let gmCount = gmSuccesses(turn.gmDice).length;
+      // Vampirjäger 'Anathema' (#21): while it's in play, each GM 6 scores 2 successes. Folded
+      // into the base count BEFORE the player passives below, so Dead Man's Luck / Bone Armour
+      // can still cancel the boosted successes. The bonus is recorded for the after-action report.
+      const anathema = anathemaInPlay(state.board.threats);
+      const anathemaBonus = anathema ? countSixes(turn.gmDice) : 0;
+      let gmCount = gmSuccessTally(turn.gmDice, anathema);
       const events: EventInput[] = [];
       const passives = activePassiveIds(turn.seat, state);
 
@@ -282,7 +288,7 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
         if (blood > 0) events.push({ type: "PASSIVE_APPLIED", payload: { passiveId: "corpse-eater", bloodDelta: blood, detail: "+1 Blood on a rolled 1" }, actor: turn.seat });
       }
 
-      events.push({ type: "DICE_DISCARDED", payload: { playerSurvivors: survivors.map((s) => s.face), gmSuccessCount: gmCount } });
+      events.push({ type: "DICE_DISCARDED", payload: { playerSurvivors: survivors.map((s) => s.face), gmSuccessCount: gmCount, ...(anathemaBonus > 0 ? { anathemaBonus } : {}) } });
       // Einherjar 'Painless' (#19): the Reich's own 1s raise its Challenge for this action.
       // Read off the raw GM roll (independent of the player passives above) at this same window.
       events.push(...painlessRaises(state, turn.gmDice));

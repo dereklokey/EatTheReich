@@ -71,7 +71,7 @@ feel).
 | Rust Curse | Rust-Witch | `ROUND_END` | select / gm | ✅ |
 | Painless | Einherjar | `ROLL_RESULTS` | auto / system | ✅ |
 | Bloodless | Einherjar | `ALLOCATE` | message / system | ✅ |
-| Anathema | Vampirjäger | `ROLL_RESULTS` | auto / system | ⬜ #21 |
+| Anathema | Vampirjäger | `ROLL_RESULTS` | auto / system | ✅ |
 | Rapid Deployment | Paratrooper | `ROUND_END` | auto / system | ⬜ #22 |
 | Crash & Burn | Motorcycle | `ALLOCATE` | select / player | ⬜ #23 |
 | Rending Claws | Werhund | `INJURY` | acknowledge / gm | ⬜ #24 |

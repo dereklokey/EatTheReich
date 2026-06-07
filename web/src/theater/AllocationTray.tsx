@@ -4,7 +4,7 @@ import type { GameState, TurnState, CharacterRuntime } from "@shared/state/types
 import type { PlayerDie } from "@shared/engine/dice.js";
 import type { Allocation } from "@shared/engine/allocate.js";
 import { applyOneAllocation, emptyAccumulator } from "@shared/engine/allocate.js";
-import { feedBlockedByBloodless } from "@shared/domain/types.js";
+import { feedBlockedByBloodless, anathemaInPlay } from "@shared/domain/types.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
 import { Die, tiltFor } from "@/components/dice/Die";
 import { useEffects } from "@/effects/EffectsContext";
@@ -164,6 +164,9 @@ export function AllocationTray({
   // Einherjar 'Bloodless' (#20): no Feed while it's the only Threat in play. Computed off the
   // live board (the same shared predicate the engine uses) — greys the Feed target with the reason.
   const feedBlocked = feedBlockedByBloodless(state.board.threats);
+  // Vampirjäger 'Anathema' (#21): the Reich's 6s scored 2 successes each — the inflated incoming
+  // count below is correct, so flag WHY so the table isn't surprised more dice got through.
+  const anathemaSixes = anathemaInPlay(state.board.threats) ? (turn.gmDice ?? []).filter((f) => f === 6).length : 0;
 
   return (
     <div>
@@ -208,6 +211,9 @@ export function AllocationTray({
               {preview.gmDiceRemaining} Attack{preview.gmDiceRemaining === 1 ? "" : "s"}
             </span>{" "}
             {preview.gmDiceRemaining === 0 ? "(all defended)" : "will strike"}
+            {anathemaSixes > 0 ? (
+              <span className="text-blood font-bold" title="Vampirjäger 'Anathema' (rulebook p64): each GM 6 scores 2 successes."> · ⚠ Anathema (6s strike twice)</span>
+            ) : null}
           </div>
           <div className="gm-attack-row">
             <AnimatePresence>

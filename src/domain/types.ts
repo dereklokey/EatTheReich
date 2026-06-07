@@ -139,6 +139,18 @@ export function feedBlockedByBloodless(threats: readonly Threat[]): boolean {
   return inPlay.length > 0 && inPlay.every((t) => (t.rules ?? []).includes("bloodless"));
 }
 
+/**
+ * Vampirjäger Cadre 'Anathema' (rulebook p64, issue #21) is in force: while it's in play, each
+ * GM Attack die showing a 6 scores 2 successes (the boost itself lives in engine
+ * {@link import("../engine/dice.js").gmSuccessTally}). Like Painless/Aura it's a board property
+ * (issue #8: the Reich pool carries no per-Threat attribution), so it rides the whole aggregate
+ * roll. Gated on {@link threatInPlay} — a staged (#12) or defeated Cadre imposes nothing. The
+ * one predicate drives the server count and the client readouts, so they never disagree.
+ */
+export function anathemaInPlay(threats: readonly Threat[]): boolean {
+  return threats.some((t) => threatInPlay(t) && (t.rules ?? []).includes("anathema"));
+}
+
 export type Target = Objective | Threat;
 
 /** Context for a declared action — drives GM pool, SPECIAL gating, etc. */

@@ -197,11 +197,10 @@ export const SPECIAL_HOOKS: SpecialHook[] = [
     source: { kind: "enemy", threat: "Vampirjäger Cadre", tag: "anathema" },
     rule: "GM Attack dice score 2 successes each on a 6.",
     hook: "ROLL_RESULTS",
-    trigger: "GM Attack dice contain 6s",
+    trigger: "GM Attack dice contain 6s while a Vampirjäger Cadre is in play (issue #8 board model)",
     resolution: "auto",
     actor: "system",
-    status: "planned",
-    issue: 21,
+    status: "implemented",
   },
   {
     id: "enemy.rapid-deployment",

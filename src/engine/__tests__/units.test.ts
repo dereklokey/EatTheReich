@@ -7,6 +7,8 @@ import {
   whiffAnchor,
   resolvePlayerDice,
   gmSuccesses,
+  gmSuccessTally,
+  countSixes,
   reduceGmSuccessesPerOne,
   corpseEaterBlood,
   countOnes,
@@ -193,6 +195,26 @@ describe("discard & gm successes", () => {
 
   it("GM dice have no crit: a 6 is one success", () => {
     expect(gmSuccesses([6, 6, 4, 3]).length).toBe(3);
+  });
+});
+
+describe("gmSuccessTally — Vampirjäger 'Anathema' (rulebook p64, issue #21)", () => {
+  it("without Anathema equals the plain success count", () => {
+    expect(gmSuccessTally([6, 6, 4, 3])).toBe(3); // same as gmSuccesses().length
+    expect(countSixes([6, 6, 4, 3])).toBe(2);
+  });
+
+  it("scores 2 successes per 6 when Anathema is in play (+1 per 6)", () => {
+    expect(gmSuccessTally([6, 6, 4, 3], true)).toBe(5); // 3 base + 2 sixes
+  });
+
+  it("adds nothing when there are no 6s, Anathema or not", () => {
+    expect(gmSuccessTally([5, 4, 4, 2], true)).toBe(3);
+    expect(gmSuccessTally([5, 4, 4, 2], false)).toBe(3);
+  });
+
+  it("a whiff stays a whiff — no 6s, no successes, no bonus", () => {
+    expect(gmSuccessTally([1, 2, 3], true)).toBe(0);
   });
 });
 
