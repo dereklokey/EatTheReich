@@ -4,7 +4,7 @@ import { useEffects } from "@/effects/EffectsContext";
 import { SeatPick } from "./SeatPick";
 import { Board } from "./Board";
 import { SafetyBar, XCardOverlay } from "./SafetyBar";
-import { WhiffCallout } from "./WhiffCallout";
+import { TurnSummaryReport } from "./TurnSummaryReport";
 import { Theater } from "@/theater/Theater";
 import { TurnComposer } from "@/theater/TurnComposer";
 import { LastStand } from "@/theater/LastStand";
@@ -130,7 +130,7 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
       )}
       {game.state && <SafetyBar state={game.state} send={game.send} />}
       {game.state && <XCardOverlay state={game.state} send={game.send} />}
-      <WhiffCallout events={game.events} />
+      <TurnSummaryReport events={game.events} state={game.state} />
 
       {game.error && (
         <button

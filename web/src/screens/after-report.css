@@ -1,0 +1,123 @@
+/* After-action report — the resolution accounting that slams up when a turn closes. A dark
+   dossier card; each effect is a stamped line with a kind-coloured chip. One-shot, re-keyed
+   by the commit seq. Auto-zeroed under reduce-effects (component drops the --anim classes;
+   the JS timer still dismisses, and tap-to-dismiss always works). */
+
+.after-report {
+  position: fixed;
+  inset: 0;
+  z-index: 85; /* over board/theater, under safety bar (100) + X-card (90) */
+  display: grid;
+  place-items: start center;
+  padding-top: 9vh;
+  pointer-events: none; /* the backdrop lets clicks through; only the card catches taps */
+}
+
+.after-report__card {
+  pointer-events: auto;
+  cursor: pointer;
+  width: min(94vw, 32rem);
+  padding: 0.9rem 1.1rem 0.7rem;
+  background: radial-gradient(130% 120% at 50% 0%, rgba(28, 14, 20, 0.98), rgba(13, 10, 28, 0.97));
+  border: 2px solid var(--blood);
+  outline: 1px solid rgba(255, 45, 74, 0.4);
+  outline-offset: 3px;
+  border-radius: 3px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.62), inset 0 0 26px rgba(192, 20, 46, 0.22);
+}
+.after-report__card--anim { animation: after-report-in 360ms var(--ease-impact) both; }
+
+.after-report__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  border-bottom: 1px solid rgba(232, 220, 192, 0.18);
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.55rem;
+}
+.after-report__who {
+  font-size: clamp(1.5rem, 4.5vw, 2.1rem);
+  line-height: 1;
+  color: var(--blood-bright);
+  text-shadow: 0 0 16px rgba(255, 45, 74, 0.6);
+}
+.after-report__tag {
+  font-size: 0.6rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--paper-fade);
+  margin-left: auto;
+}
+
+.after-report__lines { display: flex; flex-direction: column; gap: 0.3rem; }
+.after-report__line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  font-size: 0.82rem;
+  color: var(--paper);
+  padding-left: 0.5rem;
+  border-left: 3px solid var(--paper-fade);
+}
+.after-report__line--anim { animation: after-line-in 300ms var(--ease-impact) both; animation-delay: calc(var(--i) * 55ms); }
+.after-report__line--loud { color: #fff; font-weight: 700; text-shadow: 0 0 9px rgba(255, 45, 74, 0.45); }
+
+/* The kind chip: a tiny stamped tag. */
+.after-report__chip {
+  flex: none;
+  min-width: 3.6rem;
+  text-align: center;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  padding: 0.08rem 0.2rem;
+  border-radius: 2px;
+  color: var(--night-deep);
+  background: var(--paper-fade);
+  transform: translateY(-1px);
+}
+
+/* Kind accents — the left bar + chip colour. */
+.after-report__line--kill { border-left-color: var(--blood-bright); }
+.after-report__line--kill .after-report__chip { background: var(--blood-bright); color: #fff; }
+.after-report__line--complete { border-left-color: var(--hazard); }
+.after-report__line--complete .after-report__chip { background: var(--hazard); }
+.after-report__line--eliminate { border-left-color: var(--blood); }
+.after-report__line--eliminate .after-report__chip { background: var(--blood); color: #fff; }
+.after-report__line--advance { border-left-color: var(--verdant); }
+.after-report__line--advance .after-report__chip { background: var(--verdant); color: #fff; }
+.after-report__line--defend { border-left-color: var(--hazard); }
+.after-report__line--defend .after-report__chip { background: var(--hazard); }
+.after-report__line--feed { border-left-color: var(--blood-bright); }
+.after-report__line--feed .after-report__chip { background: var(--blood-bright); color: #fff; }
+.after-report__line--special { border-left-color: #8a6aa0; }
+.after-report__line--special .after-report__chip { background: #8a6aa0; color: #fff; }
+.after-report__line--blood { border-left-color: var(--blood); }
+.after-report__line--blood .after-report__chip { background: var(--blood); color: #fff; }
+.after-report__line--passive { border-left-color: var(--hazard-warm); }
+.after-report__line--passive .after-report__chip { background: var(--hazard-warm); }
+.after-report__line--whiff { border-left-color: var(--blood-bright); }
+.after-report__line--whiff .after-report__chip { background: var(--blood-bright); color: #fff; }
+.after-report__line--injury { border-left-color: var(--blood); }
+.after-report__line--injury .after-report__chip { background: var(--blood); color: #fff; }
+.after-report__line--downed { border-left-color: var(--blood-bright); }
+.after-report__line--downed .after-report__chip { background: var(--blood-bright); color: #fff; }
+.after-report__line--bonus { border-left-color: var(--paper-fade); }
+
+.after-report__dismiss {
+  text-align: center;
+  font-size: 0.55rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--paper-fade);
+  margin-top: 0.6rem;
+  opacity: 0.7;
+}
+
+@keyframes after-report-in {
+  0% { opacity: 0; transform: translateY(-14px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes after-line-in {
+  0% { opacity: 0; transform: translateX(-10px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
