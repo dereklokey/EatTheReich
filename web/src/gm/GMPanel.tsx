@@ -396,7 +396,7 @@ function ThreatsSection({ state, send }: { state: GameState; send: (i: Intent) =
           const isStaged = t.active === false;
           // Match the board: a staged threat dims its info (name + stat steppers) but never
           // its action buttons, which would then read as disabled.
-          const dim = isStaged ? "opacity-50" : "";
+          const dim = isStaged ? "opacity-30" : "";
           return (
             <div key={t.id} className="paper paper-tight mono text-sm">
               <div className="flex items-center gap-2">

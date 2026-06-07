@@ -240,7 +240,7 @@ export function Board({
                   const gmCanStage = isGm && onSetThreatActive;
                   // Staged threats dim their INFO (the look the GM liked) — but never the staging
                   // button, which sits outside the dimmed blocks so it doesn't read as disabled.
-                  const dim = staged ? "opacity-50" : "";
+                  const dim = staged ? "opacity-30" : "";
                   return (
                     // ATK stays pinned top-right in a full-width row (its original spot); the GM
                     // staging control sits beside the rating row, vertically centred, so it never
