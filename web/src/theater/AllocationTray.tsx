@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { GameState, TurnState, CharacterRuntime } from "@shared/state/types.js";
 import type { PlayerDie } from "@shared/engine/dice.js";
@@ -251,7 +251,13 @@ export function AllocationTray({
               fx={cardFx[t.id]}
               armed={picked !== null}
               label={t.name}
-              sub={`Threat · rating ${t.rating} · ATK ${t.attack}${effChallenge ? ` · challenge ${effChallenge}${bump ? " ⚠ Painless" : ""}` : ""}`}
+              sub={
+                <>
+                  {`Threat · rating ${t.rating} · ATK ${t.attack}`}
+                  {effChallenge ? ` · challenge ${effChallenge}` : ""}
+                  {bump ? <span className="text-blood font-bold"> ⚠ Painless</span> : null}
+                </>
+              }
               onClick={() => place({ kind: "eliminate", targetId: t.id })}
               placed={placedOn((a) => a.kind === "eliminate" && a.targetId === t.id)}
               onUnplace={unassign}
@@ -381,7 +387,7 @@ function TargetCard({
   onUnplace,
 }: {
   label: string;
-  sub: string;
+  sub: ReactNode;
   onClick: () => void;
   armed: boolean;
   threat?: boolean;
