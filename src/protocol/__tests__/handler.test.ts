@@ -581,6 +581,61 @@ describe("processIntent — Rust-Witch 'Rust Curse' (rulebook p56, issue #13)", 
   });
 });
 
+describe("processIntent — Einherjar 'Painless' (rulebook p55, issue #19)", () => {
+  const einherjar: Threat = { id: "einh", name: "Einherjar", kind: "threat", rating: 7, attack: 3, startingAttack: 3, reinforces: true, restoresAtZero: true, rules: ["painless"] };
+
+  /** Drive iryna up through the GM roll against a board, then resolve the discard. */
+  function throughDiscard(threats: Threat[], gmRoll: DieFace[], playerRoll: DieFace[]) {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: playerRoll.length }, sequenceRoller(playerRoll), "iryna");
+    d.run({ kind: "roll_gm" }, sequenceRoller(gmRoll), "gm");
+    const events = d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
+    return { d, events };
+  }
+
+  it("raises the Einherjar's Challenge by the count of Reich 1s, and parks it on the turn", () => {
+    const { d, events } = throughDiscard([einherjar], [1, 1, 4], [6, 5, 5, 4]); // 2 ones, 1 GM success
+    const raises = events.filter((e) => e.type === "ENEMY_CHALLENGE_RAISED");
+    expect(raises).toHaveLength(1);
+    expect(raises[0]?.payload).toEqual({ threatId: "einh", threatName: "Einherjar", amount: 2, ones: 2, rule: "painless" });
+    expect(d.state.currentTurn?.challengeBump).toEqual({ einh: 2 });
+  });
+
+  it("the raised Challenge then soaks dice during allocation before rating drops", () => {
+    const { d } = throughDiscard([einherjar], [1, 1, 4], [6, 5, 5, 4]); // 5 player units: crit(2)+1+1+1
+    d.run(
+      {
+        kind: "allocate",
+        allocations: [
+          { kind: "eliminate", targetId: "einh", units: 2 },
+          { kind: "eliminate", targetId: "einh", units: 1 },
+          { kind: "eliminate", targetId: "einh", units: 1 },
+          { kind: "eliminate", targetId: "einh", units: 1 },
+        ],
+      },
+      sequenceRoller([]),
+      "iryna",
+    );
+    // 5 units − 2 soaked by the Painless raise = 3 shed → 7 → 4.
+    expect(d.state.board.threats[0]?.rating).toBe(4);
+  });
+
+  it("no Reich 1s → no raise, no bump", () => {
+    const { d, events } = throughDiscard([einherjar], [4, 5, 6], [5, 5]); // 0 ones
+    expect(events.some((e) => e.type === "ENEMY_CHALLENGE_RAISED")).toBe(false);
+    expect(d.state.currentTurn?.challengeBump).toBeUndefined();
+  });
+
+  it("a staged (#12) Einherjar imposes nothing even when other Threats roll 1s", () => {
+    const liveSquad: Threat = { id: "sq", name: "Nazi Squad", kind: "threat", rating: 4, attack: 3, startingAttack: 3, reinforces: true, restoresAtZero: true };
+    const { d, events } = throughDiscard([{ ...einherjar, active: false }, liveSquad], [1, 1, 4], [5, 5]);
+    expect(events.some((e) => e.type === "ENEMY_CHALLENGE_RAISED")).toBe(false);
+    expect(d.state.currentTurn?.challengeBump).toBeUndefined();
+  });
+});
+
 describe("processIntent — cancelling a turn", () => {
   it("aborts the turn without marking the character as having acted", () => {
     const d = makeDriver();

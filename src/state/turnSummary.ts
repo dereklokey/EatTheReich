@@ -26,7 +26,8 @@ export type SummaryKind =
   | "whiff"
   | "injury"
   | "downed"
-  | "bonus";
+  | "bonus"
+  | "enemy";
 
 export interface TurnSummaryLine {
   kind: SummaryKind;
@@ -88,6 +89,8 @@ export function summarizeCommittedTurn(
   let injury: { kind: "injury" | "downed"; penalty?: string } | null = null;
   let bonus = 0;
   let bonusLabel: string | undefined;
+  // Einherjar 'Painless' (#19): per-action Challenge the Reich's 1s heaped onto a Threat, by id.
+  const challengeBump = new Map<string, number>();
 
   const add = (m: Map<string, number>, id: string | undefined, units: number) => {
     if (!id) return;
@@ -122,6 +125,9 @@ export function summarizeCommittedTurn(
         bonus += e.payload.count;
         bonusLabel = bonusLabel ?? e.payload.label;
         break;
+      case "ENEMY_CHALLENGE_RAISED":
+        challengeBump.set(e.payload.threatId, (challengeBump.get(e.payload.threatId) ?? 0) + e.payload.amount);
+        break;
     }
   }
 
@@ -137,11 +143,19 @@ export function summarizeCommittedTurn(
     lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}` });
   }
 
-  // Threats: a kill (now at 0) reads loud; otherwise the rating it shed.
+  // Einherjar 'Painless' (#19): the Reich's 1s steeled an enemy — surface the raise so the
+  // table sees why its Challenge soaked more, even if no die was aimed at it this turn.
+  for (const [id, amount] of challengeBump) {
+    const name = state.board.threats.find((x) => x.id === id)?.name ?? "the enemy";
+    lines.push({ kind: "enemy", text: `Painless — ${name}'s Challenge +${amount} (Reich ${plural(amount, "1", "1s")})` });
+  }
+
+  // Threats: a kill (now at 0) reads loud; otherwise the rating it shed. A 'Painless' raise
+  // (#19) inflates the soak, so fold it into the printed Challenge before counting the drop.
   for (const [id, units] of eliminate) {
     const t = state.board.threats.find((x) => x.id === id);
     const name = t?.name ?? "a threat";
-    const reduction = Math.max(0, units - (t?.challenge ?? 0));
+    const reduction = Math.max(0, units - ((t?.challenge ?? 0) + (challengeBump.get(id) ?? 0)));
     if (t && t.rating <= 0) lines.push({ kind: "kill", emphasis: true, text: `Eliminated ${name}!` });
     else if (reduction > 0) lines.push({ kind: "eliminate", text: `Hit ${name} — −${reduction} rating (now ${t?.rating ?? "?"})` });
     else lines.push({ kind: "eliminate", text: `${units} ${plural(units, "success", "successes")} soaked by ${name}'s Challenge` });

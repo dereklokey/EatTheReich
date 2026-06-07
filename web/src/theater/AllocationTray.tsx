@@ -91,11 +91,13 @@ export function AllocationTray({
     ...(sheet?.advances ?? []).filter((p) => char.unlockedAdvances.includes(p.id)),
   ].filter((p) => p.mechanic === "special");
 
-  // Live preview via the real engine (challenge soak, rating clamp, GM-die removal).
+  // Live preview via the real engine (challenge soak, rating clamp, GM-die removal). A
+  // 'Painless' raise (#19) is threaded in as challengeBump so the soak preview matches the server.
+  const challengeBump = turn.challengeBump;
   const preview = useMemo(() => {
-    const start = emptyAccumulator({ objectives: state.board.objectives, threats: state.board.threats }, gmRemaining);
+    const start = emptyAccumulator({ objectives: state.board.objectives, threats: state.board.threats }, gmRemaining, challengeBump);
     return assign.filter((a): a is Allocation => a !== null).reduce(applyOneAllocation, start);
-  }, [assign, state.board.objectives, state.board.threats, gmRemaining]);
+  }, [assign, state.board.objectives, state.board.threats, gmRemaining, challengeBump]);
 
   // The incoming GM Attack: gmSuccessCount dice (post-passive), drawn from the rolled
   // successes; Defend allocations shave the live count, knocking dice off the table.
@@ -124,7 +126,8 @@ export function AllocationTray({
       const thr = preview.board.threats.find((t) => t.id === alloc.targetId);
       let killed = false;
       if (thr) {
-        const challengeLeft = Math.max(0, (thr.challenge ?? 0) - (preview.challengeConsumed[thr.id] ?? 0));
+        const effChallenge = (thr.challenge ?? 0) + (challengeBump?.[thr.id] ?? 0);
+        const challengeLeft = Math.max(0, effChallenge - (preview.challengeConsumed[thr.id] ?? 0));
         const ratingDrop = Math.max(0, units - challengeLeft);
         killed = thr.rating - ratingDrop <= 0;
       }
@@ -236,19 +239,25 @@ export function AllocationTray({
             onUnplace={unassign}
           />
         ))}
-        {thrLive.map((t) => (
-          <TargetCard
-            key={t.id}
-            threat
-            fx={cardFx[t.id]}
-            armed={picked !== null}
-            label={t.name}
-            sub={`Threat · rating ${t.rating} · ATK ${t.attack}${t.challenge ? ` · challenge ${t.challenge}` : ""}`}
-            onClick={() => place({ kind: "eliminate", targetId: t.id })}
-            placed={placedOn((a) => a.kind === "eliminate" && a.targetId === t.id)}
-            onUnplace={unassign}
-          />
-        ))}
+        {thrLive.map((t) => {
+          // 'Painless' (#19) raises the effective Challenge for this action — show the inflated
+          // soak (with a marker) so the player isn't surprised when dice vanish into it.
+          const bump = challengeBump?.[t.id] ?? 0;
+          const effChallenge = (t.challenge ?? 0) + bump;
+          return (
+            <TargetCard
+              key={t.id}
+              threat
+              fx={cardFx[t.id]}
+              armed={picked !== null}
+              label={t.name}
+              sub={`Threat · rating ${t.rating} · ATK ${t.attack}${effChallenge ? ` · challenge ${effChallenge}${bump ? " ⚠ Painless" : ""}` : ""}`}
+              onClick={() => place({ kind: "eliminate", targetId: t.id })}
+              placed={placedOn((a) => a.kind === "eliminate" && a.targetId === t.id)}
+              onUnplace={unassign}
+            />
+          );
+        })}
         <TargetCard
           armed={picked !== null}
           label="Defend"

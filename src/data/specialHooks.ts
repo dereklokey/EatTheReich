@@ -178,8 +178,7 @@ export const SPECIAL_HOOKS: SpecialHook[] = [
     resolution: "auto",
     actor: "system",
     target: "none",
-    status: "planned",
-    issue: 19,
+    status: "implemented",
   },
   {
     id: "enemy.bloodless",

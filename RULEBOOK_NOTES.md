@@ -57,7 +57,9 @@ These live on `Threat.rules` (see `src/data/threats.ts` legend) and need engine 
 when their surfaces are built:
 
 - **Painless** (Einherjar): each GM Attack die showing 1 raises its Challenge by 1
-  for that action.
+  for that action (wired, issue #19 — at roll-results the server counts the Reich pool's 1s and
+  fires `ENEMY_CHALLENGE_RAISED` per in-play Einherjar; the raise rides on the turn as
+  `challengeBump` and inflates the allocation soak, resetting next turn).
 - **Bloodless** (Einherjar): no Feed allocation while engaged *only* with it.
 - **Anathema** (Vampirjäger Cadre): GM Attack dice score **2** successes each on a 6.
 - **Rapid Deployment** (Paratrooper Squad): when its Attack +1 via Reinforcement,

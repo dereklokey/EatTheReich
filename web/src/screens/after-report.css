@@ -106,6 +106,9 @@
 .after-report__line--downed { border-left-color: var(--blood-bright); }
 .after-report__line--downed .after-report__chip { background: var(--blood-bright); color: #fff; }
 .after-report__line--bonus { border-left-color: var(--paper-fade); }
+/* The Reich steeling itself (Einherjar 'Painless' raising its Challenge) — a GM-red beat. */
+.after-report__line--enemy { border-left-color: var(--blood); }
+.after-report__line--enemy .after-report__chip { background: var(--blood); color: #fff; }
 
 .after-report__dismiss {
   text-align: center;

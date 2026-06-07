@@ -30,6 +30,7 @@ const KIND_LABEL: Record<string, string> = {
   injury: "INJURY",
   downed: "DOWN",
   bonus: "BONUS",
+  enemy: "REICH",
 };
 
 export function TurnSummaryReport({ events, state }: { events: GameEvent[]; state: GameState | null }) {

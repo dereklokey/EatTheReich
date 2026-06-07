@@ -114,6 +114,13 @@ export interface TurnState {
   allocations: Allocation[];
   /** Challenge units absorbed per target this turn (RULES §6). */
   challengeConsumed: Record<string, number>;
+  /**
+   * Extra Challenge a target soaks this turn beyond its printed value, keyed by target id
+   * (Einherjar 'Painless' — the Reich's 1s raise its Challenge for this action). Set from
+   * ENEMY_CHALLENGE_RAISED and fed into the allocation soak; absent until a raise fires, and
+   * dropped with the turn so it never bleeds into the next action.
+   */
+  challengeBump?: Record<string, number>;
   /** GM Attack dice still live after Defend allocations (drives INJURY_CHECK). */
   gmDiceRemaining?: number;
   /**

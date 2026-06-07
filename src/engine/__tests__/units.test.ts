@@ -11,11 +11,13 @@ import {
   corpseEaterBlood,
   countOnes,
   applyAllocations,
+  applyOneAllocation,
+  emptyAccumulator,
   clampBlood,
   type BoardState,
 } from "../index.js";
 import { markInjury, emptyInjuryTrack, defaultCategoryFromD6 } from "../injury.js";
-import { naziSquad, infantrySquad, policePatrol } from "../../data/threats.js";
+import { naziSquad, infantrySquad, policePatrol, einherjar } from "../../data/threats.js";
 
 describe("buildPlayerPool", () => {
   it("sums stat + equipment + satisfied bonus + abilities", () => {
@@ -204,6 +206,50 @@ describe("allocation: feed, defend, eliminate", () => {
     );
     expect(r.board.threats[0]!.rating).toBe(0);
     expect(r.board.threats[0]!.attack).toBe(0);
+  });
+});
+
+describe("allocation: 'Painless' challenge bump (Einherjar, issue #19)", () => {
+  // The Einherjar prints no Challenge; 'Painless' (rulebook p55) raises it per Reich 1 for the
+  // action. challengeBump carries that raise into the soak, on top of any printed Challenge.
+  const fold = (board: BoardState, allocs: ReadonlyArray<Parameters<typeof applyOneAllocation>[1]>, bump?: Record<string, number>) =>
+    allocs.reduce(applyOneAllocation, emptyAccumulator(board, 0, bump));
+
+  it("a +2 raise soaks 2 units before the Einherjar's rating drops", () => {
+    const e = einherjar(); // rating 7, no printed Challenge
+    const board: BoardState = { objectives: [], threats: [e] };
+    const acc = fold(board, [{ kind: "eliminate", targetId: e.id, units: 5 }], { [e.id]: 2 });
+    // 5 units − 2 soaked = 3 rating shed → 7 → 4.
+    expect(acc.board.threats[0]!.rating).toBe(4);
+    expect(acc.challengeConsumed[e.id]).toBe(2);
+  });
+
+  it("stacks on top of a printed Challenge", () => {
+    const e = { ...einherjar(), challenge: 1 }; // printed 1 + raise 2 = 3 to soak
+    const board: BoardState = { objectives: [], threats: [e] };
+    const acc = fold(board, [{ kind: "eliminate", targetId: e.id, units: 5 }], { [e.id]: 2 });
+    expect(acc.board.threats[0]!.rating).toBe(7 - (5 - 3)); // 7 → 5
+    expect(acc.challengeConsumed[e.id]).toBe(3);
+  });
+
+  it("depletes across the turn — a second die past the cap chips rating", () => {
+    const e = einherjar();
+    const board: BoardState = { objectives: [], threats: [e] };
+    // Two 1-unit dice with a +1 raise: first is fully soaked, second chips rating.
+    const acc = fold(
+      board,
+      [{ kind: "eliminate", targetId: e.id, units: 1 }, { kind: "eliminate", targetId: e.id, units: 1 }],
+      { [e.id]: 1 },
+    );
+    expect(acc.challengeConsumed[e.id]).toBe(1); // cap was 1, fully consumed
+    expect(acc.board.threats[0]!.rating).toBe(6); // 7 → 6 (one unit got through)
+  });
+
+  it("no bump → behaves exactly as the printed value (regression)", () => {
+    const e = einherjar();
+    const board: BoardState = { objectives: [], threats: [e] };
+    const acc = fold(board, [{ kind: "eliminate", targetId: e.id, units: 3 }]);
+    expect(acc.board.threats[0]!.rating).toBe(4); // full 3 shed, nothing soaked
   });
 });
 
