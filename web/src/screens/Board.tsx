@@ -10,6 +10,18 @@ import { useSound } from "@/effects/SoundContext";
 import "./blood-arc.css";
 import "./board.css";
 
+/**
+ * Pick one of the torn-corner variants for a card from a stable id, so cards don't all
+ * share the same cut but a given card keeps its cut across re-renders (no flicker). 0 →
+ * the base `.paper` polygon (no extra class); 1–3 → `.paper-cut-N`.
+ */
+function paperCut(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (Math.imul(h, 31) + seed.charCodeAt(i)) | 0;
+  const v = Math.abs(h) % 4;
+  return v === 0 ? "" : `paper-cut-${v}`;
+}
+
 /** A live blood-share spectacle: a crimson arc from giver to receiver (§6). */
 interface ShareArc {
   from: { x: number; y: number };
@@ -129,7 +141,7 @@ export function Board({
           <BoardHeader state={state} />
 
           {loc && (
-            <div className={`paper scene--s${loc.sector}`}>
+            <div className={`paper scene--s${loc.sector} ${paperCut(loc.id)}`}>
               <div className="mono text-[0.6rem] uppercase tracking-wide text-paper-fade">
                 Scene <span className="text-paper-fade">· sector {loc.sector}</span>
               </div>
@@ -157,7 +169,7 @@ export function Board({
               {state.board.objectives.length === 0 && <Empty>No objectives yet.</Empty>}
               <div className="grid gap-2">
                 {state.board.objectives.map((o) => (
-                  <div key={o.id} className="paper paper-tight paper--objective">
+                  <div key={o.id} className={`paper paper-tight paper--objective ${paperCut(o.id)}`}>
                     <div className="flex items-baseline justify-between">
                       <span className="mono font-bold">{o.name}</span>
                       <RatingPips n={o.rating} tone="hazard" />
@@ -174,7 +186,7 @@ export function Board({
                     {secondary.map((o) => {
                       const done = o.rating <= 0;
                       return (
-                        <div key={o.id} className={`paper paper-tight paper--objective ${done ? "opacity-60" : ""}`}>
+                        <div key={o.id} className={`paper paper-tight paper--objective ${paperCut(o.id)} ${done ? "opacity-60" : ""}`}>
                           <div className="flex items-baseline justify-between gap-2">
                             <span className={`mono ${done ? "line-through" : ""}`}>
                               {o.name}
@@ -196,7 +208,7 @@ export function Board({
               {state.board.threats.length === 0 && <Empty>The street is quiet. For now.</Empty>}
               <div className="grid gap-2">
                 {state.board.threats.map((t) => (
-                  <div key={t.id} className={`paper paper-tight paper--threat ${t.rating <= 0 ? "opacity-50" : ""}`}>
+                  <div key={t.id} className={`paper paper-tight paper--threat ${paperCut(t.id)} ${t.rating <= 0 ? "opacity-50" : ""}`}>
                     <div className="flex items-baseline justify-between">
                       <span className="mono font-bold">{t.name}</span>
                       <span className="mono text-xs text-blood">ATK {t.attack}</span>
@@ -215,7 +227,7 @@ export function Board({
               <h3 className="mono text-[0.7rem] uppercase tracking-wide text-paper-fade mb-1.5">Loot within reach</h3>
               <div className="grid gap-2 sm:grid-cols-2">
                 {sceneLoot.map((l, i) => (
-                  <div key={i} className="paper paper-tight">
+                  <div key={i} className={`paper paper-tight ${paperCut(`loot-${l.name}`)}`}>
                     <div className="mono font-bold text-sm">{l.name}</div>
                     {l.bonus && <div className="mono text-[0.65rem] text-blood">{l.bonus}</div>}
                     {l.note && <div className="mono text-[0.65rem] text-paper-fade italic">{l.note}</div>}
@@ -289,7 +301,7 @@ function CharCard({
   return (
     <div
       ref={innerRef}
-      className={`paper ${onOpen ? "cursor-pointer" : ""} ${char.dead ? "opacity-40" : char.downed ? "opacity-70 -rotate-1" : ""} ${fx ? `card-${fx}` : ""}`}
+      className={`paper ${paperCut(id)} ${onOpen ? "cursor-pointer" : ""} ${char.dead ? "opacity-40" : char.downed ? "opacity-70 -rotate-1" : ""} ${fx ? `card-${fx}` : ""}`}
       style={{
         transition: "transform 220ms var(--ease-impact), box-shadow 220ms, opacity 220ms, filter 220ms",
         ...(wear > 0 ? { filter: `grayscale(${(wear * 0.85).toFixed(2)}) brightness(${(1 - wear * 0.12).toFixed(2)})` } : {}),
