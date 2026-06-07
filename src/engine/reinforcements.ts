@@ -47,8 +47,17 @@ export function reinforce(input: ReinforceInput): ReinforceResult {
   const log: ReinforceLogEntry[] = [];
 
   for (const t of input.threats) {
-    const reducedToZero = input.reducedToZeroThisRound.has(t.id) || t.rating <= 0;
     const attackBefore = t.attack;
+
+    // Staged (issue #12): the GM has placed this Threat but not brought it into play. It
+    // sits out reinforcement entirely — no escalation, no restore — until it's activated.
+    if (t.active === false) {
+      out.push({ ...t });
+      log.push({ threatId: t.id, name: t.name, attackBefore, attackAfter: t.attack, reason: "staged — not yet in play" });
+      continue;
+    }
+
+    const reducedToZero = input.reducedToZeroThisRound.has(t.id) || t.rating <= 0;
 
     // Reduced to 0 (or already there): restore (1d6 + half-Attack) or remove.
     if (reducedToZero) {

@@ -66,6 +66,14 @@ export interface Threat {
   discardThreshold?: number;
   /** Named special rule keys the engine/GM applies (e.g. "painless", "anathema"). */
   rules?: string[];
+  /**
+   * Staging (issue #12): `false` means the GM has placed this Threat but is holding it
+   * OUT of play — it's foreshadowed (the Rust-Witch riding the ferris wheel towards you),
+   * not yet in the fight. A staged Threat contributes no Attack, soaks nothing, doesn't
+   * escalate, imposes no Aura, and is hidden from players until the GM activates it.
+   * Omitted/`true` = in play. Threats predating staging have no field → treated in play.
+   */
+  active?: boolean;
 }
 
 /**
@@ -96,6 +104,17 @@ export interface SecondaryObjective {
   rewardChoice?: string;
   /** Gear this objective unlocks on completion (slot-free). Drives the GM gate (issue #4). */
   rewardEquipment?: RewardItem[];
+}
+
+/**
+ * A Threat is "in play" — contributing Attack to the Reich pool, soaking allocated units,
+ * escalating at end of round, imposing its Aura — only when it still has rating AND the GM
+ * has it activated (issue #12). Staged Threats (`active === false`) sit out of the fight
+ * until revealed. The single source of truth for "is this Threat on the battlefield right
+ * now"; used by the GM-pool builder, reinforcements, the discard threshold, and the board.
+ */
+export function threatInPlay(t: Threat): boolean {
+  return t.rating > 0 && t.active !== false;
 }
 
 export type Target = Objective | Threat;

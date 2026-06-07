@@ -100,6 +100,27 @@ describe("gmPoolContributions — per-Threat breakdown", () => {
   });
 });
 
+describe("staged threats are out of play (issue #12)", () => {
+  it("a staged Threat contributes no Reich dice (pool nor breakdown)", () => {
+    const staged = { ...infantrySquad(), active: false as const }; // attack 3, but held back
+    const police = policePatrol(); // attack 2, in play
+    // Only the Police Patrol is in play → its Attack, no +1 for the staged squad.
+    expect(buildGmPool([staged, police])).toBe(2);
+    expect(gmPoolContributions([staged, police])).toEqual([
+      expect.objectContaining({ threat: expect.objectContaining({ name: "Police Patrol" }), dice: 2, anchor: true }),
+    ]);
+  });
+
+  it("a board of only staged Threats is uncontested", () => {
+    expect(buildGmPool([{ ...infantrySquad(), active: false as const }])).toBe(0);
+  });
+
+  it("an explicitly active Threat (and a field-less legacy one) are in play", () => {
+    expect(buildGmPool([{ ...infantrySquad(), active: true }])).toBe(3);
+    expect(buildGmPool([infantrySquad()])).toBe(3); // no `active` field → in play
+  });
+});
+
 describe("discard & gm successes", () => {
   it("Rust-Witch raised threshold ≤4 leaves only 5,6 (6 still crit)", () => {
     const { survivors, discarded } = resolvePlayerDice([6, 5, 4, 3], 4);

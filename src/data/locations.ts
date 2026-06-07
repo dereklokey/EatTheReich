@@ -29,13 +29,22 @@ export interface SecondaryObjectiveRef {
   rewardEquipment?: { name: string; bonus?: string; note?: string }[];
 }
 
+/**
+ * A scene's enemy: a free-form reference line (a name, an "x2" count, or "same stats as …"),
+ * optionally flagged `staged` (issue #12). A plain string is in-play-at-start; the object
+ * form marks an enemy the scene foreshadows as arriving later / conditional / the climax, so
+ * it loads onto the board OUT of play for the GM to activate when it shows up. An explicit
+ * flag, not a parse of the cue text.
+ */
+export type EnemyRef = string | { ref: string; staged: true };
+
 export interface Location {
   id: string;
   name: string;
   sector: Sector;
   objectives: LocationObjective[];
-  /** Free-form enemy references (names or "same stats as …"). */
-  enemies: string[];
+  /** Free-form enemy references (names or "same stats as …"); some staged (issue #12). */
+  enemies: EnemyRef[];
   /** Übermensch present, if any. */
   ubermensch?: string;
   loot?: LootRef[];
@@ -56,7 +65,7 @@ export const LOCATIONS: Location[] = [
     name: "Grand Magasin Martin",
     sector: 3,
     objectives: [{ name: "Find your way out of the maze-like building", rating: 6 }],
-    enemies: ["Infantry Squad (sent in to find the vampires)", "Armoured Car (waiting outside)"],
+    enemies: ["Infantry Squad (sent in to find the vampires)", { ref: "Armoured Car (waiting outside)", staged: true }],
   },
   {
     id: "graveyard",
@@ -94,7 +103,7 @@ export const LOCATIONS: Location[] = [
     name: "The German Technology Pavilion",
     sector: 2,
     objectives: [{ name: "Storm the pavilion and get out the other side", rating: 9 }],
-    enemies: ["Stahlsoldat"],
+    enemies: [{ ref: "Stahlsoldat", staged: true }], // dormant; powers up when roused
     ubermensch: "Stahlsoldat",
     loot: [
       { name: "Prototype beam emitter", bonus: "++++properly calibrated before firing" },
@@ -117,7 +126,7 @@ export const LOCATIONS: Location[] = [
     name: "Metro Station",
     sector: 2,
     objectives: [{ name: "Cut through the metro tunnels", rating: 10 }],
-    enemies: ["Armoured Infantry Squad x2", "Motorcycle Squad (dispatched if you get a train working)"],
+    enemies: ["Armoured Infantry Squad x2", { ref: "Motorcycle Squad (dispatched if you get a train working)", staged: true }],
   },
   {
     id: "expensive-looking-garage",
@@ -136,7 +145,7 @@ export const LOCATIONS: Location[] = [
     name: "Le Cochon Noir (French Resistance Hideout)",
     sector: 2,
     objectives: [{ name: "Lose the nazis by hiding in the bar", rating: 6 }],
-    enemies: ["Police Patrol x2", "Infantry Squad in an Armoured Car (turn up halfway through)"],
+    enemies: ["Police Patrol x2", { ref: "Infantry Squad in an Armoured Car (turn up halfway through)", staged: true }],
     secondaryObjectives: [
       {
         name: "Team up with the Resistance",
@@ -164,7 +173,7 @@ export const LOCATIONS: Location[] = [
     name: "Jardin de Fée (Illuminations and Amusements)",
     sector: 2,
     objectives: [{ name: "Navigate a collapsing fairground whilst hunted by an entropy witch", rating: 10, challenge: 1 }],
-    enemies: ["Tank crew (same stats as Police Patrol)", "Rust-Witch"],
+    enemies: ["Tank crew (same stats as Police Patrol)", { ref: "Rust-Witch", staged: true }], // riding the ferris wheel towards you
     ubermensch: "Rust-Witch",
   },
   {
@@ -190,7 +199,7 @@ export const LOCATIONS: Location[] = [
     name: "Ammunition and Vehicle Depot",
     sector: 1,
     objectives: [{ name: "Scramble across the motor pool", rating: 8 }],
-    enemies: ["Motorcycle Squad", "Infantry Squad (guarding)", "Tank (after you defeat one enemy)"],
+    enemies: ["Motorcycle Squad", "Infantry Squad (guarding)", { ref: "Tank (after you defeat one enemy)", staged: true }],
     loot: [{ name: "The souped-up bullet-proof black Volkswagen of your dreams", bonus: "++front-mounted machine guns" }],
     secondaryObjectives: [{ name: "Raid the ammunition dump", rating: 4, reward: "Each player restores all uses of any firearms, grenades or similar weapons" }],
   },
@@ -206,14 +215,14 @@ export const LOCATIONS: Location[] = [
     name: "The Eiffel Tower",
     sector: 1,
     objectives: [{ name: "Ascend the Eiffel Tower", rating: 8, challenge: 1 }],
-    enemies: ["Armoured Infantry Squad (waiting for you)", "Paratrooper Squad (landing on the top and sides)"],
+    enemies: ["Armoured Infantry Squad (waiting for you)", { ref: "Paratrooper Squad (landing on the top and sides)", staged: true }],
   },
   {
     id: "fuhrers-zeppelin",
     name: "The Führer's Zeppelin",
     sector: 1,
     objectives: [{ name: "Reach Hitler's Broadcast Suite", rating: 6, challenge: 1 }],
-    enemies: ["Vampirjäger Cadre", "Werhund (the climax — reduce to 0 and Hitler is at your mercy)"],
+    enemies: ["Vampirjäger Cadre", { ref: "Werhund (the climax — reduce to 0 and Hitler is at your mercy)", staged: true }],
     ubermensch: "Werhund",
   },
   {

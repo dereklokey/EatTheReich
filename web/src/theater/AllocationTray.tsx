@@ -145,7 +145,8 @@ export function AllocationTray({
   const pickedDie = picked !== null ? survivors[picked] : undefined;
 
   const objLive = preview.board.objectives;
-  const thrLive = preview.board.threats;
+  // Staged threats (issue #12) aren't in the fight, so they're not allocatable targets.
+  const thrLive = preview.board.threats.filter((t) => t.active !== false);
 
   return (
     <div>

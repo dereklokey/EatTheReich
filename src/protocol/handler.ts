@@ -19,6 +19,7 @@ import {
   LAST_STAND_DICE,
 } from "../engine/index.js";
 import { CHARACTERS_BY_ID } from "../data/characters.js";
+import { threatInPlay } from "../domain/types.js";
 import type { Equipment } from "../domain/character.js";
 
 /**
@@ -74,10 +75,12 @@ function penaltyLabel(seat: CharId, category: 0 | 1 | 2): string | undefined {
   return CHARACTERS_BY_ID[seat]?.injuries[category]?.boxes[1]?.penalty;
 }
 
-/** Player discard threshold: 3, raised while a Rust-Witch is in play (Aura of Misfortune). */
+/** Player discard threshold: 3, raised while a Rust-Witch is in play (Aura of Misfortune).
+ *  A *staged* (not-yet-activated) Rust-Witch imposes nothing — its Aura begins only once the
+ *  GM brings it into play (issue #12), so we gate on {@link threatInPlay}, not just rating. */
 function discardThreshold(state: GameState): number {
   const thresholds = state.board.threats
-    .filter((t) => t.rating > 0 && t.discardThreshold !== undefined)
+    .filter((t) => threatInPlay(t) && t.discardThreshold !== undefined)
     .map((t) => t.discardThreshold as number);
   return Math.max(3, ...thresholds);
 }

@@ -3,7 +3,7 @@ import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
 import type { CharId, SeatId } from "@shared/events/types.js";
 import type { Equipment } from "@shared/domain/character.js";
-import { STATS, type Stat } from "@shared/domain/types.js";
+import { STATS, threatInPlay, type Stat } from "@shared/domain/types.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
 import { buildGmPool, gmPoolContributions } from "@shared/engine/gmPool.js";
 import { seatName } from "@/game/seats";
@@ -62,7 +62,7 @@ export function TurnComposer({
   // reading order; the Reich pool is the same regardless (highest Attack + 1 per other).
   // This also puts the pool's anchor (its full-Attack contributor) at the top.
   const liveThreats = useMemo(
-    () => state.board.threats.filter((t) => t.rating > 0).sort((a, b) => b.attack - a.attack || a.rating - b.rating),
+    () => state.board.threats.filter(threatInPlay).sort((a, b) => b.attack - a.attack || a.rating - b.rating),
     [state.board.threats],
   );
   // The red dice each Threat brings, keyed by id so a card can read off its own contribution.

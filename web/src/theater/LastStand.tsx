@@ -64,7 +64,8 @@ export function LastStand({
   const allocations = assign.filter((a): a is Allocation => a !== null);
   const pickedDie = picked !== null ? survivors[picked] : undefined;
   const objLive = preview.board.objectives;
-  const thrLive = preview.board.threats;
+  // Staged threats (issue #12) aren't in play, so they can't be targeted even on the way out.
+  const thrLive = preview.board.threats.filter((t) => t.active !== false);
 
   return (
     <div className="last-stand">

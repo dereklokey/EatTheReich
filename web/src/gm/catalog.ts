@@ -1,6 +1,6 @@
 import type { Objective, Threat, SecondaryObjective } from "@shared/domain/types.js";
 import type { Equipment } from "@shared/domain/character.js";
-import type { Location, LootRef } from "@shared/data/locations.js";
+import type { EnemyRef, Location, LootRef } from "@shared/data/locations.js";
 import { LOCATIONS } from "@shared/data/locations.js";
 import { LOOT_DEFAULT_USES, parseLootBonus } from "@shared/data/rewards.js";
 import {
@@ -28,22 +28,24 @@ const uuid = () => crypto.randomUUID();
 const BY_NAME = THREAT_FACTORIES.map((make) => ({ name: make().name.toLowerCase(), make }));
 
 /**
- * Resolve one free-form enemy line (e.g. "Police Patrol x2", "Nazi officers …
- * (same stats as Police Patrol)") into one or more Threats. Falls back to a generic
- * editable Threat when nothing matches — the GM tunes it on the board.
+ * Resolve one enemy ref (e.g. "Police Patrol x2", "Nazi officers … (same stats as Police
+ * Patrol)", or a `{ ref, staged }` object) into one or more Threats. Falls back to a generic
+ * editable Threat when nothing matches — the GM tunes it on the board. A `staged` ref loads
+ * its Threats OUT of play (`active: false`, issue #12) for the GM to activate when they arrive.
  */
-function resolveEnemies(line: string): Threat[] {
+function resolveEnemies(enemy: EnemyRef): Threat[] {
+  const line = typeof enemy === "string" ? enemy : enemy.ref;
+  const staged = typeof enemy === "string" ? false : enemy.staged;
   const count = /x\s*(\d+)/i.exec(line);
   const n = count ? Math.max(1, Number(count[1])) : 1;
   const lower = line.toLowerCase();
   const hit = BY_NAME.find((e) => lower.includes(e.name));
   const out: Threat[] = [];
   for (let i = 0; i < n; i++) {
-    out.push(
-      hit
-        ? hit.make()
-        : makeThreat({ id: uuid(), name: line.replace(/\s*\(.*?\)\s*/g, "").replace(/x\s*\d+/i, "").trim() || line, rating: 4, attack: 2 }),
-    );
+    const t = hit
+      ? hit.make()
+      : makeThreat({ id: uuid(), name: line.replace(/\s*\(.*?\)\s*/g, "").replace(/x\s*\d+/i, "").trim() || line, rating: 4, attack: 2 });
+    out.push(staged ? { ...t, active: false } : t);
   }
   return out;
 }

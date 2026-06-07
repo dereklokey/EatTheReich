@@ -376,22 +376,48 @@ function SecondaryRow({ o, state, send }: { o: SecondaryObjective; state: GameSt
 function ThreatsSection({ state, send }: { state: GameState; send: (i: Intent) => void }) {
   const [pick, setPick] = useState(0);
   const patch = (id: string, p: Partial<Threat>) => send({ kind: "update_threat", id, patch: p });
+  // Staging (issue #12): a Threat with active===false is placed but held off the battlefield
+  // — players don't see it, it contributes no Reich dice and doesn't escalate until the GM
+  // activates it. Default (no field) = in play. The GM toggles each, or activates them all.
+  const staged = state.board.threats.filter((t) => t.active === false);
   return (
     <Section title="Threats">
+      {staged.length > 0 && (
+        <button
+          className="mb-2 w-full mono text-xs underline text-paper-fade"
+          onClick={() => staged.forEach((t) => patch(t.id, { active: true }))}
+          title="Bring every staged threat into play"
+        >
+          Activate all ({staged.length} staged)
+        </button>
+      )}
       <div className="flex flex-col gap-1.5">
-        {state.board.threats.map((t) => (
-          <div key={t.id} className="paper paper-tight mono text-sm">
-            <div className="flex items-center gap-2">
-              <span className="flex-1">{t.name}</span>
-              <button className="text-xs underline text-blood" onClick={() => send({ kind: "remove_threat", id: t.id })}>remove</button>
+        {state.board.threats.map((t) => {
+          const isStaged = t.active === false;
+          return (
+            <div key={t.id} className={`paper paper-tight mono text-sm ${isStaged ? "opacity-60" : ""}`}>
+              <div className="flex items-center gap-2">
+                <span className="flex-1">
+                  {t.name}
+                  {isStaged && <span className="mono text-[0.55rem] uppercase tracking-wide text-paper-fade border border-current px-1 ml-1.5 align-middle">staged</span>}
+                </span>
+                <button
+                  className={`text-xs underline ${isStaged ? "text-hazard-ink" : "text-paper-fade"}`}
+                  onClick={() => patch(t.id, { active: !isStaged })}
+                  title={isStaged ? "Bring this threat into play" : "Hold this threat off the board (hidden from players)"}
+                >
+                  {isStaged ? "activate" : "stage"}
+                </button>
+                <button className="text-xs underline text-blood" onClick={() => send({ kind: "remove_threat", id: t.id })}>remove</button>
+              </div>
+              <div className="flex items-center gap-3 mt-1 text-xs">
+                <span className="flex items-center gap-1">rating <Stepper value={t.rating} onChange={(v) => patch(t.id, { rating: v })} /></span>
+                <span className="flex items-center gap-1">ATK <Stepper value={t.attack} onChange={(v) => patch(t.id, { attack: v })} /></span>
+                <span className="flex items-center gap-1">chal <Stepper value={t.challenge ?? 0} onChange={(v) => patch(t.id, { challenge: v })} /></span>
+              </div>
             </div>
-            <div className="flex items-center gap-3 mt-1 text-xs">
-              <span className="flex items-center gap-1">rating <Stepper value={t.rating} onChange={(v) => patch(t.id, { rating: v })} /></span>
-              <span className="flex items-center gap-1">ATK <Stepper value={t.attack} onChange={(v) => patch(t.id, { attack: v })} /></span>
-              <span className="flex items-center gap-1">chal <Stepper value={t.challenge ?? 0} onChange={(v) => patch(t.id, { challenge: v })} /></span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="mt-2 flex gap-1.5">
         <select className="mono flex-1 px-2 py-1 bg-paper text-paper-ink" value={pick} onChange={(e) => setPick(Number(e.target.value))}>

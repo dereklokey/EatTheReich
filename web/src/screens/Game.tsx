@@ -83,6 +83,7 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
           online={game.online}
           events={game.events}
           mySeat={ownChar}
+          isGm={isGm}
           turnControls={<TurnControls state={game.state} mySeat={game.mySeat} onCompose={setComposeSeat} />}
           onOpenSheet={setSheetSeat}
           onFrameScene={isGm ? () => setGmOpen(true) : undefined}

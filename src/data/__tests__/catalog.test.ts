@@ -175,6 +175,20 @@ describe("Übermenschen & Solo reinforcement behaviour (rulebook p38/p61)", () =
     expect(r.threats[0]?.attack).toBe(1); // floor(3/2)
   });
 
+  it("a staged threat sits out reinforcement entirely (issue #12)", () => {
+    // A normally-escalating threat that's been placed but not activated must NOT escalate
+    // (or restore) — it isn't in the fight yet.
+    const squad = { ...infantrySquad(), active: false as const }; // reinforces, attack 3
+    const r = reinforce({
+      threats: [squad],
+      reducedToZeroThisRound: new Set(),
+      zeroSuccessThisRound: new Set([squad.id]), // even with the zero-success bump pending
+      roller: sequenceRoller([]),
+    });
+    expect(r.threats[0]?.attack).toBe(3); // unchanged — held off the board
+    expect(r.log[0]?.reason).toMatch(/staged/i);
+  });
+
   it("Einherjar carries its painless/bloodless rule keys", () => {
     expect(einherjar().rules).toEqual(["painless", "bloodless"]);
   });

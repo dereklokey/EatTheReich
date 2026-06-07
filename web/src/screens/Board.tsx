@@ -58,6 +58,7 @@ export function Board({
   online,
   events,
   mySeat,
+  isGm,
   turnControls,
   onOpenSheet,
   onFrameScene,
@@ -67,6 +68,8 @@ export function Board({
   events: GameEvent[];
   /** This device's own character (null for the GM / unseated), floated to the top of the rail. */
   mySeat?: CharId | null;
+  /** True for the GM seat: sees staged (not-yet-activated) threats; players never do (issue #12). */
+  isGm?: boolean;
   /** The "Start a turn" controls, placed atop the main column (not over the crew rail). */
   turnControls?: ReactNode;
   onOpenSheet?: (id: CharId) => void;
@@ -108,6 +111,9 @@ export function Board({
   }, [arc]);
 
   const secondary = state.board.secondaryObjectives;
+  // Staged threats (issue #12) are the GM's to reveal: players never see one, so the board
+  // gives no hint a staged threat exists. The GM sees every threat, staged ones flagged.
+  const visibleThreats = isGm ? state.board.threats : state.board.threats.filter((t) => t.active !== false);
   const loc = state.board.locationId ? LOCATIONS_BY_ID[state.board.locationId] : undefined;
   const sceneLoot = loc?.loot ?? [];
   const empty =
@@ -221,18 +227,26 @@ export function Board({
 
             <section>
               <h2 className="display text-paper text-xl mb-2">Threats</h2>
-              {state.board.threats.length === 0 && <Empty>The street is quiet. For now.</Empty>}
+              {visibleThreats.length === 0 && <Empty>The street is quiet. For now.</Empty>}
               <div className="grid gap-2">
-                {state.board.threats.map((t) => (
-                  <div key={t.id} className={`paper paper-tight paper--threat ${paperCut(t.id)} ${t.rating <= 0 ? "opacity-50" : ""}`} style={{ transform: `rotate(${cardTilt(t.id)}deg)` }}>
-                    <div className="flex items-baseline justify-between">
-                      <span className="mono font-bold">{t.name}</span>
-                      <span className="mono text-xs text-blood">ATK {t.attack}</span>
+                {visibleThreats.map((t) => {
+                  // Only ever true for the GM (players never receive staged threats): a held-back
+                  // threat, dimmed and flagged so the GM can tell it isn't in the fight yet.
+                  const staged = t.active === false;
+                  return (
+                    <div key={t.id} className={`paper paper-tight paper--threat ${paperCut(t.id)} ${t.rating <= 0 || staged ? "opacity-50" : ""}`} style={{ transform: `rotate(${cardTilt(t.id)}deg)` }}>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="mono font-bold">
+                          {t.name}
+                          {staged && <span className="mono text-[0.55rem] uppercase tracking-wide text-paper-fade border border-current px-1 ml-1.5 align-middle">staged</span>}
+                        </span>
+                        <span className="mono text-xs text-blood">ATK {t.attack}</span>
+                      </div>
+                      <RatingPips n={t.rating} tone="blood" />
+                      {t.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {t.challenge}</div> : null}
                     </div>
-                    <RatingPips n={t.rating} tone="blood" />
-                    {t.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {t.challenge}</div> : null}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           </div>

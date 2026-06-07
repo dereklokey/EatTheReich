@@ -1,4 +1,4 @@
-import type { Threat } from "../domain/types.js";
+import { type Threat, threatInPlay } from "../domain/types.js";
 
 /**
  * BUILD_GM_POOL (RULES §4):
@@ -11,9 +11,10 @@ import type { Threat } from "../domain/types.js";
  * the most dangerous one (highest Attack) rolls its full Attack, and every *other* Threat
  * in play adds 1 die.
  *
- * - "In play" = rating > 0. A defeated Threat (rating 0 → Attack 0) contributes neither its
- *   Attack nor the "+1 per additional Threat" (golden test B: Infantry Squad dead → the
- *   objective roll faces 2, not 3).
+ * - "In play" = {@link threatInPlay}: rating > 0 AND not staged. A defeated Threat (rating
+ *   0 → Attack 0) contributes neither its Attack nor the "+1 per additional Threat" (golden
+ *   test B: Infantry Squad dead → the objective roll faces 2, not 3). A *staged* Threat
+ *   (issue #12 — placed but not yet activated) likewise contributes nothing until revealed.
  * - No Threats in play → 0 dice → the action is **uncontested** and the player cannot be
  *   injured this turn. This is the only uncontested case: it happens when the table has
  *   killed off every Threat (or the GM has framed a Threat-free scene). Stealth/safety is
@@ -23,7 +24,7 @@ import type { Threat } from "../domain/types.js";
  * The result is a default the GM can override before ROLL (CLAUDE.md §0).
  */
 export function buildGmPool(threats: Threat[]): number {
-  const inPlay = threats.filter((t) => t.rating > 0);
+  const inPlay = threats.filter(threatInPlay);
   if (inPlay.length === 0) return 0;
 
   const maxAttack = Math.max(...inPlay.map((t) => t.attack));
@@ -46,7 +47,7 @@ export interface GmPoolContribution {
  * {@link buildGmPool}.
  */
 export function gmPoolContributions(threats: Threat[]): GmPoolContribution[] {
-  const inPlay = threats.filter((t) => t.rating > 0);
+  const inPlay = threats.filter(threatInPlay);
   if (inPlay.length === 0) return [];
 
   let anchorIdx = 0;
