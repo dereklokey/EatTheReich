@@ -124,6 +124,21 @@ export function threatInPlay(t: Threat): boolean {
   return t.rating > 0 && t.active !== false;
 }
 
+/**
+ * Einherjar 'Bloodless' (rulebook p55, issue #20): a PC cannot spend dice to regain Blood
+ * while engaged ONLY with the Einherjar. This app has no per-PC engagement model — the Reich
+ * pool is a board property (issue #8) — so "engaged only with it" reads as: every Threat in
+ * play is a 'bloodless' one. The moment any non-bloodless Threat is also in play (a Tank rolls
+ * up, say), the PC is engaged with more than the Einherjar and Feed opens back up. A
+ * staged/defeated Einherjar imposes nothing (gated on {@link threatInPlay}, mirroring the
+ * Aura/Painless treatment). Pure board predicate — the same call drives the client Feed gate
+ * and any server check, so they never disagree.
+ */
+export function feedBlockedByBloodless(threats: readonly Threat[]): boolean {
+  const inPlay = threats.filter(threatInPlay);
+  return inPlay.length > 0 && inPlay.every((t) => (t.rules ?? []).includes("bloodless"));
+}
+
 export type Target = Objective | Threat;
 
 /** Context for a declared action — drives GM pool, SPECIAL gating, etc. */

@@ -4,6 +4,7 @@ import type { GameState, TurnState, CharacterRuntime } from "@shared/state/types
 import type { PlayerDie } from "@shared/engine/dice.js";
 import type { Allocation } from "@shared/engine/allocate.js";
 import { applyOneAllocation, emptyAccumulator } from "@shared/engine/allocate.js";
+import { feedBlockedByBloodless } from "@shared/domain/types.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
 import { Die, tiltFor } from "@/components/dice/Die";
 import { useEffects } from "@/effects/EffectsContext";
@@ -160,6 +161,9 @@ export function AllocationTray({
   const objLive = preview.board.objectives;
   // Staged threats (issue #12) aren't in the fight, so they're not allocatable targets.
   const thrLive = preview.board.threats.filter((t) => t.active !== false);
+  // Einherjar 'Bloodless' (#20): no Feed while it's the only Threat in play. Computed off the
+  // live board (the same shared predicate the engine uses) — greys the Feed target with the reason.
+  const feedBlocked = feedBlockedByBloodless(state.board.threats);
 
   return (
     <div>
@@ -273,10 +277,18 @@ export function AllocationTray({
           onUnplace={unassign}
         />
         <TargetCard
-          armed={picked !== null}
+          armed={picked !== null && !feedBlocked}
+          blocked={feedBlocked}
           label="Feed"
-          sub={`Drink deep · +${preview.bloodGained} Blood (now ${Math.min(10, char.blood + preview.bloodGained)})`}
-          onClick={() => place({ kind: "feed" })}
+          sub={
+            feedBlocked ? (
+              <span className="text-blood font-bold">⚠ Bloodless — no Feed (engaged only with the Einherjar)</span>
+            ) : (
+              `Drink deep · +${preview.bloodGained} Blood (now ${Math.min(10, char.blood + preview.bloodGained)})`
+            )
+          }
+          hint={feedBlocked ? "Einherjar 'Bloodless' (rulebook p55): can't spend dice to regain Blood while it's the only Threat in play." : undefined}
+          onClick={() => !feedBlocked && place({ kind: "feed" })}
           placed={placedOn((a) => a.kind === "feed")}
           onUnplace={unassign}
         />

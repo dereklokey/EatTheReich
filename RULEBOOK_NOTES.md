@@ -60,7 +60,11 @@ when their surfaces are built:
   for that action (wired, issue #19 — at roll-results the server counts the Reich pool's 1s and
   fires `ENEMY_CHALLENGE_RAISED` per in-play Einherjar; the raise rides on the turn as
   `challengeBump` and inflates the allocation soak, resetting next turn).
-- **Bloodless** (Einherjar): no Feed allocation while engaged *only* with it.
+- **Bloodless** (Einherjar): no Feed allocation while engaged *only* with it
+  (wired, issue #20 — `feedBlockedByBloodless()` is true when every in-play Threat is
+  'bloodless' [issue #8 board model: no per-PC engagement]; the allocation tray greys the
+  Feed target with the reason. Suggest-don't-enforce §0: Blood can still be set on the sheet,
+  and any non-bloodless Threat in play reopens Feed).
 - **Anathema** (Vampirjäger Cadre): GM Attack dice score **2** successes each on a 6.
 - **Rapid Deployment** (Paratrooper Squad): when its Attack +1 via Reinforcement,
   also +2 rating.

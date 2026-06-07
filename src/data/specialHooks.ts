@@ -186,11 +186,10 @@ export const SPECIAL_HOOKS: SpecialHook[] = [
     source: { kind: "enemy", threat: "Einherjar", tag: "bloodless" },
     rule: "PCs cannot spend dice to regain Blood while engaged only with the Einherjar.",
     hook: "ALLOCATE",
-    trigger: "Feed allocation while it is the only Threat in play",
+    trigger: "the allocation screen while every in-play Threat is 'bloodless' (issue #8 board model)",
     resolution: "message",
     actor: "system",
-    status: "planned",
-    issue: 20,
+    status: "implemented",
   },
   {
     id: "enemy.anathema",

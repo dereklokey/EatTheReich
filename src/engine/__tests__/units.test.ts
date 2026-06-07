@@ -18,6 +18,7 @@ import {
 } from "../index.js";
 import { markInjury, emptyInjuryTrack, defaultCategoryFromD6 } from "../injury.js";
 import { naziSquad, infantrySquad, policePatrol, einherjar } from "../../data/threats.js";
+import { feedBlockedByBloodless } from "../../domain/types.js";
 
 describe("buildPlayerPool", () => {
   it("sums stat + equipment + satisfied bonus + abilities", () => {
@@ -100,6 +101,33 @@ describe("gmPoolContributions — per-Threat breakdown", () => {
     expect(gmPoolContributions([dead, policePatrol()])).toEqual([
       expect.objectContaining({ dice: 2, anchor: true }), // only the live Police Patrol
     ]);
+  });
+});
+
+describe("feedBlockedByBloodless — Einherjar 'Bloodless' (rulebook p55, issue #20)", () => {
+  it("blocks Feed when the Einherjar is the sole Threat in play", () => {
+    expect(feedBlockedByBloodless([einherjar()])).toBe(true);
+  });
+
+  it("still blocks with two Einherjar in play (engaged only with the Einherjar)", () => {
+    expect(feedBlockedByBloodless([einherjar(), einherjar()])).toBe(true);
+  });
+
+  it("allows Feed once any non-bloodless Threat is also in play", () => {
+    expect(feedBlockedByBloodless([einherjar(), naziSquad()])).toBe(false);
+  });
+
+  it("does not block when no Threat is in play (uncontested → nothing to be engaged with)", () => {
+    expect(feedBlockedByBloodless([])).toBe(false);
+    expect(feedBlockedByBloodless([{ ...einherjar(), rating: 0, attack: 0 }])).toBe(false);
+  });
+
+  it("does not block while the Einherjar is merely staged (out of play, issue #12)", () => {
+    expect(feedBlockedByBloodless([{ ...einherjar(), active: false }])).toBe(false);
+  });
+
+  it("does not block for ordinary Threats", () => {
+    expect(feedBlockedByBloodless([naziSquad(), policePatrol()])).toBe(false);
   });
 });
 
