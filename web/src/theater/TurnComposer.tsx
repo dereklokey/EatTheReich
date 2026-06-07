@@ -58,10 +58,11 @@ export function TurnComposer({
     () => (sheet ? [...STATS].sort((a, b) => (sheet.stats[b] ?? 0) - (sheet.stats[a] ?? 0))[0]! : "SHOOT"),
     [sheet],
   );
-  // Threats nearest to death first — purely a reading order; the Reich pool is the same
-  // regardless of order (highest Attack + 1 per other Threat in play).
+  // Most dangerous first — by Attack descending (ties → closest to death). Purely a
+  // reading order; the Reich pool is the same regardless (highest Attack + 1 per other).
+  // This also puts the pool's anchor (its full-Attack contributor) at the top.
   const liveThreats = useMemo(
-    () => state.board.threats.filter((t) => t.rating > 0).sort((a, b) => a.rating - b.rating || b.attack - a.attack),
+    () => state.board.threats.filter((t) => t.rating > 0).sort((a, b) => b.attack - a.attack || a.rating - b.rating),
     [state.board.threats],
   );
   // The red dice each Threat brings, keyed by id so a card can read off its own contribution.
