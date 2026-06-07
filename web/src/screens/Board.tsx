@@ -239,20 +239,25 @@ export function Board({
                   const staged = t.active === false;
                   const gmCanStage = isGm && onSetThreatActive;
                   return (
-                    <div key={t.id} className={`paper paper-tight paper--threat ${paperCut(t.id)} ${t.rating <= 0 ? "opacity-50" : ""}`} style={{ transform: `rotate(${cardTilt(t.id)}deg)` }}>
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="mono font-bold">
-                          {t.name}
-                          {staged && <span className="mono text-[0.55rem] uppercase tracking-wide text-paper-fade border border-current px-1 ml-1.5 align-middle">staged</span>}
-                        </span>
-                        <span className="mono text-xs text-blood">ATK {t.attack}</span>
+                    // GM staging control lives in its own right-hand column, vertically centred,
+                    // so it never crowds the rating bars. With no control (players, or non-GM) the
+                    // single flex child is full-width — identical to the original card.
+                    <div key={t.id} className={`paper paper-tight paper--threat ${paperCut(t.id)} ${t.rating <= 0 ? "opacity-50" : ""} flex items-center gap-2`} style={{ transform: `rotate(${cardTilt(t.id)}deg)` }}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="mono font-bold">
+                            {t.name}
+                            {staged && <span className="mono text-[0.55rem] uppercase tracking-wide text-paper-fade border border-current px-1 ml-1.5 align-middle">staged</span>}
+                          </span>
+                          <span className="mono text-xs text-blood">ATK {t.attack}</span>
+                        </div>
+                        <RatingPips n={t.rating} tone="blood" />
+                        {t.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {t.challenge}</div> : null}
                       </div>
-                      <RatingPips n={t.rating} tone="blood" />
-                      {t.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {t.challenge}</div> : null}
                       {gmCanStage && (
                         staged ? (
                           <button
-                            className="mt-1.5 display text-paper bg-blood px-2 py-0.5 text-xs"
+                            className="shrink-0 display text-paper bg-blood px-2 py-1 text-xs"
                             style={{ borderRadius: 2 }}
                             onClick={() => onSetThreatActive!(t.id, true)}
                             title="Bring this threat into play (players will see it)"
@@ -261,7 +266,7 @@ export function Board({
                           </button>
                         ) : (
                           <button
-                            className="mt-1.5 mono text-[0.6rem] underline text-paper-fade"
+                            className="shrink-0 mono text-[0.6rem] underline text-paper-fade"
                             onClick={() => onSetThreatActive!(t.id, false)}
                             title="Hold this threat off the board (hidden from players)"
                           >
