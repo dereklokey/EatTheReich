@@ -14,18 +14,92 @@
   opacity: 0;
 }
 
-/* Each die is absolutely placed; the physics writes its transform every frame. */
+/* The outer box is absolutely placed and carries the screen position + height scale-up (a flat
+   2D transform the physics writes every frame). Dice paint above all shadows so a hopping die
+   never slips behind another's ground shadow. */
 .dice-arena__die {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 2;
   will-change: transform;
 }
 
-/* A die in flight is tumbling too fast to read — a slight motion blur sells the throw;
-   it resolves to a crisp, coloured face only once it has come to rest. */
+/* The die is a real solid CUBE so its tumble has volume — a flat element would flip like a
+   coin and vanish to a line edge-on. perspective() + preserve-3d are written by the physics on
+   this element (rotateX/Y/Z); the six faces below sit on its sides. */
+.dice-arena__cube {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.dice-arena__cf {
+  position: absolute;
+  inset: 0;
+  border-radius: 14%;
+}
+/* Each face is a full <Die>; these place the six of them on the sides of the cube. */
+.dice-arena__cf--front { transform: translateZ(var(--half)); }
+.dice-arena__cf--back { transform: rotateY(180deg) translateZ(var(--half)); }
+.dice-arena__cf--right { transform: rotateY(90deg) translateZ(var(--half)); }
+.dice-arena__cf--left { transform: rotateY(-90deg) translateZ(var(--half)); }
+.dice-arena__cf--top { transform: rotateX(90deg) translateZ(var(--half)); }
+.dice-arena__cf--bottom { transform: rotateX(-90deg) translateZ(var(--half)); }
+
+/* A per-face light tint laid OVER the die (an ::after overlay, NOT filter — filter would
+   flatten the face out of the cube's 3D space) so the solid catches light differently on each
+   side. The front face is left untinted (it's the value you read at rest). */
+.dice-arena__cf::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--shade, transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+.dice-arena__cf--top { --shade: rgba(255, 255, 255, 0.15); }
+.dice-arena__cf--right { --shade: rgba(255, 255, 255, 0.04); }
+.dice-arena__cf--left { --shade: rgba(0, 0, 0, 0.16); }
+.dice-arena__cf--back { --shade: rgba(0, 0, 0, 0.24); }
+.dice-arena__cf--bottom { --shade: rgba(0, 0, 0, 0.34); }
+
+/* Face material — the same purple-marble / bone bodies as a real die (dice.css), so the cube's
+   sides match its face. (The front face is covered by the <Die> itself, so it needs none.) */
+.dice-arena__face--player {
+  background:
+    radial-gradient(60% 55% at 30% 25%, var(--die-player-2) 0%, transparent 55%),
+    radial-gradient(70% 60% at 78% 80%, #4a1c63 0%, transparent 60%),
+    conic-gradient(from 200deg at 50% 50%, var(--die-player), #531f70, var(--die-player-2), var(--die-player));
+  border: 1px solid #3b1551;
+}
+.dice-arena__face--gm {
+  background:
+    radial-gradient(70% 60% at 32% 28%, #fff8ea 0%, transparent 60%),
+    var(--die-gm);
+  border: 1px solid #cdbf9f;
+}
+
+/* The contact shadow on the felt under each die. The physics scales it up and fades it out as
+   the die climbs (a high die throws a big, soft, faint shadow) and tightens it to a dark patch
+   on landing — the gap between die and shadow is what reads as "in the air." */
+.dice-arena__shadow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.26) 58%, transparent 74%);
+  filter: blur(1.5px);
+  will-change: transform, opacity;
+}
+
+/* A die in flight is tumbling too fast to read — a little motion blur sells the throw and
+   softens the moment it flips edge-on; it resolves to a crisp, coloured face only once it has
+   come to rest. */
 .dice-arena__flying {
-  filter: blur(0.7px) brightness(1.05);
+  filter: blur(1px) brightness(1.05);
 }
 
 /* The thin staging chrome that rides over the board during the throw (whose turn, and the
