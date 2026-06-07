@@ -93,6 +93,26 @@
 .target--armed { box-shadow: 0 0 0 2px var(--hazard), 0 8px 18px rgba(0, 0, 0, 0.5); }
 .target--threat.target--armed { box-shadow: 0 0 0 2px var(--blood-bright), 0 8px 18px rgba(0, 0, 0, 0.5); }
 
+/* SPECIAL targets (issue #11): listed like any other, but a mauve seam marks them as
+   critical-only, and the armed glow goes mauve too. */
+.target--special { border-left: 3px solid var(--dusk-mauve); }
+.target--special.target--armed { box-shadow: 0 0 0 2px #8a6aa0, 0 8px 18px rgba(0, 0, 0, 0.5); }
+/* A non-crit is picked → this card can't take it; grey it and stop the hover lift. */
+.target--blocked { opacity: 0.4; filter: grayscale(0.5); }
+.target--blocked:hover { transform: none; }
+
+/* Dice distributed onto a target (issue #11) — a little stack the player can tap to
+   pull back into the tray. */
+.target__dice { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.55rem; }
+.placed-die { display: inline-block; line-height: 0; cursor: pointer; transition: transform var(--motion-fast), filter var(--motion-fast); animation: placed-drop 320ms var(--ease-impact) both; }
+.placed-die:hover { transform: translateY(-3px) scale(1.08); filter: drop-shadow(0 0 6px var(--hazard)); }
+/* The die lands on the card with a short drop (auto-zeroed under reduce-effects). */
+@keyframes placed-drop {
+  0% { opacity: 0; transform: translateY(-14px) scale(0.6) rotate(-8deg); }
+  60% { opacity: 1; transform: translateY(2px) scale(1.05); }
+  100% { transform: translateY(0) scale(1); }
+}
+
 /* A surviving die that's selected for placement glows. */
 .die-pick { cursor: pointer; transition: transform var(--motion-fast); }
 .die-pick--selected { transform: translateY(-6px) scale(1.06); filter: drop-shadow(0 0 8px var(--hazard)); }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { GameState, TurnState, CharacterRuntime } from "@shared/state/types.js";
+import type { PlayerDie } from "@shared/engine/dice.js";
 import type { Allocation } from "@shared/engine/allocate.js";
 import { applyOneAllocation, emptyAccumulator } from "@shared/engine/allocate.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
@@ -140,9 +141,18 @@ export function AllocationTray({
 
   const unassign = (i: number) => setAssign((cur) => cur.map((a, idx) => (idx === i ? null : a)));
 
+  // The dice that have landed on a given target — they live ON the card now (issue #11),
+  // tap to take one back. Pairs the die with its survivor index so unassign can free it.
+  const placedOn = (match: (a: Allocation) => boolean): { die: PlayerDie; i: number }[] =>
+    assign.flatMap((a, i) => (a && match(a) ? [{ die: survivors[i]!, i }] : []));
+
   const allocations = assign.filter((a): a is Allocation => a !== null);
   const unplaced = assign.filter((a) => a === null).length;
+  const allPlaced = survivors.length > 0 && unplaced === 0;
   const pickedDie = picked !== null ? survivors[picked] : undefined;
+  // A SPECIAL is critical-only (RULES §4): a crit arms the special cards, any other
+  // pick can't land there — the card greys to say so.
+  const critPicked = pickedDie?.kind === "crit";
 
   const objLive = preview.board.objectives;
   // Staged threats (issue #12) aren't in the fight, so they're not allocatable targets.
@@ -152,23 +162,24 @@ export function AllocationTray({
     <div>
       <div className="theater__phase text-sm">Allocate your dice</div>
 
-      {/* Surviving dice — tap one, then tap a target. Tap a placed die to free it. */}
+      {/* Surviving dice — tap one to pick it up, then tap a target. Placed dice leave the
+          tray and land on the card they were distributed to (issue #11). */}
       <div className="tray mt-3">
-        {survivors.map((die, i) => {
-          const placed = assign[i];
-          return (
+        {survivors.map((die, i) =>
+          assign[i] ? null : (
             <button
               key={i}
-              className={`die-pick ${picked === i ? "die-pick--selected" : ""} ${placed ? "opacity-40" : ""}`}
+              className={`die-pick ${picked === i ? "die-pick--selected" : ""}`}
               disabled={!canDrive}
-              onClick={() => (placed ? unassign(i) : setPicked(i))}
-              title={placed ? `placed: ${placed.kind} — tap to free` : "tap to pick up"}
+              onClick={() => setPicked(i)}
+              title="tap to pick up"
             >
               <Die kind="player" value={die.face} state={die.kind === "crit" ? "critical" : "success"} tilt={tiltFor(i)} entering={enterFrom !== null && i >= enterFrom} />
             </button>
-          );
-        })}
+          ),
+        )}
         {survivors.length === 0 && <span className="mono text-paper-fade italic">No survivors — all dice discarded.</span>}
+        {allPlaced && <span className="mono text-paper-fade italic text-xs">All dice placed — tap a die on a card to take it back.</span>}
       </div>
 
       {canDrive && <BonusDiceControl onAdd={onAddDice} />}
@@ -221,6 +232,8 @@ export function AllocationTray({
             label={o.name}
             sub={`Objective · rating ${o.rating}${o.challenge ? ` · challenge ${o.challenge}` : ""}`}
             onClick={() => place({ kind: "advance", targetId: o.id })}
+            placed={placedOn((a) => a.kind === "advance" && a.targetId === o.id)}
+            onUnplace={unassign}
           />
         ))}
         {thrLive.map((t) => (
@@ -232,6 +245,8 @@ export function AllocationTray({
             label={t.name}
             sub={`Threat · rating ${t.rating} · ATK ${t.attack}${t.challenge ? ` · challenge ${t.challenge}` : ""}`}
             onClick={() => place({ kind: "eliminate", targetId: t.id })}
+            placed={placedOn((a) => a.kind === "eliminate" && a.targetId === t.id)}
+            onUnplace={unassign}
           />
         ))}
         <TargetCard
@@ -239,31 +254,33 @@ export function AllocationTray({
           label="Defend"
           sub={`Knock off GM Attack dice · ${preview.gmDiceRemaining} incoming`}
           onClick={() => place({ kind: "defend" })}
+          placed={placedOn((a) => a.kind === "defend")}
+          onUnplace={unassign}
         />
         <TargetCard
           armed={picked !== null}
           label="Feed"
           sub={`Drink deep · +${preview.bloodGained} Blood (now ${Math.min(10, char.blood + preview.bloodGained)})`}
           onClick={() => place({ kind: "feed" })}
+          placed={placedOn((a) => a.kind === "feed")}
+          onUnplace={unassign}
         />
-        {specials.length > 0 && pickedDie?.kind === "crit" && (
-          <div className="paper paper-tight sm:col-span-2">
-            <div className="mono text-xs text-paper-fade mb-1">Activate a SPECIAL (critical)</div>
-            <div className="flex flex-wrap gap-1.5">
-              {specials.map((sp) => (
-                <button
-                  key={sp.id}
-                  className="mono text-xs px-2 py-1 bg-dusk-mauve text-paper"
-                  style={{ borderRadius: 2 }}
-                  onClick={() => place({ kind: "special", specialId: sp.id })}
-                  title={sp.text}
-                >
-                  {sp.name}{sp.grantsBlood ? ` (+${sp.grantsBlood} Blood)` : ""}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* SPECIALs sit in the list like any other target so the table sees them, but only
+            a critical can arm one (RULES §4). A non-crit pick greys them with the reason. */}
+        {specials.map((sp) => (
+          <TargetCard
+            key={sp.id}
+            special
+            armed={critPicked}
+            blocked={picked !== null && !critPicked}
+            label={sp.name}
+            sub={`SPECIAL · critical only${sp.grantsBlood ? ` · +${sp.grantsBlood} Blood` : ""}`}
+            hint={sp.text}
+            onClick={() => critPicked && place({ kind: "special", specialId: sp.id })}
+            placed={placedOn((a) => a.kind === "special" && a.specialId === sp.id)}
+            onUnplace={unassign}
+          />
+        ))}
       </div>
 
       {canDrive && (
@@ -347,26 +364,68 @@ function TargetCard({
   onClick,
   armed,
   threat,
+  special,
+  blocked,
+  hint,
   fx,
+  placed,
+  onUnplace,
 }: {
   label: string;
   sub: string;
   onClick: () => void;
   armed: boolean;
   threat?: boolean;
+  special?: boolean;
+  /** A die is picked but can't land here (a non-crit aimed at a SPECIAL). */
+  blocked?: boolean;
+  /** Tooltip for the card itself (the SPECIAL's rules text). */
+  hint?: string;
   fx?: CardFx;
+  placed: { die: PlayerDie; i: number }[];
+  onUnplace: (i: number) => void;
 }) {
   const recoiling = fx && fx.kind !== "chunk";
   return (
     <button
-      className={`paper paper-tight target ${threat ? "target--threat" : ""} ${armed ? "target--armed" : ""}`}
+      className={`paper paper-tight target ${threat ? "target--threat" : ""} ${special ? "target--special" : ""} ${armed ? "target--armed" : ""} ${blocked ? "target--blocked" : ""}`}
       onClick={onClick}
+      title={hint}
     >
       {/* Re-keyed by fx.seq so each hit replays the recoil/burst. */}
       <div key={recoiling ? fx!.seq : "base"} className={recoiling ? "recoil" : ""}>
         <div className="display text-base">{label}</div>
         <div className="mono text-[0.65rem] text-paper-fade">{sub}</div>
       </div>
+      {/* Dice distributed here (issue #11) — tap one to take it back to the tray. Spans
+          (not buttons) avoid nesting interactive elements; stopPropagation keeps the tap
+          from re-placing the picked die on this card. */}
+      {placed.length > 0 && (
+        <div className="target__dice">
+          {placed.map(({ die, i }) => (
+            <span
+              key={i}
+              role="button"
+              tabIndex={0}
+              className="placed-die"
+              title="tap to take this die back"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnplace(i);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onUnplace(i);
+                }
+              }}
+            >
+              <Die kind="player" value={die.face} state={die.kind === "crit" ? "critical" : "success"} size="1.7rem" tilt={tiltFor(i)} />
+            </span>
+          ))}
+        </div>
+      )}
       {fx && fx.kind === "chunk" && <span key={`c${fx.seq}`} className="chunk" />}
       {fx && fx.kind !== "chunk" && <span key={`s${fx.seq}`} className={`spray ${fx.kind === "kill" ? "spray--kill" : ""}`} />}
     </button>
