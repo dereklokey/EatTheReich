@@ -102,8 +102,12 @@ when their surfaces are built:
   single path every future Challenge-reduction effect (Sapper #29, Tethered Phantom / Hellish
   Screech #35, the −1-Challenge reward #37) must route through. The Board flags the lock
   ("🔒 can't be lowered"). Gates *effects*, not the GM's manual Stepper edit (§0 override).
-- **Corrosive Fluids / Feed on Fear** (Chuck/Nicole advances): "when you mark an
-  Injury…" / "when you reduce a Threat to 0…" — passive triggers needing hooks.
+- **Feed on Fear** (Nicole advance): "when you reduce a Threat to 0, gain 3 Blood" —
+  wired, issue #33. The `bloodOnThreatKill` descriptor; the handler pays it at `commit`
+  (TURN_END) for every Threat the turn's allocations brought to rating 0, as a logged,
+  GM-editable BLOOD_CHANGED. Fires on both the no-injury and injury-check commit branches.
+- **Corrosive Fluids** (Chuck advance): "when you mark an Injury, −2 a Threat you're
+  engaged with" — passive trigger still needing a hook (issue #34).
 
 ## Still pending (not in the rulebook text, or deferred)
 

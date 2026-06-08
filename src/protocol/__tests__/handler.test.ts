@@ -672,6 +672,83 @@ describe("processIntent — Scavenger salvage-die throw (#32)", () => {
   });
 });
 
+describe("processIntent — Feed on Fear +3 Blood on reduce-to-0 (#33)", () => {
+  const unlockFeed: EventInput = { type: "ADVANCE_UNLOCKED", payload: { seat: "nicole", advanceId: "nicole-feed-on-fear" }, actor: "nicole" };
+  const weak: Threat = { ...threat, rating: 2 };
+
+  it("an eliminate that finishes a Threat pays Nicole 3 Blood at commit (no GM die through)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [weak] }); // thr1 rating 2
+    d.seed([unlockFeed], "nicole");
+    d.run({ kind: "start_turn", seat: "nicole", stat: "SHOOT" }, sequenceRoller([]), "nicole");
+    d.run({ kind: "allocate", allocations: [{ kind: "eliminate", targetId: "thr1", units: 2 }] }, sequenceRoller([]), "nicole");
+    expect(d.state.board.threats[0]?.rating).toBe(0);
+
+    const events = d.run({ kind: "commit" }, sequenceRoller([]), "nicole");
+    expect(events.map((e) => e.type)).toEqual(["BLOOD_CHANGED", "ALLOCATION_COMMITTED"]);
+    expect(events.find((e) => e.type === "BLOOD_CHANGED")?.payload).toMatchObject({ seat: "nicole", delta: 3, reason: "Feed on Fear" });
+    expect(d.state.characters.nicole.blood).toBe(3);
+  });
+
+  it("a LOCKED Feed on Fear pays nothing (anti-fudge — the advance must be unlocked)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [weak] });
+    d.run({ kind: "start_turn", seat: "nicole", stat: "SHOOT" }, sequenceRoller([]), "nicole"); // advance NOT unlocked
+    d.run({ kind: "allocate", allocations: [{ kind: "eliminate", targetId: "thr1", units: 2 }] }, sequenceRoller([]), "nicole");
+    const events = d.run({ kind: "commit" }, sequenceRoller([]), "nicole");
+    expect(events.map((e) => e.type)).toEqual(["ALLOCATION_COMMITTED"]);
+    expect(d.state.characters.nicole.blood).toBe(0);
+  });
+
+  it("a Threat merely dented (not reduced to 0) pays nothing", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] }); // rating 4
+    d.seed([unlockFeed], "nicole");
+    d.run({ kind: "start_turn", seat: "nicole", stat: "SHOOT" }, sequenceRoller([]), "nicole");
+    d.run({ kind: "allocate", allocations: [{ kind: "eliminate", targetId: "thr1", units: 2 }] }, sequenceRoller([]), "nicole"); // 4 → 2
+    const events = d.run({ kind: "commit" }, sequenceRoller([]), "nicole");
+    expect(events.map((e) => e.type)).toEqual(["ALLOCATION_COMMITTED"]);
+    expect(d.state.characters.nicole.blood).toBe(0);
+  });
+
+  it("two Threats killed in one turn pay 3 each (per-Threat, deduped per Threat)", () => {
+    const weakA: Threat = { ...threat, id: "thrA", rating: 2 };
+    const weakB: Threat = { ...threat, id: "thrB", rating: 2 };
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [weakA, weakB] });
+    d.seed([unlockFeed], "nicole");
+    d.run({ kind: "start_turn", seat: "nicole", stat: "SHOOT" }, sequenceRoller([]), "nicole");
+    d.run(
+      {
+        kind: "allocate",
+        allocations: [
+          { kind: "eliminate", targetId: "thrA", units: 1 },
+          { kind: "eliminate", targetId: "thrA", units: 1 }, // two dice finish thrA — pays once
+          { kind: "eliminate", targetId: "thrB", units: 2 },
+        ],
+      },
+      sequenceRoller([]),
+      "nicole",
+    );
+    const events = d.run({ kind: "commit" }, sequenceRoller([]), "nicole");
+    expect(events.filter((e) => e.type === "BLOOD_CHANGED")).toHaveLength(2); // one per killed Threat, not per die
+    expect(d.state.characters.nicole.blood).toBe(6);
+  });
+
+  it("still fires when a GM die gets through to the injury check (commit's injury branch)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [weak] });
+    d.seed([unlockFeed], "nicole");
+    d.run({ kind: "start_turn", seat: "nicole", stat: "SHOOT" }, sequenceRoller([]), "nicole");
+    d.seed([{ type: "DICE_DISCARDED", payload: { gmSuccessCount: 2 } }], "nicole"); // gmDiceRemaining 2 → injury check opens
+    d.run({ kind: "allocate", allocations: [{ kind: "eliminate", targetId: "thr1", units: 2 }] }, sequenceRoller([]), "nicole");
+    const events = d.run({ kind: "commit" }, sequenceRoller([]), "nicole");
+    expect(events.map((e) => e.type)).toEqual(["BLOOD_CHANGED", "INJURY_CHECK_OPENED"]);
+    expect(d.state.characters.nicole.blood).toBe(3);
+    expect(d.state.currentTurn?.phase).toBe("INJURY_CHECK"); // turn continues — Blood already banked
+  });
+});
+
 describe("processIntent — Last Stand (RULES §5)", () => {
   const allSixMarked = ([0, 1, 2] as const).flatMap((category) =>
     ([1, 2] as const).map((box) => ({ type: "INJURY_MARKED" as const, payload: { seat: "iryna" as const, category, box } })),

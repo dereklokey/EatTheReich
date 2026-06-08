@@ -102,7 +102,7 @@ export const NICOLE: CharacterSheet = {
   ],
   advances: [
     { id: "nicole-rat-swarm", name: "Rat Swarm", text: "Summon a swarm of rats under your control.", mechanic: "active", bloodCost: 1, bonus: { tag: "filth", plus: 2 } },
-    { id: "nicole-feed-on-fear", name: "Feed on Fear", text: "When you reduce a Threat rating to 0, gain 3 Blood.", mechanic: "passive" },
+    { id: "nicole-feed-on-fear", name: "Feed on Fear", text: "When you reduce a Threat rating to 0, gain 3 Blood.", mechanic: "passive", bloodOnThreatKill: 3 },
     { id: "nicole-pitch-black", name: "Pitch Black", text: "Plunge the area around you into shadow; you can see fine.", mechanic: "active", bloodCost: 1, bonus: { tag: "ambush", plus: 2 } },
   ],
   injuries: injuries(

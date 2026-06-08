@@ -122,6 +122,32 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(summary.lines[0]).toMatchObject({ kind: "special", text: "Activated Ravenous (+3 Blood)" });
   });
 
+  it("reports Feed on Fear's Blood alongside the kill that earned it (#33)", () => {
+    const { ev } = log();
+    const objective: Objective = { id: "obj", name: "Blow the bridge", kind: "objective", rating: 4 };
+    const gone: Threat = { id: "thrA", name: "Sniper Team", kind: "threat", rating: 2, attack: 2, startingAttack: 2, reinforces: true, restoresAtZero: true };
+
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "nicole" }, "nicole"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [objective], threats: [gone] }),
+      ev("TURN_STARTED", { seat: "nicole", stat: "SHOOT" }, "nicole"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6, 5], gmSuccessCount: 0 }),
+      ev("DIE_ALLOCATED", { kind: "eliminate", targetId: "thrA", units: 2 }, "nicole"), // 2 → 0 = kill
+      ev("BLOOD_CHANGED", { seat: "nicole", delta: 3, reason: "Feed on Fear" }, "nicole"),
+      ev("ALLOCATION_COMMITTED", {}, "nicole"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    expect(state.characters.nicole.blood).toBe(3);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    const byKind = Object.fromEntries(summary.lines.map((l) => [l.kind, l.text]));
+    expect(byKind.kill).toBe("Eliminated Sniper Team!");
+    // Not a SPECIAL, so it isn't folded into an activation line — it stands as its own Blood swing.
+    expect(byKind.blood).toBe("Feed on Fear — +3 Blood");
+  });
+
   it("surfaces an Einherjar 'Painless' raise and folds it into the soak (#19)", () => {
     const { ev } = log();
     const objective: Objective = { id: "obj", name: "Smash through", kind: "objective", rating: 8 };

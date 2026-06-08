@@ -126,6 +126,14 @@ export interface Power {
    * normal `special` allocation. A GM-editable default (the rolled SCAVENGER_ROLLED event, §0).
    */
   scavenges?: boolean;
+  /**
+   * Blood gained when the acting vampire reduces a Threat's rating to 0 — Nicole's Feed on Fear
+   * (+3, rulebook, Nicole advance; issue #33). A triggered PASSIVE, not a crit-SPECIAL: it isn't
+   * allocated to. The handler pays it at the action's conclusion (`commit` / TURN_END) for every
+   * Threat this turn's allocations brought to 0, as a logged, GM-editable BLOOD_CHANGED (CLAUDE.md
+   * §0) — mirroring {@link grantsBlood}'s self-buff, but keyed to the kill rather than the crit.
+   */
+  bloodOnThreatKill?: number;
 }
 
 export interface Equipment {

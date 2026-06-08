@@ -95,7 +95,7 @@ feel).
 | Corpse Eater | Chuck | `ROLL_RESULTS` | auto / system | ✅ |
 | Dead Man's Luck | Cosgrave | `ROLL_RESULTS` | auto / system | ✅ |
 | Bone Armour | Flint | `ROLL_RESULTS` | auto / system | ✅ |
-| Feed on Fear (+3 on reduce-to-0) | Nicole | `TURN_END` | auto / system | ⬜ #33 |
+| Feed on Fear (+3 on reduce-to-0) | Nicole | `TURN_END` | auto / system | ✅ |
 | Corrosive Fluids (−2 on Injury) | Chuck | `INJURY` | select / player | ⬜ #34 |
 | Tethered Phantom / Hellish Screech (−1 Challenge) | Astrid, Flint | `DECLARE` | select / player | ⬜ #35 |
 

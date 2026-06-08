@@ -1,4 +1,4 @@
-import type { GameState } from "../state/types.js";
+import type { GameState, TurnState } from "../state/types.js";
 import type {
   Actor,
   CharId,
@@ -20,6 +20,7 @@ import {
   rendInjury,
   reinforce,
   lowerChallenge,
+  isBoardSpecialId,
   LAST_STAND_DICE,
 } from "../engine/index.js";
 import { CHARACTERS_BY_ID } from "../data/characters.js";
@@ -207,6 +208,51 @@ function scavengerPower(state: GameState, seat: CharId): { id: string; name: str
     sheet.abilities.find((p) => p.scavenges) ??
     sheet.advances.find((p) => p.scavenges && unlocked.includes(p.id));
   return power ? { id: power.id, name: power.name } : undefined;
+}
+
+/**
+ * The Blood a triggered PASSIVE pays the actor for reducing a Threat's rating to 0 — Nicole's Feed
+ * on Fear (+3, rulebook, Nicole advance; issue #33). Scans the seat's *active* passives (abilities
+ * always; advances only once {@link activePassiveIds} confirms they're unlocked — so a locked
+ * Feed on Fear yields nothing, anti-fudge) for the `bloodOnThreatKill` descriptor. Returns the
+ * amount + the power's name for the BLOOD_CHANGED reason.
+ */
+function feedOnThreatKill(state: GameState, seat: CharId): { amount: number; name: string } | undefined {
+  const sheet = CHARACTERS_BY_ID[seat];
+  if (!sheet) return undefined;
+  const active = activePassiveIds(seat, state);
+  const power = [...sheet.abilities, ...sheet.advances].find((p) => active.has(p.id) && p.bloodOnThreatKill);
+  return power?.bloodOnThreatKill ? { amount: power.bloodOnThreatKill, name: power.name } : undefined;
+}
+
+/**
+ * Feed on Fear (#33) at the action's conclusion: a logged, GM-editable BLOOD_CHANGED for every Threat
+ * this turn's allocations reduced to rating 0. Resolved at `commit` (TURN_END) off the post-allocation
+ * board — the kill already landed during ALLOCATE, which mutates the board live — so it fires whether
+ * or not a GM die gets through to the injury check. "Damaged a Threat this turn AND it now sits at 0"
+ * is the same kill heuristic the after-action report uses: an `eliminate` die, a sheet SPECIAL's flat
+ * `ratingDamage` (Apex Predator), or a board-granted Crash & Burn (carried in `units` behind a
+ * namespaced id). A Set so two dice finishing one Threat pay once; per-Threat so a double kill pays
+ * twice (clamped to 10 in the reducer). Empty unless the seat has the descriptor unlocked.
+ */
+function feedOnFearEvents(state: GameState, turn: TurnState): EventInput[] {
+  const grant = feedOnThreatKill(state, turn.seat);
+  if (!grant) return [];
+  const killed = new Set<string>();
+  for (const a of turn.allocations) {
+    if (!a.targetId) continue;
+    const hitsThreat =
+      a.kind === "eliminate" ||
+      (a.kind === "special" && ((a.ratingDamage ?? 0) > 0 || isBoardSpecialId(a.specialId)));
+    if (!hitsThreat) continue;
+    const thr = state.board.threats.find((t) => t.id === a.targetId);
+    if (thr && thr.rating === 0) killed.add(thr.id);
+  }
+  return [...killed].map(() => ({
+    type: "BLOOD_CHANGED" as const,
+    payload: { seat: turn.seat, delta: grant.amount, reason: grant.name },
+    actor: turn.seat,
+  }));
 }
 
 /**
@@ -525,18 +571,22 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
     case "commit": {
       const turn = state.currentTurn;
       if (!turn) return err("no turn in progress");
+      // Feed on Fear (#33): pay the actor for every Threat they reduced to 0 this turn (TURN_END
+      // passive). Emitted in BOTH branches — the kill earns the Blood whether or not a GM die then
+      // gets through to the injury check — and ahead of the whiff/commit so the log reads kill-first.
+      const feed = feedOnFearEvents(state, turn);
       const leftover = turn.gmDiceRemaining ?? 0;
       // No GM die got through → no INJURY_CHECK; the turn just closes (no window flashes).
       // A GM whiff still presses the anchor Threat (+1 Attack) as the action concludes.
       if (leftover <= 0) {
         const whiff = gmWhiffEvent(state);
-        return ok([...(whiff ? [whiff] : []), { type: "ALLOCATION_COMMITTED", payload: {}, actor: turn.seat }]);
+        return ok([...feed, ...(whiff ? [whiff] : []), { type: "ALLOCATION_COMMITTED", payload: {}, actor: turn.seat }]);
       }
 
       // A die got through → open the INJURY_CHECK window WITHOUT rolling yet. The category
       // die is its own visible beat (`roll_injury`): the wounded vampire throws it across
       // the board, then it parks for the reveal + reaction window.
-      return ok([{ type: "INJURY_CHECK_OPENED", payload: { seat: turn.seat }, actor: turn.seat }]);
+      return ok([...feed, { type: "INJURY_CHECK_OPENED", payload: { seat: turn.seat }, actor: turn.seat }]);
     }
 
     case "roll_injury": {
