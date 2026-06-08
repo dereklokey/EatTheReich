@@ -194,6 +194,22 @@ function specialInjuryClear(state: GameState, seat: CharId, specialId: string): 
 }
 
 /**
+ * The seat's Scavenger SPECIAL, if any (Nicole's Scavenger → throw a salvage d6, restore the matching
+ * numbered weapon; rulebook, Nicole sheet, issue #32). Same sheet lookup as {@link specialBloodGrant},
+ * for the `scavenges` descriptor — so a LOCKED advance yields nothing (anti-fudge; the salvage can't
+ * fire until the power is available). Returns the power's id + name for the SCAVENGER_ROLLED event.
+ */
+function scavengerPower(state: GameState, seat: CharId): { id: string; name: string } | undefined {
+  const sheet = CHARACTERS_BY_ID[seat];
+  if (!sheet) return undefined;
+  const unlocked = state.characters[seat]?.unlockedAdvances ?? [];
+  const power =
+    sheet.abilities.find((p) => p.scavenges) ??
+    sheet.advances.find((p) => p.scavenges && unlocked.includes(p.id));
+  return power ? { id: power.id, name: power.name } : undefined;
+}
+
+/**
  * GM-whiff escalation (RULES §8, rulebook p38), applied at the conclusion of the action it
  * happened in (NOT at end of round). If the Reich's Attack roll this turn produced zero
  * successes, the lead (anchor) Threat presses harder: +1 Attack. Returns the THREAT_UPDATED
@@ -478,6 +494,31 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       const { survivors } = resolvePlayerDice(results, threshold);
       return ok([
         { type: "BONUS_DICE_ROLLED", payload: { results, survivors: survivors.map((s) => s.face), count, ...(intent.label ? { label: intent.label } : {}) }, actor: turn.seat },
+      ]);
+    }
+
+    case "scavenge": {
+      // Nicole's Scavenger SPECIAL (#32): the player throws the salvage d6 as their own visible beat
+      // in the arena once a crit is on the SPECIAL. The SERVER rolls it (anti-fudge, replayable — the
+      // face is baked into the event), then maps it to the weapon carrying that scavengerSlot and
+      // restores 1 use (in the reducer). Gated to the allocation window like `add_bonus_dice`; the
+      // crit it's spent on commits as a normal `special` allocation at lock-in. Once per turn.
+      const turn = state.currentTurn;
+      if (!turn) return err("no turn in progress");
+      if (!turn.survivors || turn.phase === "INJURY_CHECK" || turn.lastStand) return err("can only scavenge during allocation");
+      if (turn.scavenge) return err("the salvage die has already been thrown this turn");
+      const power = scavengerPower(state, turn.seat);
+      if (!power) return err("this character has no Scavenger SPECIAL");
+      const face = deps.roller.roll(1)[0]!;
+      // Nicole fills all six slots, so every face matches; an unfilled slot (a future character with
+      // gaps) restores nothing but still shows the throw — the item fields are simply omitted.
+      const item = CHARACTERS_BY_ID[turn.seat]?.equipment.find((e) => e.scavengerSlot === face);
+      return ok([
+        {
+          type: "SCAVENGER_ROLLED",
+          payload: { seat: turn.seat, face, specialId: power.id, specialName: power.name, ...(item ? { itemId: item.id, itemName: item.name } : {}) },
+          actor: turn.seat,
+        },
       ]);
     }
 

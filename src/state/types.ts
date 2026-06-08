@@ -129,4 +129,12 @@ export interface TurnState {
    * the injury beat — the reveal + any reactive-gear window — instead of closing.
    */
   pendingInjury?: { face: DieFace; outcome: InjuryOutcome };
+  /**
+   * Nicole's Scavenger SPECIAL (issue #32): the salvage d6 thrown this turn — its face plus the
+   * weapon it restored (1 use). Set from SCAVENGER_ROLLED so the allocation tray shows the rolled
+   * die + the salvaged weapon and blocks a second throw. Per-turn; absent until the die is thrown
+   * and dropped with the turn so it never bleeds into the next action. `itemId`/`itemName` are
+   * omitted when the face hit an unfilled slot (a visible throw that restored nothing).
+   */
+  scavenge?: { face: DieFace; itemId?: string; itemName?: string };
 }

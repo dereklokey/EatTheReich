@@ -6,7 +6,9 @@ import type { Allocation } from "@shared/engine/allocate.js";
 import { applyOneAllocation, emptyAccumulator } from "@shared/engine/allocate.js";
 import { boardGrantedSpecials } from "@shared/engine/specials.js";
 import { feedBlockedByBloodless, anathemaInPlay } from "@shared/domain/types.js";
+import type { DieFace } from "@shared/domain/types.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
+import type { Power } from "@shared/domain/character.js";
 import { Die, tiltFor } from "@/components/dice/Die";
 import { useEffects } from "@/effects/EffectsContext";
 import { useSound } from "@/effects/SoundContext";
@@ -36,6 +38,7 @@ export function AllocationTray({
   canDrive,
   onLockIn,
   onAddDice,
+  onScavenge,
 }: {
   turn: TurnState;
   state: GameState;
@@ -43,6 +46,8 @@ export function AllocationTray({
   canDrive: boolean;
   onLockIn: (allocations: Allocation[]) => void;
   onAddDice: (count: number, label?: string) => void;
+  /** Nicole's Scavenger (#32): throw the salvage d6 in the arena (the `scavenge` intent). */
+  onScavenge: () => void;
 }) {
   const { reduced } = useEffects();
   const { play } = useSound();
@@ -422,6 +427,26 @@ export function AllocationTray({
               />
             ));
           }
+          // Scavenger (#32): a crit on the SPECIAL throws a salvage d6 IN THE ARENA (the player's own
+          // beat, not the lock-in fold) to restore a numbered weapon. The card carries its own controls
+          // — place the crit, then "Throw the salvage die" → the server rolls → the result lands here —
+          // so it's a bespoke card rather than the generic one-tap TargetCard.
+          if (sp.scavenges) {
+            return [
+              <ScavengerCard
+                key={sp.id}
+                sp={sp}
+                armed={critPicked}
+                blocked={picked !== null && !critPicked}
+                placed={placedOn((a) => a.kind === "special" && a.specialId === sp.id)}
+                scavenge={turn.scavenge}
+                canDrive={canDrive}
+                onPlace={() => critPicked && place({ kind: "special", specialId: sp.id })}
+                onUnplace={unassign}
+                onRoll={onScavenge}
+              />,
+            ];
+          }
           // A targetless SPECIAL — one card. Unnatural Endurance (#28) carries gmDiceReduction so the
           // engine sheds GM dice (the Incoming row animates them off via its AnimatePresence); the sub
           // notes the effect alongside any Blood grant (Ravenous).
@@ -605,5 +630,94 @@ function TargetCard({
       {fx && fx.kind === "chunk" && <span key={`c${fx.seq}`} className="chunk" />}
       {fx && fx.kind !== "chunk" && <span key={`s${fx.seq}`} className={`spray ${fx.kind === "kill" ? "spray--kill" : ""}`} />}
     </button>
+  );
+}
+
+/**
+ * Nicole's Scavenger SPECIAL (#32) — a salvage-die beat that lives inside its own card. Unlike the
+ * one-tap TargetCards, this card holds its own controls: place a crit on the head, then "Throw the
+ * salvage die" fires the `scavenge` intent. The SERVER rolls the d6 (anti-fudge); the result lands
+ * back here as `turn.scavenge` (the thrown face + the salvaged weapon), which also blocks a re-throw.
+ * The placed crit still commits as a normal `special` allocation at Lock-in.
+ */
+function ScavengerCard({
+  sp,
+  armed,
+  blocked,
+  placed,
+  scavenge,
+  canDrive,
+  onPlace,
+  onUnplace,
+  onRoll,
+}: {
+  sp: Power;
+  armed: boolean;
+  blocked: boolean;
+  placed: { die: PlayerDie; i: number }[];
+  scavenge?: { face: DieFace; itemId?: string; itemName?: string };
+  canDrive: boolean;
+  onPlace: () => void;
+  onUnplace: (i: number) => void;
+  onRoll: () => void;
+}) {
+  const hasCrit = placed.length > 0;
+  const sub = scavenge
+    ? "SPECIAL · salvage die thrown"
+    : hasCrit
+      ? "SPECIAL · throw the salvage die →"
+      : "SPECIAL · critical only · roll a d6, restore that weapon";
+  return (
+    <div className={`paper paper-tight target target--special scavenger-card ${armed ? "target--armed" : ""} ${blocked ? "target--blocked" : ""}`}>
+      <button className="scavenger-card__head" onClick={onPlace} disabled={!armed || hasCrit} title={sp.text}>
+        <div className="display text-base">{sp.name}</div>
+        <div className="mono text-[0.65rem] text-paper-fade">{sub}</div>
+      </button>
+      {hasCrit && (
+        <div className="target__dice">
+          {placed.map(({ die, i }) => (
+            <span
+              key={i}
+              role="button"
+              tabIndex={0}
+              className="placed-die"
+              title="tap to take this die back"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnplace(i);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onUnplace(i);
+                }
+              }}
+            >
+              <Die kind="player" value={die.face} state={die.kind === "crit" ? "critical" : "success"} size="1.7rem" tilt={tiltFor(i)} />
+            </span>
+          ))}
+        </div>
+      )}
+      {hasCrit && !scavenge && canDrive && (
+        <button className="detonator text-sm mt-2" onClick={onRoll} title="The server rolls a d6 and restores the matching numbered weapon">
+          Throw the salvage die
+        </button>
+      )}
+      {scavenge && (
+        <div className="scavenger-card__result">
+          <Die kind="player" value={scavenge.face} state="success" size="2rem" />
+          <span className="mono text-xs text-paper">
+            {scavenge.itemName ? (
+              <>
+                Salvaged <span className="font-bold">{scavenge.itemName}</span> — +1 use
+              </>
+            ) : (
+              <>Rolled {scavenge.face} — nothing to salvage</>
+            )}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }

@@ -101,6 +101,15 @@
 .target--blocked { opacity: 0.4; filter: grayscale(0.5); }
 .target--blocked:hover { transform: none; }
 
+/* Scavenger SPECIAL (#32): the salvage-die beat lives inside the card (place the crit, throw the
+   die, see the weapon restored), so unlike a one-tap TargetCard it holds its own controls — its
+   head is a bare full-width button and the card itself doesn't lift/point like a single target. */
+.scavenger-card { cursor: default; }
+.scavenger-card:hover { transform: none; }
+.scavenger-card__head { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; }
+.scavenger-card__head:disabled { cursor: default; }
+.scavenger-card__result { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.55rem; }
+
 /* Dice distributed onto a target (issue #11) — a little stack the player can tap to
    pull back into the tray. */
 .target__dice { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.55rem; }

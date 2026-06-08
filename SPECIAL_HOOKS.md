@@ -87,7 +87,7 @@ feel).
 | Sapper (−1 Challenge) | Nicole | `ALLOCATE` | select / player | ✅ |
 | Elbow Grease (−4 Obj rating) | Chuck | `ALLOCATE` | select / player | ✅ |
 | Nightmare Regeneration (clear Injury) | Astrid | `ALLOCATE` | select / player | ✅ |
-| Scavenger (restore weapon) | Nicole | `ALLOCATE` | auto / system | ⬜ #32 |
+| Scavenger (restore weapon) | Nicole | `ALLOCATE` | acknowledge / player | ✅ |
 
 ### Character passives & no-die actives
 | Power | Who | Hook | Resolution | Status |

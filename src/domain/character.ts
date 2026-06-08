@@ -116,6 +116,16 @@ export interface Power {
    * HEALED (CLAUDE.md §0); an unmarked category emits nothing, so it can't mint a phantom heal.
    */
   clearsInjury?: boolean;
+  /**
+   * True for a SPECIAL that, when activated (a crit allocated to it), throws a salvage d6 to restore
+   * one use of a numbered weapon — Nicole's Scavenger (rulebook, Nicole sheet; issue #32). Unlike the
+   * other crit-SPECIALs this resolves through its OWN player-driven beat in the resolution theater
+   * (the `scavenge` intent) rather than the lock-in fold: the player throws the die in the arena, the
+   * SERVER rolls it (anti-fudge, replayable), and the face maps to the weapon carrying that
+   * {@link Equipment.scavengerSlot}, whose use the reducer restores. The crit itself still commits as a
+   * normal `special` allocation. A GM-editable default (the rolled SCAVENGER_ROLLED event, §0).
+   */
+  scavenges?: boolean;
 }
 
 export interface Equipment {

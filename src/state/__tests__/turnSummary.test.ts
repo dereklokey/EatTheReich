@@ -403,6 +403,48 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(summary.lines[0]).toMatchObject({ kind: "special", text: "Activated Nightmare Regeneration — cleared an Injury (Limping)" });
   });
 
+  it("folds a Scavenger salvage throw into the activation line (#32)", () => {
+    const { ev } = log();
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "nicole" }, "nicole"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [] }),
+      ev("EQUIPMENT_USED", { seat: "nicole", itemId: "nicole-firebombs" }, "nicole"), // 2 → 1 (room to restore)
+      ev("TURN_STARTED", { seat: "nicole", stat: "SHOOT" }, "nicole"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 0 }),
+      ev("SCAVENGER_ROLLED", { seat: "nicole", face: 4, itemId: "nicole-firebombs", itemName: "Firebombs", specialId: "nicole-scavenger", specialName: "Scavenger" }, "nicole"),
+      ev("DIE_ALLOCATED", { kind: "special", specialId: "nicole-scavenger", units: 2 }, "nicole"),
+      ev("ALLOCATION_COMMITTED", {}, "nicole"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    expect(state.characters.nicole.equipmentUses["nicole-firebombs"]).toBe(2); // spent to 1, salvaged back to 2
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines).toHaveLength(1);
+    expect(summary.lines[0]).toMatchObject({ kind: "special", text: "Activated Scavenger — salvage die 4, restored Firebombs" });
+  });
+
+  it("reports a Scavenger throw even when the crit was taken back off the SPECIAL (#32 edge)", () => {
+    const { ev } = log();
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "nicole" }, "nicole"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [] }),
+      ev("TURN_STARTED", { seat: "nicole", stat: "SHOOT" }, "nicole"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 0 }),
+      ev("SCAVENGER_ROLLED", { seat: "nicole", face: 6, itemId: "nicole-dynamite", itemName: "Dynamite", specialId: "nicole-scavenger", specialName: "Scavenger" }, "nicole"),
+      // the crit was placed then taken back — no DIE_ALLOCATED for nicole-scavenger — but the throw happened.
+      ev("DIE_ALLOCATED", { kind: "feed", units: 1 }, "nicole"),
+      ev("ALLOCATION_COMMITTED", {}, "nicole"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines.find((l) => l.kind === "special")?.text).toBe("Activated Scavenger — salvage die 6, restored Dynamite");
+  });
+
   it("returns null for an empty turn and for a non-commit seq", () => {
     const events = irynaClockTowerEvents("g-iryna");
     const state = reduce(events);

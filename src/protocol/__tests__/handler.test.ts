@@ -619,6 +619,59 @@ describe("processIntent — Nightmare Regeneration clear-an-Injury (#31)", () =>
   });
 });
 
+describe("processIntent — Scavenger salvage-die throw (#32)", () => {
+  // Reach the allocation window: frame, start Nicole's turn, land on the discard step with survivors.
+  const reachAllocate = (seat: "nicole" | "iryna" = "nicole") => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat, stat: "SHOOT" }, sequenceRoller([]), seat);
+    d.seed([{ type: "DICE_DISCARDED", payload: { playerSurvivors: [6, 5], gmSuccessCount: 0 } }], seat);
+    return d;
+  };
+
+  it("the server rolls the salvage d6, restores the matching weapon, and parks the throw on the turn", () => {
+    const d = reachAllocate();
+    d.seed([{ type: "EQUIPMENT_USED", payload: { seat: "nicole", itemId: "nicole-panzerfaust" } }], "nicole"); // 1 → 0
+    const events = d.run({ kind: "scavenge" }, sequenceRoller([5]), "nicole"); // face 5 → scavengerSlot 5 = Panzerfaust
+    expect(events.map((e) => e.type)).toEqual(["SCAVENGER_ROLLED"]);
+    expect(events.find((e) => e.type === "SCAVENGER_ROLLED")?.payload).toMatchObject({
+      seat: "nicole",
+      face: 5,
+      itemId: "nicole-panzerfaust",
+      itemName: "Panzerfaust",
+      specialId: "nicole-scavenger",
+      specialName: "Scavenger",
+    });
+    expect(d.state.characters.nicole.equipmentUses["nicole-panzerfaust"]).toBe(1); // salvaged back
+    expect(d.state.currentTurn?.scavenge).toEqual({ face: 5, itemId: "nicole-panzerfaust", itemName: "Panzerfaust" });
+  });
+
+  it("a salvage on a full weapon never exceeds its max (clamped)", () => {
+    const d = reachAllocate();
+    const events = d.run({ kind: "scavenge" }, sequenceRoller([1]), "nicole"); // face 1 → M3, already 4/4
+    expect(events.find((e) => e.type === "SCAVENGER_ROLLED")?.payload).toMatchObject({ itemId: "nicole-m3", itemName: "M3 submachine gun" });
+    expect(d.state.characters.nicole.equipmentUses["nicole-m3"]).toBe(4); // unchanged, not 5
+  });
+
+  it("only one salvage die per turn", () => {
+    const d = reachAllocate();
+    d.run({ kind: "scavenge" }, sequenceRoller([2]), "nicole");
+    expect(d.fail({ kind: "scavenge" }, "nicole").ok).toBe(false);
+  });
+
+  it("a character with no Scavenger SPECIAL can't scavenge", () => {
+    const d = reachAllocate("iryna");
+    expect(d.fail({ kind: "scavenge" }, "iryna").ok).toBe(false);
+  });
+
+  it("can't scavenge before the dice have been rolled (no survivors yet)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "nicole", stat: "SHOOT" }, sequenceRoller([]), "nicole");
+    expect(d.fail({ kind: "scavenge" }, "nicole").ok).toBe(false);
+  });
+});
+
 describe("processIntent — Last Stand (RULES §5)", () => {
   const allSixMarked = ([0, 1, 2] as const).flatMap((category) =>
     ([1, 2] as const).map((box) => ({ type: "INJURY_MARKED" as const, payload: { seat: "iryna" as const, category, box } })),

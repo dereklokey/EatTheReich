@@ -353,6 +353,34 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
           degradedEquipment: (c.degradedEquipment ?? []).filter((id) => id !== e.payload.itemId),
         };
       });
+    case "SCAVENGER_ROLLED": {
+      // Nicole's Scavenger SPECIAL (#32): the salvage die has been thrown. Restore one use of the
+      // matched weapon (clamp to its max, exactly like EQUIPMENT_RESTORED) — an unfilled slot (no
+      // itemId) restores nothing, just records the throw. Then park the result on the turn so the
+      // tray shows the rolled die + the salvaged weapon and blocks a second throw.
+      const itemId = e.payload.itemId;
+      let out: GameState = s;
+      if (itemId) {
+        out = updateChar(out, e.payload.seat, (c) => {
+          const cur = c.equipmentUses[itemId];
+          const max = maxUses(e.payload.seat, itemId, c);
+          if (cur === undefined || max === undefined) return c;
+          return {
+            ...c,
+            equipmentUses: { ...c.equipmentUses, [itemId]: Math.min(max, cur + 1) },
+            // A restored use repairs a Rust-cursed weapon (issue #13) — clear the marker, as EQUIPMENT_RESTORED does.
+            degradedEquipment: (c.degradedEquipment ?? []).filter((id) => id !== itemId),
+          };
+        });
+      }
+      if (out.currentTurn && out.currentTurn.seat === e.payload.seat) {
+        out = withTurn(out, {
+          ...out.currentTurn,
+          scavenge: { face: e.payload.face, ...(itemId ? { itemId, itemName: e.payload.itemName } : {}) },
+        });
+      }
+      return out;
+    }
     case "EQUIPMENT_DEGRADED":
       // Rust Curse (issue #13): zero the item's remaining uses AND flag it rusted (distinct
       // from merely spent) so the sheet shows *why* it's dead. The server only ever picks a

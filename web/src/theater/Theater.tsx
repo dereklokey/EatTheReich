@@ -81,6 +81,7 @@ export function Theater({
   };
   const onAddDice = (count: number, label?: string) =>
     send({ kind: "add_bonus_dice", count, ...(label ? { label } : {}) });
+  const onScavenge = () => send({ kind: "scavenge" });
 
   return (
     <TheaterShell turn={turn} canDrive={canDrive} onMinimize={onMinimize} onCancel={cancel}>
@@ -92,7 +93,7 @@ export function Theater({
           </p>
         </div>
       ) : (
-        <AllocationTray turn={turn} state={state} char={char} canDrive={canDrive} onLockIn={onLockIn} onAddDice={onAddDice} />
+        <AllocationTray turn={turn} state={state} char={char} canDrive={canDrive} onLockIn={onLockIn} onAddDice={onAddDice} onScavenge={onScavenge} />
       )}
     </TheaterShell>
   );

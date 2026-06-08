@@ -96,7 +96,7 @@ export const NICOLE: CharacterSheet = {
     { id: "nicole-dynamite", name: "Dynamite", scavengerSlot: 6, uses: 1, bonus: { tag: "demolitions", plus: 4 } },
   ],
   abilities: [
-    { id: "nicole-scavenger", name: "Scavenger", text: "Roll a D6 and compare it to the [n] numbers on your equipment list; restore 1 use of the weapon rolled.", mechanic: "special", trigger: { type: "crit" } },
+    { id: "nicole-scavenger", name: "Scavenger", text: "Roll a D6 and compare it to the [n] numbers on your equipment list; restore 1 use of the weapon rolled.", mechanic: "special", trigger: { type: "crit" }, scavenges: true },
     { id: "nicole-sapper", name: "Sapper", text: "When you use explosives: reduce an Objective or Threat's Challenge by 1.", mechanic: "special", trigger: { type: "crit", requires: { tag: "explosives" } }, reduceChallenge: 1 },
     { id: "nicole-blink", name: "Blink", text: "Burst into shadows and reform a few feet away.", mechanic: "active", bloodCost: 1, bonus: { tag: "infiltration", plus: 1 } },
   ],

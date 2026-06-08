@@ -1,5 +1,6 @@
 import type { GameState } from "./types.js";
 import type { GameEvent, CharId } from "../events/types.js";
+import type { DieFace } from "../domain/types.js";
 import { CHARACTERS_BY_ID } from "../data/characters.js";
 import { isBoardSpecialId } from "../engine/specials.js";
 
@@ -53,6 +54,10 @@ function powerName(id: string): string {
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
+
+/** The after-action fragment for a Scavenger salvage throw (#32): the rolled face + what it restored. */
+const salvageLine = (s: { face: DieFace; itemName?: string } | undefined): string =>
+  s ? ` — salvage die ${s.face}${s.itemName ? `, restored ${s.itemName}` : ", nothing to restore"}` : "";
 
 /**
  * Summarise the turn that closed at `committedSeq`. Returns null when that seq isn't an
@@ -112,6 +117,9 @@ export function summarizeCommittedTurn(
   // Nightmare Regeneration (#31): the Injury box a crit-SPECIAL cleared (HEALED with a specialId),
   // keyed by specialId so it folds into that special's "Activated …" line (like the Challenge-cut fold).
   const healClears = new Map<string, { category: 0 | 1 | 2; box: 1 | 2 }[]>();
+  // Scavenger (#32): the salvage die a crit-SPECIAL threw + the weapon it restored (SCAVENGER_ROLLED),
+  // keyed by specialId so it folds into that special's "Activated …" line. One throw per turn.
+  const salvages = new Map<string, { face: DieFace; itemName?: string }>();
 
   const add = (m: Map<string, number>, id: string | undefined, units: number) => {
     if (!id) return;
@@ -191,6 +199,10 @@ export function summarizeCommittedTurn(
         }
         break;
       }
+      case "SCAVENGER_ROLLED":
+        // Scavenger (#32): record the salvage so it folds into the special's "Activated …" line.
+        salvages.set(e.payload.specialId, { face: e.payload.face, itemName: e.payload.itemName });
+        break;
     }
   }
 
@@ -233,7 +245,17 @@ export function summarizeCommittedTurn(
     const heal = healClears.get(sid)?.shift();
     const woundLabel = heal ? CHARACTERS_BY_ID[seat]?.injuries[heal.category]?.boxes[heal.box - 1]?.label : undefined;
     const healText = heal ? ` — cleared an Injury${woundLabel ? ` (${woundLabel})` : ""}` : "";
-    lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}${cutText}${ratingText}${gmText}${chalText}${healText}` });
+    // Scavenger (#32): fold in the salvage die's throw + the weapon it restored (one throw per turn).
+    const salvageText = salvageLine(salvages.get(sid));
+    if (salvageText) salvages.delete(sid); // consumed by this activation — don't also stand alone below
+    lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}${cutText}${ratingText}${gmText}${chalText}${healText}${salvageText}` });
+  }
+
+  // Scavenger (#32) edge: the salvage die was thrown but the crit wasn't committed to the SPECIAL
+  // (placed then taken back) — the restore still happened, so report it as its own activation line
+  // rather than dropping it silently.
+  for (const [sid, salvage] of salvages) {
+    lines.push({ kind: "special", emphasis: true, text: `Activated ${powerName(sid)}${salvageLine(salvage)}` });
   }
 
   // Board-granted damage SPECIALs (Crash & Burn, #23): the crit inflicted a flat amount on the

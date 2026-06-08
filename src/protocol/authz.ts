@@ -52,6 +52,7 @@ const TURN_INTENTS = new Set<Intent["kind"]>([
   "resolve_discard",
   "allocate",
   "add_bonus_dice",
+  "scavenge",
   "commit",
   "roll_injury",
   "resolve_injury",

@@ -180,6 +180,17 @@ export interface EventPayloads {
   EQUIPMENT_USED: { seat: CharId; itemId: string };
   EQUIPMENT_RESTORED: { seat: CharId; itemId: string };
   /**
+   * Nicole's Scavenger SPECIAL (rulebook, Nicole sheet; issue #32): a crit on the SPECIAL throws a
+   * salvage d6 in the arena. Player-driven (they throw it as their own theater beat, the `scavenge`
+   * intent) but the SERVER rolls it — `face` is baked in so replay is deterministic and clients can't
+   * fudge it. The face maps to the numbered weapon carrying that {@link Equipment.scavengerSlot};
+   * `itemId`/`itemName` name the salvaged weapon and the reducer restores 1 of its uses (clamped to the
+   * item's max, exactly like EQUIPMENT_RESTORED). A face with no matching slot omits the item — the
+   * throw is still shown, it just restores nothing. `specialId`/`specialName` fold the salvage into that
+   * SPECIAL's after-action line. A logged, GM-editable default (CLAUDE.md §0).
+   */
+  SCAVENGER_ROLLED: { seat: CharId; face: DieFace; specialId: string; specialName: string; itemId?: string; itemName?: string };
+  /**
    * Rust Curse (rulebook p56, issue #13): the Rust-Witch corrodes one of a GM-chosen PC's
    * items into uselessness — its remaining uses are zeroed. The server picks the item at
    * random (`roll` = a d6 mapped over the eligible items, like injuries/reinforcements), so

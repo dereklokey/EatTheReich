@@ -54,6 +54,10 @@ export type Intent =
   | { kind: "resolve_injury"; ignore?: boolean; rending?: boolean }
   /** Mid-allocation bonus dice (RULES §4): roll `count` more dice into the tray. */
   | { kind: "add_bonus_dice"; count: number; label?: string }
+  /** Nicole's Scavenger SPECIAL (issue #32): throw the salvage d6 in the arena once a crit is on the
+   *  SPECIAL. The server rolls it (anti-fudge) and restores the matching numbered weapon's use. Turn-
+   *  scoped (uses the active turn's seat, like `add_bonus_dice`) and once per turn. */
+  | { kind: "scavenge" }
   /** Last Stand (RULES §5): roll the final 8d6, then allocate them and retire. */
   | { kind: "last_stand_roll" }
   | { kind: "last_stand_commit"; allocations: Allocation[] }
