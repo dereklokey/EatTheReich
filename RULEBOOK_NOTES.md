@@ -92,6 +92,12 @@ when their surfaces are built:
   via `rendInjury` (engine), filling the category (`box: 2`, penalty fires) — still an
   Injury, not a Downed. Gated on `rendingClawsInPlay` so the option only appears while a
   Werhund is on the battlefield.
+- **Unlowerable Challenge** (Werhund): its Challenge cannot be lowered — wired, issue #25.
+  The `unlowerableChallenge` field is now consumed by `isChallengeUnlowerable(target)`
+  (domain) + the engine chokepoint `lowerChallenge(target, by)` (returns it unchanged), the
+  single path every future Challenge-reduction effect (Sapper #29, Tethered Phantom / Hellish
+  Screech #35, the −1-Challenge reward #37) must route through. The Board flags the lock
+  ("🔒 can't be lowered"). Gates *effects*, not the GM's manual Stepper edit (§0 override).
 - **Corrosive Fluids / Feed on Fear** (Chuck/Nicole advances): "when you mark an
   Injury…" / "when you reduce a Threat to 0…" — passive triggers needing hooks.
 

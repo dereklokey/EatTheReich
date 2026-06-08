@@ -240,13 +240,12 @@ export const SPECIAL_HOOKS: SpecialHook[] = [
     id: "enemy.unlowerable-challenge",
     name: "Unlowerable Challenge",
     source: { kind: "enemy", threat: "Werhund", tag: "unlowerable-challenge" },
-    rule: "This enemy's Challenge cannot be lowered (the unlowerableChallenge field is unused today).",
+    rule: "This enemy's Challenge cannot be lowered — every reduction routes through engine lowerChallenge(), which returns it unchanged (isChallengeUnlowerable gate); the board flags the lock.",
     hook: "ALLOCATE",
     trigger: "a Challenge-reduction effect targets it",
     resolution: "message",
     actor: "system",
-    status: "planned",
-    issue: 25,
+    status: "implemented",
   },
 
   // ── Character SPECIALs (crit-allocated) — already wired ─────────────────────

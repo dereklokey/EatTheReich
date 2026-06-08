@@ -75,7 +75,7 @@ feel).
 | Rapid Deployment | Paratrooper | `ROUND_END` | auto / system | ✅ |
 | Crash & Burn | Motorcycle | `ALLOCATE` | select / player | ✅ |
 | Rending Claws | Werhund | `INJURY` | acknowledge / gm | ✅ |
-| Unlowerable Challenge | Werhund | `ALLOCATE` | message / system | ⬜ #25 |
+| Unlowerable Challenge | Werhund | `ALLOCATE` | message / system | ✅ |
 
 ### Character SPECIALs (crit-allocated)
 | Power | Who | Hook | Resolution | Status |

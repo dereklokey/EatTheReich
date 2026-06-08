@@ -11,6 +11,7 @@ export * from "./gmPool.js";
 export * from "./dice.js";
 export * from "./passives.js";
 export * from "./allocate.js";
+export * from "./challenge.js";
 export * from "./injury.js";
 export * from "./reinforcements.js";
 export * from "./specials.js";

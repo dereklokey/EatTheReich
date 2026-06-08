@@ -166,6 +166,20 @@ export function rendingClawsInPlay(threats: readonly Threat[]): boolean {
 
 export type Target = Objective | Threat;
 
+/**
+ * Werhund 'Unlowerable Challenge' (rulebook p64, issue #25): its Challenge cannot be lowered.
+ * THE single predicate that consumes the `unlowerableChallenge` field — the board flags the
+ * lock (the `message`) and every Challenge-reduction effect (Sapper #29, Tethered Phantom /
+ * Hellish Screech #35, the −1-Challenge secondary reward #37) MUST gate on it via
+ * {@link import("../engine/challenge.js").lowerChallenge}, so the block lives in one place
+ * rather than re-checked per effect. Objectives are never unlowerable; only a flagged Threat is.
+ * NOTE: this gates *effects*, not the GM's manual Stepper edit — §0 "suggest, don't enforce"
+ * lets the GM override anything, including dropping a Werhund's Challenge by hand.
+ */
+export function isChallengeUnlowerable(target: Target): boolean {
+  return target.kind === "threat" && target.unlowerableChallenge === true;
+}
+
 /** Context for a declared action — drives GM pool, SPECIAL gating, etc. */
 export interface ActionContext {
   stat: Stat;

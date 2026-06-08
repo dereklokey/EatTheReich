@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import type { GameState, CharacterRuntime } from "@shared/state/types.js";
 import type { SeatId, CharId, GameEvent } from "@shared/events/types.js";
 import { CHAR_IDS } from "@shared/events/types.js";
+import { isChallengeUnlowerable } from "@shared/domain/types.js";
 import { LOCATIONS_BY_ID } from "@shared/data/locations.js";
 import { seatName } from "@/game/seats";
 import { useEffects } from "@/effects/EffectsContext";
@@ -296,7 +297,14 @@ export function Board({
                       <div className="flex items-center gap-2">
                         <div className={`flex-1 min-w-0 ${dim}`}>
                           <RatingPips n={t.rating} tone="blood" />
-                          {t.challenge ? <div className="mono text-[0.6rem] text-paper-fade mt-0.5">challenge {t.challenge}</div> : null}
+                          {t.challenge ? (
+                            <div className="mono text-[0.6rem] text-paper-fade mt-0.5">
+                              challenge {t.challenge}
+                              {/* Werhund 'Unlowerable Challenge' (#25): flag the lock so the table knows
+                                  no effect (Sapper/Tethered Phantom/Hellish Screech/reward) can chip it. */}
+                              {isChallengeUnlowerable(t) ? <span className="text-blood"> · 🔒 can’t be lowered</span> : null}
+                            </div>
+                          ) : null}
                         </div>
                         {gmCanStage && (
                           staged ? (

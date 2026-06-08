@@ -18,11 +18,13 @@ import {
   clampBlood,
   reinforce,
   boardGrantedSpecials,
+  lowerChallenge,
   type BoardState,
 } from "../index.js";
 import { markInjury, emptyInjuryTrack, defaultCategoryFromD6, rendInjury, resolveInjury } from "../injury.js";
-import { naziSquad, infantrySquad, policePatrol, einherjar, paratrooperSquad, motorcycleSquad, werhund } from "../../data/threats.js";
-import { feedBlockedByBloodless, rendingClawsInPlay } from "../../domain/types.js";
+import { naziSquad, infantrySquad, policePatrol, einherjar, paratrooperSquad, motorcycleSquad, werhund, tank } from "../../data/threats.js";
+import { feedBlockedByBloodless, rendingClawsInPlay, isChallengeUnlowerable } from "../../domain/types.js";
+import type { Objective } from "../../domain/types.js";
 
 describe("buildPlayerPool", () => {
   it("sums stat + equipment + satisfied bonus + abilities", () => {
@@ -436,6 +438,30 @@ describe("rendingClawsInPlay — Werhund predicate (issue #24)", () => {
     expect(rendingClawsInPlay([naziSquad()])).toBe(false);
     expect(rendingClawsInPlay([{ ...werhund(), active: false }])).toBe(false);
     expect(rendingClawsInPlay([{ ...werhund(), rating: 0 }])).toBe(false);
+  });
+});
+
+describe("Werhund 'Unlowerable Challenge' (rulebook p64, issue #25)", () => {
+  const obj: Objective = { id: "o", name: "Ascend", kind: "objective", rating: 8, challenge: 2 };
+
+  it("isChallengeUnlowerable: true only for a flagged Threat (never an Objective)", () => {
+    expect(isChallengeUnlowerable(werhund())).toBe(true); // unlowerableChallenge set
+    expect(isChallengeUnlowerable(tank())).toBe(false); // challenge 2 but ordinary
+    expect(isChallengeUnlowerable(obj)).toBe(false); // Objectives are never unlowerable
+  });
+
+  it("lowerChallenge clamps a normal target's reduction to [0, current]", () => {
+    expect(lowerChallenge(tank(), 1)).toBe(1); // challenge 2 → 1
+    expect(lowerChallenge(tank(), 5)).toBe(0); // over-reduce floors at 0
+    expect(lowerChallenge(obj, 1)).toBe(1); // Objective: challenge 2 → 1
+    expect(lowerChallenge({ ...tank(), challenge: undefined }, 1)).toBe(0); // no challenge → stays 0
+    expect(lowerChallenge(tank(), -3)).toBe(2); // a negative request never raises Challenge
+  });
+
+  it("lowerChallenge leaves a Werhund's Challenge UNCHANGED — the gate (issue #25)", () => {
+    const w = werhund(); // challenge 1, unlowerableChallenge
+    expect(lowerChallenge(w, 1)).toBe(1);
+    expect(lowerChallenge(w, 99)).toBe(1); // immune no matter how much is requested
   });
 });
 
