@@ -256,6 +256,76 @@ describe("processIntent — SPECIAL self-buff applies its Blood", () => {
   });
 });
 
+describe("processIntent — Deadeye Shot / Back-Pocket Hex −1 Threat Attack (#26)", () => {
+  it("a crit on Iryna's Deadeye Shot, aimed at a Threat, drops its Attack by 1 (logged, GM-editable)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "iryna-deadeye-shot", targetId: "thr1", units: 2 }] },
+      sequenceRoller([]),
+      "iryna",
+    );
+    expect(events.map((e) => e.type)).toEqual(["DIE_ALLOCATED", "THREAT_ATTACK_REDUCED"]);
+    expect(events.find((e) => e.type === "THREAT_ATTACK_REDUCED")?.payload).toMatchObject({
+      threatId: "thr1",
+      threatName: "Nazi Squad",
+      amount: 1,
+      attack: 2, // 3 − 1, resolved
+      specialId: "iryna-deadeye-shot",
+      specialName: "Deadeye Shot",
+    });
+    expect(d.state.board.threats[0]?.attack).toBe(2);
+  });
+
+  it("Cosgrave's Back-Pocket Hex shaves a chosen Threat's Attack the same way", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "cosgrave", stat: "TERRIFY" }, sequenceRoller([]), "cosgrave");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "cosgrave-back-pocket-hex", targetId: "thr1", units: 2 }] },
+      sequenceRoller([]),
+      "cosgrave",
+    );
+    expect(events.find((e) => e.type === "THREAT_ATTACK_REDUCED")?.payload).toMatchObject({ specialName: "Back-Pocket Hex", attack: 2 });
+    expect(d.state.board.threats[0]?.attack).toBe(2);
+  });
+
+  it("no target Threat → just the activation, Attack untouched (the existing crit-without-pick path)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "iryna-deadeye-shot", units: 2 }] },
+      sequenceRoller([]),
+      "iryna",
+    );
+    expect(events.map((e) => e.type)).toEqual(["DIE_ALLOCATED"]);
+    expect(d.state.board.threats[0]?.attack).toBe(3);
+  });
+
+  it("two Attack-shaving crits on one Threat compose and clamp at 0", () => {
+    const lowAtk: Threat = { ...threat, attack: 1 };
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [lowAtk] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    const events = d.run(
+      {
+        kind: "allocate",
+        allocations: [
+          { kind: "special", specialId: "iryna-deadeye-shot", targetId: "thr1", units: 2 },
+          { kind: "special", specialId: "iryna-deadeye-shot", targetId: "thr1", units: 2 },
+        ],
+      },
+      sequenceRoller([]),
+      "iryna",
+    );
+    const resolved = events.filter((e) => e.type === "THREAT_ATTACK_REDUCED").map((e) => e.payload.attack);
+    expect(resolved).toEqual([0, 0]); // 1 → 0, then the second clamps (stays 0)
+    expect(d.state.board.threats[0]?.attack).toBe(0);
+  });
+});
+
 describe("processIntent — Last Stand (RULES §5)", () => {
   const allSixMarked = ([0, 1, 2] as const).flatMap((category) =>
     ([1, 2] as const).map((box) => ({ type: "INJURY_MARKED" as const, payload: { seat: "iryna" as const, category, box } })),

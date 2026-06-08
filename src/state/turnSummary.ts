@@ -97,6 +97,9 @@ export function summarizeCommittedTurn(
   const challengeBump = new Map<string, number>();
   // Vampirjäger 'Anathema' (#21): extra GM successes the Reich's 6s scored by double-counting.
   let anathemaBonus = 0;
+  // Deadeye Shot / Back-Pocket Hex (#26): the Attack a crit-SPECIAL shaved off a Threat, keyed by
+  // specialId so it folds into that special's "Activated …" line (parallel to the Ravenous blood fold).
+  const attackCuts = new Map<string, { threatName: string; amount: number; attack: number }[]>();
 
   const add = (m: Map<string, number>, id: string | undefined, units: number) => {
     if (!id) return;
@@ -140,6 +143,12 @@ export function summarizeCommittedTurn(
       case "DICE_DISCARDED":
         anathemaBonus += e.payload.anathemaBonus ?? 0;
         break;
+      case "THREAT_ATTACK_REDUCED": {
+        const list = attackCuts.get(e.payload.specialId) ?? [];
+        list.push({ threatName: e.payload.threatName, amount: e.payload.amount, attack: e.payload.attack });
+        attackCuts.set(e.payload.specialId, list);
+        break;
+      }
     }
   }
 
@@ -152,7 +161,10 @@ export function summarizeCommittedTurn(
     const name = powerName(sid);
     const grant = bloodChanges.find((b) => b.reason === name && b.delta > 0);
     if (grant) foldedReasons.add(name);
-    lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}` });
+    // Pair each activation with its Attack cut in order (#26) — a crit on Deadeye/Hex shaved a Threat.
+    const cut = attackCuts.get(sid)?.shift();
+    const cutText = cut ? ` — ${cut.threatName}'s Attack −${cut.amount} (now ${cut.attack})` : "";
+    lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}${cutText}` });
   }
 
   // Board-granted damage SPECIALs (Crash & Burn, #23): the crit inflicted a flat amount on the

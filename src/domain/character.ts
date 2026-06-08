@@ -66,6 +66,14 @@ export interface Power {
    * (a default the GM can still edit, CLAUDE.md §0).
    */
   grantsBlood?: number;
+  /**
+   * How much this SPECIAL reduces a chosen Threat's Attack rating when activated (a crit
+   * allocated to it WITH a target Threat) — Iryna's Deadeye Shot / Cosgrave's Back-Pocket Hex
+   * (both −1, rulebook pp51/57). Unlike {@link grantsBlood} (a self-buff), this needs the
+   * table to pick the Threat, so it rides on the `special` allocation's `targetId`. The handler
+   * applies it as a logged THREAT_ATTACK_REDUCED (a default the GM can still edit, CLAUDE.md §0).
+   */
+  reduceThreatAttack?: number;
 }
 
 export interface Equipment {

@@ -37,7 +37,9 @@ the **book** in each case.
    describes some of these as flat effects. Per the sheets they are `SPECIAL:` =
    crit-activated, some with a narration condition (Deadeye "when you use a ranged
    weapon"; Sapper "when you use explosives"). Encoded as crit triggers with `tag`
-   conditions.
+   conditions. Back-Pocket Hex / Deadeye Shot's −1 Threat Attack is wired (#26):
+   `Power.reduceThreatAttack` + a target-carrying `special` allocation → a logged
+   THREAT_ATTACK_REDUCED. Sapper's −1 Challenge is still backlog (#29).
 
 ## Engine rules confirmed against the rulebook (no change needed)
 

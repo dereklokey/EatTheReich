@@ -104,6 +104,16 @@ export interface EventPayloads {
    */
   ENEMY_CHALLENGE_RAISED: { threatId: string; threatName: string; amount: number; ones: number; rule: string };
   /**
+   * A crit-SPECIAL knocked a Threat's Attack rating down (Iryna's Deadeye Shot / Cosgrave's
+   * Back-Pocket Hex, both −1; rulebook pp51/57). Fired from the ALLOCATE branch when a crit is
+   * spent on a `reduceThreatAttack` SPECIAL that carries a target Threat — the player's analogue
+   * of Ravenous's self-buff BLOOD_CHANGED, but it needs a picked target so it lands as its own
+   * fiction-carrying event (like GM_WHIFF). `attack` is the resolved new value (clamped ≥0,
+   * deterministic on replay); `specialId`/`specialName` let the after-action report fold the
+   * reduction into the "Activated …" line. A logged, GM-overridable default (CLAUDE.md §0).
+   */
+  THREAT_ATTACK_REDUCED: { threatId: string; threatName: string; amount: number; attack: number; specialId: string; specialName: string };
+  /**
    * Mid-allocation bonus dice (RULES §4 — the pool is NOT frozen at roll time). A newly
    * narrated advantage adds `count` dice now; the server rolls and discards them, and the
    * survivors join the allocation tray. `label` tags their pool source.

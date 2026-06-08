@@ -126,6 +126,15 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
             : t,
         ),
       });
+    case "THREAT_ATTACK_REDUCED":
+      // Deadeye Shot / Back-Pocket Hex (#26): a crit-SPECIAL shaved the Threat's Attack. The new
+      // value is carried resolved (clamped in the handler), so just set it — like GM_WHIFF.
+      return withBoard(s, {
+        ...s.board,
+        threats: s.board.threats.map((t) =>
+          t.id === e.payload.threatId ? { ...t, attack: e.payload.attack } : t,
+        ),
+      });
 
     case "TURN_STARTED":
       return {

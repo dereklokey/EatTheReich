@@ -61,7 +61,7 @@ export const IRYNA: CharacterSheet = {
   abilities: [
     { id: "iryna-dark-glamour", name: "Dark Glamour", text: "Those nearby are mesmerised by your unearthly visage.", mechanic: "active", bloodCost: 1, bonus: { tag: "beautiful surroundings", plus: 1 } },
     { id: "iryna-nights-servants", name: "Night's Willing Servants", text: "Summon a swarm of bats under your control.", mechanic: "active", bloodCost: 1, bonus: { tag: "old buildings", plus: 1 } },
-    { id: "iryna-deadeye-shot", name: "Deadeye Shot", text: "When you use a ranged weapon: reduce a Threat's Attack rating by 1.", mechanic: "special", trigger: { type: "crit", requires: { tag: "ranged weapon" } } },
+    { id: "iryna-deadeye-shot", name: "Deadeye Shot", text: "When you use a ranged weapon: reduce a Threat's Attack rating by 1.", mechanic: "special", trigger: { type: "crit", requires: { tag: "ranged weapon" } }, reduceThreatAttack: 1 },
   ],
   advances: [
     { id: "iryna-hells-fire", name: "Hell's Ravenous Fire", text: "Ignore Challenge on your next action against a Threat.", mechanic: "active", bloodCost: 1, addsDie: false },
@@ -134,7 +134,7 @@ export const COSGRAVE: CharacterSheet = {
   ],
   abilities: [
     { id: "cosgrave-danse-macabre", name: "Danse Macabre", text: "Gain full control of a corpse for around a minute, after which it falls apart.", mechanic: "active", bloodCost: 1, bonus: { tag: '"Hans, are you okay?"', plus: 1 } },
-    { id: "cosgrave-back-pocket-hex", name: "Back-Pocket Hex", text: "Reduce a Threat's Attack rating by 1.", mechanic: "special", trigger: { type: "crit" } },
+    { id: "cosgrave-back-pocket-hex", name: "Back-Pocket Hex", text: "Reduce a Threat's Attack rating by 1.", mechanic: "special", trigger: { type: "crit" }, reduceThreatAttack: 1 },
     { id: "cosgrave-phantasmagoria", name: "Phantasmagoria", text: "Conjure nightmare illusions in the area immediately around you.", mechanic: "active", bloodCost: 1, bonus: { tag: "incorporates the background in a clever way", plus: 1 } },
   ],
   advances: [

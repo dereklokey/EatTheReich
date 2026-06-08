@@ -236,6 +236,28 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(byKind.special).toBe("Crash & Burn — dealt 3 to Motorcycle Squad (now 4)");
   });
 
+  it("folds a Deadeye Shot / Back-Pocket Hex −Attack into the activation line (#26)", () => {
+    const { ev } = log();
+    const thr: Threat = { id: "thr", name: "Nazi Squad", kind: "threat", rating: 4, attack: 3, startingAttack: 3, reinforces: true, restoresAtZero: true };
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "iryna" }, "iryna"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [thr] }),
+      ev("TURN_STARTED", { seat: "iryna", stat: "SHOOT" }, "iryna"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 0 }),
+      ev("DIE_ALLOCATED", { kind: "special", specialId: "iryna-deadeye-shot", targetId: "thr", units: 2 }, "iryna"),
+      ev("THREAT_ATTACK_REDUCED", { threatId: "thr", threatName: "Nazi Squad", amount: 1, attack: 2, specialId: "iryna-deadeye-shot", specialName: "Deadeye Shot" }, "iryna"),
+      ev("ALLOCATION_COMMITTED", {}, "iryna"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    expect(state.board.threats[0]?.attack).toBe(2);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines).toHaveLength(1);
+    expect(summary.lines[0]).toMatchObject({ kind: "special", text: "Activated Deadeye Shot — Nazi Squad's Attack −1 (now 2)" });
+  });
+
   it("returns null for an empty turn and for a non-commit seq", () => {
     const events = irynaClockTowerEvents("g-iryna");
     const state = reduce(events);

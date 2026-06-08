@@ -107,6 +107,23 @@ function specialBloodGrant(state: GameState, seat: CharId, specialId: string): {
 }
 
 /**
+ * The Attack-rating reduction a SPECIAL inflicts on a chosen Threat (Iryna's Deadeye Shot /
+ * Cosgrave's Back-Pocket Hex → −1; rulebook pp51/57). Same lookup as {@link specialBloodGrant}
+ * but for the `reduceThreatAttack` descriptor — a crit spent on one of these, with a target
+ * Threat, drops that Threat's Attack as a logged, GM-editable default. Returns the power's name
+ * so the log reads "Deadeye Shot".
+ */
+function specialAttackReduction(state: GameState, seat: CharId, specialId: string): { amount: number; name: string } | undefined {
+  const sheet = CHARACTERS_BY_ID[seat];
+  if (!sheet) return undefined;
+  const unlocked = state.characters[seat]?.unlockedAdvances ?? [];
+  const power =
+    sheet.abilities.find((p) => p.id === specialId) ??
+    sheet.advances.find((p) => p.id === specialId && unlocked.includes(p.id));
+  return power?.reduceThreatAttack ? { amount: power.reduceThreatAttack, name: power.name } : undefined;
+}
+
+/**
  * GM-whiff escalation (RULES §8, rulebook p38), applied at the conclusion of the action it
  * happened in (NOT at end of round). If the Reich's Attack roll this turn produced zero
  * successes, the lead (anchor) Threat presses harder: +1 Attack. Returns the THREAT_UPDATED
@@ -306,6 +323,9 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       const turn = state.currentTurn;
       if (!turn) return err("no turn in progress");
       const events: EventInput[] = [];
+      // Running Attack per Threat so two Attack-shaving crits in one batch (Deadeye + Hex on the
+      // same Threat) compose: each THREAT_ATTACK_REDUCED carries the resolved value the next reads.
+      const attackNow = new Map<string, number>();
       for (const a of intent.allocations) {
         events.push({
           type: "DIE_ALLOCATED",
@@ -317,6 +337,17 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
         if (a.kind === "special" && a.specialId) {
           const grant = specialBloodGrant(state, turn.seat, a.specialId);
           if (grant) events.push({ type: "BLOOD_CHANGED", payload: { seat: turn.seat, delta: grant.amount, reason: grant.name }, actor: turn.seat });
+          // A SPECIAL that shaves a chosen Threat's Attack (Deadeye Shot / Back-Pocket Hex, #26):
+          // when the crit carries a target, drop that Threat's Attack by the descriptor's amount
+          // as a logged, GM-editable THREAT_ATTACK_REDUCED. No target → no effect (just activated).
+          const reduce = specialAttackReduction(state, turn.seat, a.specialId);
+          const thr = a.targetId ? state.board.threats.find((t) => t.id === a.targetId) : undefined;
+          if (reduce && thr) {
+            const current = attackNow.get(thr.id) ?? thr.attack;
+            const next = Math.max(0, current - reduce.amount);
+            attackNow.set(thr.id, next);
+            events.push({ type: "THREAT_ATTACK_REDUCED", payload: { threatId: thr.id, threatName: thr.name, amount: reduce.amount, attack: next, specialId: a.specialId, specialName: reduce.name }, actor: turn.seat });
+          }
         }
       }
       return ok(events);

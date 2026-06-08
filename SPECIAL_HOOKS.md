@@ -81,7 +81,7 @@ feel).
 | Power | Who | Hook | Resolution | Status |
 |---|---|---|---|---|
 | Ravenous (+3 Blood) | Flint | `ALLOCATE` | auto / player | ✅ |
-| Deadeye Shot / Back-Pocket Hex (−1 Atk) | Iryna, Cosgrave | `ALLOCATE` | select / player | ⬜ #26 |
+| Deadeye Shot / Back-Pocket Hex (−1 Atk) | Iryna, Cosgrave | `ALLOCATE` | select / player | ✅ |
 | Apex Predator (−3 rating) | Astrid | `ALLOCATE` | select / player | ⬜ #27 |
 | Unnatural Endurance (−3 GM dice) | Astrid | `ALLOCATE` | acknowledge / player | ⬜ #28 |
 | Sapper (−1 Challenge) | Nicole | `ALLOCATE` | select / player | ⬜ #29 |

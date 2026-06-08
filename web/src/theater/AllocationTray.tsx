@@ -148,6 +148,10 @@ export function AllocationTray({
       if (bs) {
         const thr = preview.board.threats.find((t) => t.id === bs.threatId);
         fireCard(bs.threatId, thr && thr.rating - units <= 0 ? "kill" : "spray");
+      } else if (alloc.targetId) {
+        // A targeted sheet SPECIAL clips a Threat (Deadeye Shot / Back-Pocket Hex, #26 → −Attack) —
+        // a light spray on its card so the table sees which enemy took the hit.
+        fireCard(alloc.targetId, "spray");
       }
     }
   };
@@ -312,20 +316,42 @@ export function AllocationTray({
         />
         {/* SPECIALs sit in the list like any other target so the table sees them, but only
             a critical can arm one (RULES §4). A non-crit pick greys them with the reason. */}
-        {specials.map((sp) => (
-          <TargetCard
-            key={sp.id}
-            special
-            armed={critPicked}
-            blocked={picked !== null && !critPicked}
-            label={sp.name}
-            sub={`SPECIAL · critical only${sp.grantsBlood ? ` · +${sp.grantsBlood} Blood` : ""}`}
-            hint={sp.text}
-            onClick={() => critPicked && place({ kind: "special", specialId: sp.id })}
-            placed={placedOn((a) => a.kind === "special" && a.specialId === sp.id)}
-            onUnplace={unassign}
-          />
-        ))}
+        {specials.flatMap((sp) => {
+          // Deadeye Shot / Back-Pocket Hex (#26): the SPECIAL needs a target Threat, so it expands
+          // to one card per in-play Threat (mirroring the board-granted specials). The crit's units
+          // still go to the SPECIAL; the −Attack is server-resolved off `targetId`.
+          if (sp.reduceThreatAttack) {
+            const cut = sp.reduceThreatAttack;
+            return thrLive.map((t) => (
+              <TargetCard
+                key={`${sp.id}:${t.id}`}
+                special
+                armed={critPicked}
+                blocked={picked !== null && !critPicked}
+                label={`${sp.name} → ${t.name}`}
+                sub={`SPECIAL · critical only · ATK −${cut} (${t.attack} → ${Math.max(0, t.attack - cut)})`}
+                hint={sp.text}
+                onClick={() => critPicked && place({ kind: "special", specialId: sp.id, targetId: t.id })}
+                placed={placedOn((a) => a.kind === "special" && a.specialId === sp.id && a.targetId === t.id)}
+                onUnplace={unassign}
+              />
+            ));
+          }
+          return [
+            <TargetCard
+              key={sp.id}
+              special
+              armed={critPicked}
+              blocked={picked !== null && !critPicked}
+              label={sp.name}
+              sub={`SPECIAL · critical only${sp.grantsBlood ? ` · +${sp.grantsBlood} Blood` : ""}`}
+              hint={sp.text}
+              onClick={() => critPicked && place({ kind: "special", specialId: sp.id })}
+              placed={placedOn((a) => a.kind === "special" && a.specialId === sp.id)}
+              onUnplace={unassign}
+            />,
+          ];
+        })}
         {/* Board-granted SPECIALs (Crash & Burn, #23) — every vampire gets these while the
             granting Threat is in play. Crit-only like sheet specials; spend a crit → deal 3. */}
         {boardSpecials.map((bs) => (
