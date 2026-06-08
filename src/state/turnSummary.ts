@@ -90,7 +90,7 @@ export function summarizeCommittedTurn(
   const bloodChanges: { reason: string; delta: number }[] = [];
   const passives: { id: string; detail?: string; bloodDelta?: number; gmSuccessDelta?: number }[] = [];
   let whiff: { name: string; attack: number; rating?: number } | null = null;
-  let injury: { kind: "injury" | "downed"; penalty?: string } | null = null;
+  let injury: { kind: "injury" | "downed"; penalty?: string; rending?: boolean } | null = null;
   let bonus = 0;
   let bonusLabel: string | undefined;
   // Einherjar 'Painless' (#19): per-action Challenge the Reich's 1s heaped onto a Threat, by id.
@@ -125,7 +125,7 @@ export function summarizeCommittedTurn(
         whiff = { name: e.payload.name, attack: e.payload.attack, rating: e.payload.rating };
         break;
       case "INJURY_MARKED":
-        injury = { kind: "injury", penalty: e.payload.penalty };
+        injury = { kind: "injury", penalty: e.payload.penalty, rending: e.payload.rending };
         break;
       case "DOWNED":
         injury = { kind: "downed" };
@@ -226,7 +226,10 @@ export function summarizeCommittedTurn(
     });
 
   if (injury?.kind === "downed") lines.push({ kind: "downed", emphasis: true, text: "Downed — out of the fight" });
-  else if (injury?.kind === "injury") lines.push({ kind: "injury", emphasis: true, text: `Took an Injury${injury.penalty ? ` — ${injury.penalty}` : ""}` });
+  else if (injury?.kind === "injury")
+    // Rending Claws (#24) filled the whole category — name the Werhund so the table sees why
+    // a single hit cost both boxes.
+    lines.push({ kind: "injury", emphasis: true, text: `${injury.rending ? "Rending Claws — the whole wound opens" : "Took an Injury"}${injury.penalty ? ` — ${injury.penalty}` : ""}` });
 
   if (lines.length === 0) return null;
   return { seat, charName: CHARACTERS_BY_ID[seat]?.name ?? seat, lines };

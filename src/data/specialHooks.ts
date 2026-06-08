@@ -234,8 +234,7 @@ export const SPECIAL_HOOKS: SpecialHook[] = [
     trigger: "an Injury attributed to the Werhund is marked",
     resolution: "acknowledge",
     actor: "gm",
-    status: "planned",
-    issue: 24,
+    status: "implemented",
   },
   {
     id: "enemy.unlowerable-challenge",

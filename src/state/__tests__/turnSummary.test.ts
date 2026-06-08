@@ -65,6 +65,43 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(byKind.whiff).toBe("Shots go wide — Infantry Squad presses the attack (ATK +1 → 5)");
   });
 
+  it("names the Werhund when a Rending Claws injury fills the whole category (#24)", () => {
+    const { ev } = log();
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "astrid" }, "astrid"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [] }),
+      ev("TURN_STARTED", { seat: "astrid", stat: "BRAWL" }, "astrid"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 1 }),
+      ev("INJURY_MARKED", { seat: "astrid", category: 0, box: 2, penalty: "Mangled arm", rending: true }, "astrid"),
+      ev("ALLOCATION_COMMITTED", {}, "astrid"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    const injuryLine = summary.lines.find((l) => l.kind === "injury");
+    expect(injuryLine?.text).toBe("Rending Claws — the whole wound opens — Mangled arm");
+  });
+
+  it("a plain Injury (no rending) reads as a normal hit", () => {
+    const { ev } = log();
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "astrid" }, "astrid"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [] }),
+      ev("TURN_STARTED", { seat: "astrid", stat: "BRAWL" }, "astrid"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 1 }),
+      ev("INJURY_MARKED", { seat: "astrid", category: 0, box: 1 }, "astrid"),
+      ev("ALLOCATION_COMMITTED", {}, "astrid"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines.find((l) => l.kind === "injury")?.text).toBe("Took an Injury");
+  });
+
   it("folds a SPECIAL's Blood grant into the activation line (Ravenous +3)", () => {
     const { ev } = log();
     const events = [

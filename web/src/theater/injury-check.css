@@ -70,3 +70,10 @@
   color: var(--hazard);
 }
 .injury-react--shrug:hover { background: rgba(242, 192, 20, 0.12); }
+/* Rending Claws (#24): the Werhund's all-boxes escalation reads as a deeper, bloodier wound. */
+.injury-react--rend {
+  background: transparent;
+  border-color: var(--blood);
+  color: var(--blood);
+}
+.injury-react--rend:hover { background: rgba(192, 20, 46, 0.14); }

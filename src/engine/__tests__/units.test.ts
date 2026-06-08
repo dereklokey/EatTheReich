@@ -20,9 +20,9 @@ import {
   boardGrantedSpecials,
   type BoardState,
 } from "../index.js";
-import { markInjury, emptyInjuryTrack, defaultCategoryFromD6 } from "../injury.js";
-import { naziSquad, infantrySquad, policePatrol, einherjar, paratrooperSquad, motorcycleSquad } from "../../data/threats.js";
-import { feedBlockedByBloodless } from "../../domain/types.js";
+import { markInjury, emptyInjuryTrack, defaultCategoryFromD6, rendInjury, resolveInjury } from "../injury.js";
+import { naziSquad, infantrySquad, policePatrol, einherjar, paratrooperSquad, motorcycleSquad, werhund } from "../../data/threats.js";
+import { feedBlockedByBloodless, rendingClawsInPlay } from "../../domain/types.js";
 
 describe("buildPlayerPool", () => {
   it("sums stat + equipment + satisfied bonus + abilities", () => {
@@ -397,6 +397,45 @@ describe("injury track cascade (RULES §5)", () => {
     expect(track).toEqual([2, 2, 2]); // all boxes marked
     const overflow = markInjury(track, 0); // no box free anywhere
     expect(overflow.overflowToDeath).toBe(true);
+  });
+});
+
+describe("rendInjury — Werhund 'Rending Claws' (rulebook p64, issue #24)", () => {
+  it("escalates a normal one-box Injury to fill the whole category (box 2, penalty)", () => {
+    const normal = resolveInjury(1, emptyInjuryTrack(), 1); // 1 leftover, d6=1 → category 0, box 1
+    expect(normal).toMatchObject({ kind: "injury", category: 0, box: 1, penaltyTriggered: false });
+    const rent = rendInjury(normal);
+    // Same category, but now the full category fills and the 2nd-box penalty fires —
+    // Downed-like severity, yet still an Injury (not a Downed).
+    expect(rent).toEqual({ kind: "injury", category: 0, box: 2, penaltyTriggered: true });
+  });
+
+  it("keeps the category the normal injury landed in (a 2nd-box hit just re-asserts box 2)", () => {
+    const second = resolveInjury(2, [1, 0, 0], 1); // category 0 already has box 1 → marks box 2
+    expect(second).toMatchObject({ kind: "injury", category: 0, box: 2 });
+    expect(rendInjury(second)).toEqual({ kind: "injury", category: 0, box: 2, penaltyTriggered: true });
+  });
+
+  it("leaves a Downed, death, or no-injury outcome untouched — there is nothing to escalate", () => {
+    const downed = resolveInjury(3, emptyInjuryTrack(), 5); // 3 leftover → Downed
+    expect(rendInjury(downed)).toBe(downed);
+    const death = resolveInjury(1, [2, 2, 2], 1); // nowhere free → death
+    expect(rendInjury(death)).toEqual({ kind: "death" });
+    const none = resolveInjury(0, emptyInjuryTrack(), 1);
+    expect(rendInjury(none)).toEqual({ kind: "none" });
+  });
+});
+
+describe("rendingClawsInPlay — Werhund predicate (issue #24)", () => {
+  it("is true while a Werhund is in play", () => {
+    expect(rendingClawsInPlay([werhund()])).toBe(true);
+    expect(rendingClawsInPlay([naziSquad(), werhund()])).toBe(true);
+  });
+
+  it("is false with no Werhund, or a staged/defeated one (gated on threatInPlay)", () => {
+    expect(rendingClawsInPlay([naziSquad()])).toBe(false);
+    expect(rendingClawsInPlay([{ ...werhund(), active: false }])).toBe(false);
+    expect(rendingClawsInPlay([{ ...werhund(), rating: 0 }])).toBe(false);
   });
 });
 

@@ -47,8 +47,11 @@ export type Intent =
   /** Throw the category d6 for the open INJURY_CHECK (RULES §4): the wounded vampire's
    *  own beat — the server rolls it and parks INJURY_PENDING for the reveal. */
   | { kind: "roll_injury" }
-  /** Resolve the parked INJURY_CHECK: apply the rolled injury, or `ignore` it (Chuck's hat). */
-  | { kind: "resolve_injury"; ignore?: boolean }
+  /** Resolve the parked INJURY_CHECK: apply the rolled injury, `ignore` it (Chuck's hat), or
+   *  `rending` — attribute a normal Injury to a Werhund in play, marking the WHOLE category
+   *  (Rending Claws, rulebook p64, issue #24). `rending` is ignored unless the parked outcome
+   *  is a normal injury and a Werhund is in play. */
+  | { kind: "resolve_injury"; ignore?: boolean; rending?: boolean }
   /** Mid-allocation bonus dice (RULES §4): roll `count` more dice into the tray. */
   | { kind: "add_bonus_dice"; count: number; label?: string }
   /** Last Stand (RULES §5): roll the final 8d6, then allocate them and retire. */

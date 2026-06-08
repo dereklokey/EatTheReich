@@ -74,7 +74,7 @@ feel).
 | Anathema | Vampirjäger | `ROLL_RESULTS` | auto / system | ✅ |
 | Rapid Deployment | Paratrooper | `ROUND_END` | auto / system | ✅ |
 | Crash & Burn | Motorcycle | `ALLOCATE` | select / player | ✅ |
-| Rending Claws | Werhund | `INJURY` | acknowledge / gm | ⬜ #24 |
+| Rending Claws | Werhund | `INJURY` | acknowledge / gm | ✅ |
 | Unlowerable Challenge | Werhund | `ALLOCATE` | message / system | ⬜ #25 |
 
 ### Character SPECIALs (crit-allocated)

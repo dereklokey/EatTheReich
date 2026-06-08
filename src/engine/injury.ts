@@ -150,6 +150,22 @@ export function markDowned(track: InjuryTrack, category: 0 | 1 | 2): InjuryTrack
 }
 
 /**
+ * Werhund 'Rending Claws' (RULES §5, rulebook p64): a normal (non-Downed) Injury attributed
+ * to the Werhund marks ALL boxes in the wound's category — Downed-like severity, but it is
+ * still an Injury, NOT a Downed (the vampire stays in the fight; no rescue Objective). The
+ * upgrade keeps the category `resolveInjury` already landed (its cascade is respected) and
+ * fills it: `box` becomes 2, so the reducer maxes the category to 2 and the 2nd-box penalty
+ * fires. A non-injury outcome (downed/death/none) is returned untouched — there is nothing
+ * to escalate. Because the GM Attack pool is aggregate (no per-Threat attribution), the table
+ * decides whether this hit was the Werhund's before the upgrade applies (the `acknowledge`
+ * hook); this pure helper just performs the escalation it's told to.
+ */
+export function rendInjury(outcome: InjuryOutcome): InjuryOutcome {
+  if (outcome.kind !== "injury") return outcome;
+  return { kind: "injury", category: outcome.category, box: 2, penaltyTriggered: true };
+}
+
+/**
  * Last Stand pool (RULES §5, rulebook p36): all 6 boxes marked → "roll 8D6. Apply them
  * to the current Objectives and Threats however you like." No GM pool, no discard, no
  * threshold — *every* die counts (a 6 is still a critical worth 2). The reducer maps the

@@ -9,6 +9,7 @@ import type { Actor, GameEvent } from "../../events/types.js";
 import { sequenceRoller } from "../../domain/dice.js";
 import type { DiceRoller } from "../../domain/dice.js";
 import type { DieFace, Objective, Threat } from "../../domain/types.js";
+import { werhund } from "../../data/threats.js";
 
 const objective: Objective = { id: "obj1", name: "Take cover", kind: "objective", rating: 6 };
 const threat: Threat = { id: "thr1", name: "Nazi Squad", kind: "threat", rating: 4, attack: 3, startingAttack: 3, reinforces: true, restoresAtZero: true };
@@ -474,6 +475,51 @@ describe("processIntent — INJURY_CHECK window + reactive gear (RULES §4/§5)"
     expect(ev.map((e) => e.type)).toEqual(["EQUIPMENT_RESTORED", "BLOOD_CHANGED"]);
     expect(d.state.characters.iryna.blood).toBe(0);
     expect(d.state.characters.iryna.equipmentUses["iryna-cigarettes"]).toBe(3);
+  });
+});
+
+describe("processIntent — Werhund 'Rending Claws' (rulebook p64, issue #24)", () => {
+  /** Drive a turn to a parked single-box Injury for Astrid against the given threats (d6=1 →
+   *  category 0). The threat's Attack is forced to 3 so the GM pool stays a tidy 3 dice. */
+  function parkAnInjuryVs(threats: Threat[]) {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: threats.map((t) => ({ ...t, attack: 3 })) });
+    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL" }, sequenceRoller([]), "astrid");
+    d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 4]), "astrid"); // 2 player successes
+    d.run({ kind: "roll_gm" }, sequenceRoller([6, 2, 2]), "gm"); // 3 GM dice → 1 success
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "astrid");
+    d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }, { kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), "astrid"); // no Defend → 1 GM left
+    d.run({ kind: "commit" }, sequenceRoller([]), "astrid"); // opens the INJURY_CHECK window
+    d.run({ kind: "roll_injury" }, sequenceRoller([1]), "astrid"); // 1 leftover → injury, d6=1 → category 0
+    return d;
+  }
+
+  it("rends a normal Injury to fill the whole category (box 2 + penalty) when a Werhund is in play", () => {
+    const d = parkAnInjuryVs([{ ...werhund(), id: "werhund1" }]);
+    expect(d.state.currentTurn?.pendingInjury).toMatchObject({ outcome: { kind: "injury", category: 0, box: 1 } });
+
+    const resolved = d.run({ kind: "resolve_injury", rending: true }, sequenceRoller([]), "astrid");
+    const marked = resolved.find((e) => e.type === "INJURY_MARKED");
+    expect(marked?.payload).toMatchObject({ seat: "astrid", category: 0, box: 2, rending: true });
+    expect((marked?.payload as { penalty?: string }).penalty).toBeTruthy(); // 2nd-box penalty fires
+    expect(d.state.characters.astrid.injuries).toEqual([2, 0, 0]); // the WHOLE category filled
+    expect(d.state.characters.astrid.downed).toBe(false); // still an Injury, NOT a Downed
+    expect(d.state.currentTurn).toBeNull();
+  });
+
+  it("ignores the rending flag when no Werhund is in play — a normal one-box Injury (gating)", () => {
+    const d = parkAnInjuryVs([{ ...threat, id: "thr1" }]); // plain Nazi Squad, no rending-claws rule
+    const resolved = d.run({ kind: "resolve_injury", rending: true }, sequenceRoller([]), "astrid");
+    const marked = resolved.find((e) => e.type === "INJURY_MARKED");
+    expect(marked?.payload).toMatchObject({ category: 0, box: 1 });
+    expect((marked?.payload as { rending?: boolean }).rending).toBeUndefined();
+    expect(d.state.characters.astrid.injuries).toEqual([1, 0, 0]); // only one box
+  });
+
+  it("a plain resolve (no flag) is unchanged even with a Werhund in play — opt-in only", () => {
+    const d = parkAnInjuryVs([{ ...werhund(), id: "werhund1" }]);
+    d.run({ kind: "resolve_injury" }, sequenceRoller([]), "astrid"); // no rending flag
+    expect(d.state.characters.astrid.injuries).toEqual([1, 0, 0]); // one box, not rent
   });
 });
 

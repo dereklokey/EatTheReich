@@ -151,6 +151,19 @@ export function anathemaInPlay(threats: readonly Threat[]): boolean {
   return threats.some((t) => threatInPlay(t) && (t.rules ?? []).includes("anathema"));
 }
 
+/**
+ * Werhund 'Rending Claws' (rulebook p64, issue #24) is in force: while it's in play, a normal
+ * Injury the table attributes to it marks ALL boxes in the rolled category (the escalation
+ * itself lives in engine {@link import("../engine/injury.js").rendInjury}). Like Painless/
+ * Anathema it's a board property (issue #8: the Reich pool carries no per-Threat attribution),
+ * so the option to rend a wound only appears while a Werhund is on the battlefield. Gated on
+ * {@link threatInPlay} — a staged (#12) or defeated Werhund offers nothing. The one predicate
+ * drives the injury-beat button and the server's gate on the `rending` flag, so they agree.
+ */
+export function rendingClawsInPlay(threats: readonly Threat[]): boolean {
+  return threats.some((t) => threatInPlay(t) && (t.rules ?? []).includes("rending-claws"));
+}
+
 export type Target = Objective | Threat;
 
 /** Context for a declared action — drives GM pool, SPECIAL gating, etc. */

@@ -87,7 +87,11 @@ when their surfaces are built:
   (wired, issue #13 — GM names the PC, server rolls the item, `EQUIPMENT_DEGRADED` zeroes
   its uses).
 - **Rending Claws** (Werhund): an Injury from it marks **all** boxes in the rolled
-  category (Downed-like severity).
+  category (Downed-like severity) — wired, issue #24. The GM attributes a parked normal
+  Injury to a Werhund in play (`resolve_injury { rending: true }`); the handler upgrades it
+  via `rendInjury` (engine), filling the category (`box: 2`, penalty fires) — still an
+  Injury, not a Downed. Gated on `rendingClawsInPlay` so the option only appears while a
+  Werhund is on the battlefield.
 - **Corrosive Fluids / Feed on Fear** (Chuck/Nicole advances): "when you mark an
   Injury…" / "when you reduce a Threat to 0…" — passive triggers needing hooks.
 

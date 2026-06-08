@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DieFace } from "@shared/domain/types.js";
 import type { GameState, TurnState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
+import { rendingClawsInPlay } from "@shared/domain/types.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
 import { seatName } from "@/game/seats";
 import { Die, type DieVisualState } from "@/components/dice/Die";
@@ -208,6 +209,14 @@ export function InjuryCheck({
     play(outcome.kind === "death" ? "crit" : outcome.kind === "downed" ? "downed" : "hit");
     send({ kind: "resolve_injury" });
   };
+  // Werhund 'Rending Claws' (rulebook p64, #24): a normal Injury attributed to a Werhund in
+  // play marks the WHOLE category, not one box. The table pins the aggregate Reich hit on the
+  // beast; the deeper-wound cue lands, then the box fills.
+  const werhundInPlay = rendingClawsInPlay(state.board.threats);
+  const rendHit = () => {
+    play("downed");
+    send({ kind: "resolve_injury", rending: true });
+  };
 
   return (
     <TheaterShell turn={turn} canDrive={canDrive} onMinimize={onMinimize} onCancel={onCancel}>
@@ -236,6 +245,15 @@ export function InjuryCheck({
             {hat && (
               <button className="injury-react injury-react--shrug" onClick={shrugOff} title={hat.note}>
                 Shrug it off — {hat.name}
+              </button>
+            )}
+            {outcome.kind === "injury" && werhundInPlay && (
+              <button
+                className="injury-react injury-react--rend"
+                onClick={rendHit}
+                title="Attribute this wound to the Werhund — Rending Claws marks the whole category"
+              >
+                Rending Claws — <span className="text-blood">rend the whole wound</span>
               </button>
             )}
             <button className="detonator" onClick={takeHit} title="Mark the wound and end the turn">

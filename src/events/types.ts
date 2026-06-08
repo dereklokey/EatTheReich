@@ -133,7 +133,10 @@ export interface EventPayloads {
    * is never `none` here — commit only opens the window when a GM die got through.
    */
   INJURY_PENDING: { seat: CharId; face: DieFace; outcome: InjuryOutcome };
-  INJURY_MARKED: { seat: CharId; category: 0 | 1 | 2; box: 1 | 2; penalty?: string };
+  /** `rending` flags a wound escalated to the whole category by the Werhund's Rending Claws
+   *  (rulebook p64, issue #24): `box` is 2 and `penalty` fires, but the marker tells the
+   *  log/summary the category filled because the table pinned the hit on the Werhund. */
+  INJURY_MARKED: { seat: CharId; category: 0 | 1 | 2; box: 1 | 2; penalty?: string; rending?: boolean };
   DOWNED: { seat: CharId; category: 0 | 1 | 2; rescueObjectiveId?: string };
   HEALED: { seat: CharId; category: 0 | 1 | 2; box: 1 | 2 };
   DEATH_LAST_STAND: { seat: CharId }; // all 6 boxes marked → opens the Last Stand (RULES §5)

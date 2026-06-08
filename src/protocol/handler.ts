@@ -17,12 +17,13 @@ import {
   reduceGmSuccessesPerOne,
   corpseEaterBlood,
   resolveInjury,
+  rendInjury,
   reinforce,
   LAST_STAND_DICE,
 } from "../engine/index.js";
 import { CHARACTERS_BY_ID } from "../data/characters.js";
 import { flashbackTriggerable, FLASHBACK_BONUS_DICE } from "../data/flashbacks.js";
-import { threatInPlay, anathemaInPlay } from "../domain/types.js";
+import { threatInPlay, anathemaInPlay, rendingClawsInPlay } from "../domain/types.js";
 import type { DieFace } from "../domain/types.js";
 import type { Equipment } from "../domain/character.js";
 
@@ -374,9 +375,14 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       // `ignore` (Chuck's hat, RULES §5) shrugs the whole thing off — the item was burned
       // via a separate use_equipment, so here we just commit with no injury marked.
       if (!intent.ignore) {
-        const o = pending.outcome;
+        // Werhund 'Rending Claws' (rulebook p64, issue #24): the table can attribute a normal
+        // Injury to a Werhund in play, escalating it to fill the WHOLE category (still an
+        // Injury, not a Downed). Gated like the other board specials — the flag does nothing
+        // unless a Werhund is actually in play and the parked outcome is a normal injury.
+        const rending = intent.rending === true && rendingClawsInPlay(state.board.threats);
+        const o = rending ? rendInjury(pending.outcome) : pending.outcome;
         if (o.kind === "injury") {
-          events.push({ type: "INJURY_MARKED", payload: { seat: turn.seat, category: o.category, box: o.box, ...(o.penaltyTriggered ? { penalty: penaltyLabel(turn.seat, o.category) } : {}) }, actor: turn.seat });
+          events.push({ type: "INJURY_MARKED", payload: { seat: turn.seat, category: o.category, box: o.box, ...(o.penaltyTriggered ? { penalty: penaltyLabel(turn.seat, o.category) } : {}), ...(rending ? { rending: true } : {}) }, actor: turn.seat });
         } else if (o.kind === "downed") {
           events.push({ type: "DOWNED", payload: { seat: turn.seat, category: o.category }, actor: turn.seat });
         } else if (o.kind === "death") {
