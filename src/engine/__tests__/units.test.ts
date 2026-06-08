@@ -358,6 +358,32 @@ describe("sheet SPECIAL flat rating damage: Apex Predator (Astrid, rulebook p57,
   });
 });
 
+describe("sheet SPECIAL flat rating damage on an Objective: Elbow Grease (Chuck, rulebook p52, issue #30)", () => {
+  const guarded: Objective = { id: "o", name: "Wire the charges", kind: "objective", rating: 6, challenge: 2 };
+
+  it("a `ratingDamage` special drops a chosen Objective's rating in full, bypassing Challenge", () => {
+    const board: BoardState = { objectives: [guarded], threats: [] };
+    const acc = applyOneAllocation(emptyAccumulator(board, 0), { kind: "special", specialId: "chuck-elbow-grease", targetId: guarded.id, units: 2, ratingDamage: 4 });
+    expect(acc.board.objectives[0]!.rating).toBe(2); // 6 − 4 in full; Challenge 2 does NOT soak it
+    expect(acc.specialsActivated).toContain("chuck-elbow-grease");
+  });
+
+  it("over-reduction clamps the Objective rating at 0 (completion)", () => {
+    const board: BoardState = { objectives: [{ ...guarded, rating: 3 }], threats: [] };
+    const acc = applyOneAllocation(emptyAccumulator(board, 0), { kind: "special", specialId: "chuck-elbow-grease", targetId: guarded.id, units: 2, ratingDamage: 4 });
+    expect(acc.board.objectives[0]!.rating).toBe(0);
+  });
+
+  it("composes with an advance die on the same Objective in one turn", () => {
+    const board: BoardState = { objectives: [{ ...guarded, challenge: 0, rating: 8 }], threats: [] };
+    const acc = [
+      { kind: "advance" as const, targetId: guarded.id, units: 2 },
+      { kind: "special" as const, specialId: "chuck-elbow-grease", targetId: guarded.id, units: 2, ratingDamage: 4 },
+    ].reduce(applyOneAllocation, emptyAccumulator(board, 0));
+    expect(acc.board.objectives[0]!.rating).toBe(2); // 8 − 2 (advance) − 4 (elbow grease)
+  });
+});
+
 describe("targetless SPECIAL: Unnatural Endurance GM-dice reduction (Astrid, rulebook p57, issue #28)", () => {
   const board: BoardState = { objectives: [], threats: [] };
 

@@ -125,11 +125,13 @@ function specialAttackReduction(state: GameState, seat: CharId, specialId: strin
 }
 
 /**
- * The flat rating damage a SPECIAL inflicts on a chosen Threat (Astrid's Apex Predator → 3;
- * rulebook p57). Same sheet lookup as {@link specialBloodGrant}, for the `reduceThreatRating`
- * descriptor. Computed server-side so the carried `ratingDamage` is authoritative (anti-fudge),
- * not trusted from the client allocation. The effect rides the DIE_ALLOCATED through the engine
- * (bypasses Challenge, rating 0 → Attack 0), so no separate event is needed.
+ * The flat rating damage a SPECIAL inflicts on a chosen Threat OR Objective (Astrid's Apex Predator
+ * → 3 on a Threat, rulebook p57; Chuck's Elbow Grease → 4 on an Objective, rulebook p52). Same sheet
+ * lookup as {@link specialBloodGrant}, for the `reduceThreatRating` / `reduceObjectiveRating`
+ * descriptors (a power carries one or the other). Computed server-side so the carried `ratingDamage`
+ * is authoritative (anti-fudge), not trusted from the client allocation. The effect rides the
+ * DIE_ALLOCATED through the engine, which applies it to whichever board entity `targetId` names
+ * (bypassing Challenge; a Threat at rating 0 → Attack 0), so no separate event is needed.
  */
 function specialRatingReduction(state: GameState, seat: CharId, specialId: string): number | undefined {
   const sheet = CHARACTERS_BY_ID[seat];
@@ -138,7 +140,7 @@ function specialRatingReduction(state: GameState, seat: CharId, specialId: strin
   const power =
     sheet.abilities.find((p) => p.id === specialId) ??
     sheet.advances.find((p) => p.id === specialId && unlocked.includes(p.id));
-  return power?.reduceThreatRating;
+  return power?.reduceThreatRating ?? power?.reduceObjectiveRating;
 }
 
 /**

@@ -83,6 +83,15 @@ export interface Power {
    */
   reduceThreatRating?: number;
   /**
+   * Flat amount this SPECIAL knocks off a chosen Objective's *rating* when activated (a crit on it
+   * WITH a target Objective) — Chuck's Elbow Grease (−4, rulebook p52, "take on an Objective
+   * single-handed with FIX"). The Objective counterpart of {@link reduceThreatRating}: like Apex
+   * Predator it's flat direct progress that bypasses Challenge (not a normal allocated-die advance),
+   * and rides the `special` allocation as the same `ratingDamage` the engine applies to whichever
+   * board entity `targetId` names. A GM-editable default (§0).
+   */
+  reduceObjectiveRating?: number;
+  /**
    * How many of the GM's surviving Attack dice this SPECIAL knocks off this turn — Astrid's
    * Unnatural Endurance (−3, rulebook p57). A targetless, crit-activated "big Defend": it rides
    * the `special` allocation as `gmDiceReduction` and folds through the engine's `gmDiceRemaining`

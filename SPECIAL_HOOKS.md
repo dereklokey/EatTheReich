@@ -85,7 +85,7 @@ feel).
 | Apex Predator (−3 rating) | Astrid | `ALLOCATE` | select / player | ✅ |
 | Unnatural Endurance (−3 GM dice) | Astrid | `ALLOCATE` | acknowledge / player | ✅ |
 | Sapper (−1 Challenge) | Nicole | `ALLOCATE` | select / player | ✅ |
-| Elbow Grease (−4 rating) | Chuck | `ALLOCATE` | auto / player | ⬜ #30 |
+| Elbow Grease (−4 Obj rating) | Chuck | `ALLOCATE` | select / player | ✅ |
 | Nightmare Regeneration (clear Injury) | Astrid | `ALLOCATE` | select / player | ⬜ #31 |
 | Scavenger (restore weapon) | Nicole | `ALLOCATE` | auto / system | ⬜ #32 |
 

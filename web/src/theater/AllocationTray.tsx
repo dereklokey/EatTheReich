@@ -149,12 +149,14 @@ export function AllocationTray({
         const thr = preview.board.threats.find((t) => t.id === bs.threatId);
         fireCard(bs.threatId, thr && thr.rating - units <= 0 ? "kill" : "spray");
       } else if (alloc.targetId) {
-        // A targeted sheet SPECIAL clips a Threat: Deadeye/Hex (#26 −Attack) or Apex Predator
-        // (#27 −rating). For rating damage, escalate to the kill burst when it finishes the Threat;
-        // otherwise a light spray so the table sees which enemy took the hit.
+        // A targeted sheet SPECIAL clips a board entity: Deadeye/Hex (#26 −Attack) or Apex Predator
+        // (#27 −rating) on a Threat; Elbow Grease (#30 −rating) on an Objective. For a Threat, rating
+        // damage escalates to the kill burst when it finishes it, else a light spray. An Objective
+        // takes the hazard 'chunk' burst, like a normal Advance.
         const dmg = alloc.ratingDamage ?? 0;
         const thr = preview.board.threats.find((t) => t.id === alloc.targetId);
-        fireCard(alloc.targetId, dmg > 0 && thr && thr.rating - dmg <= 0 ? "kill" : "spray");
+        if (thr) fireCard(alloc.targetId, dmg > 0 && thr.rating - dmg <= 0 ? "kill" : "spray");
+        else fireCard(alloc.targetId, "chunk");
       }
     }
   };
@@ -344,6 +346,27 @@ export function AllocationTray({
                 hint={sp.text}
                 onClick={() => critPicked && !tg.locked && place({ kind: "special", specialId: sp.id, targetId: tg.id })}
                 placed={placedOn((a) => a.kind === "special" && a.specialId === sp.id && a.targetId === tg.id)}
+                onUnplace={unassign}
+              />
+            ));
+          }
+          // Elbow Grease (#30): a crit that knocks 4 off a chosen Objective's rating (rulebook p52,
+          // "take on an Objective single-handed with FIX"). The Objective counterpart of Apex
+          // Predator — one card per in-play Objective, carrying ratingDamage so the engine preview
+          // drops it (bypassing Challenge). Completion reads off the live preview.
+          if (sp.reduceObjectiveRating) {
+            const cut = sp.reduceObjectiveRating;
+            return objLive.map((o) => (
+              <TargetCard
+                key={`${sp.id}:${o.id}`}
+                special
+                armed={critPicked}
+                blocked={picked !== null && !critPicked}
+                label={`${sp.name} → ${o.name}`}
+                sub={`SPECIAL · critical only · rating −${cut} (${o.rating} → ${Math.max(0, o.rating - cut)})`}
+                hint={sp.text}
+                onClick={() => critPicked && place({ kind: "special", specialId: sp.id, targetId: o.id, ratingDamage: cut })}
+                placed={placedOn((a) => a.kind === "special" && a.specialId === sp.id && a.targetId === o.id)}
                 onUnplace={unassign}
               />
             ));

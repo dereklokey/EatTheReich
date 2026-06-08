@@ -29,10 +29,11 @@ export interface Allocation {
   /** SPECIAL id for `kind: "special"`. */
   specialId?: string;
   /**
-   * Flat rating damage a sheet SPECIAL inflicts on `targetId` (Astrid's Apex Predator → 3,
-   * RULES §7 / issue #27) — bypasses Challenge (not a normal attack), rating 0 → Attack 0. The
-   * counterpart to how a board-granted Crash & Burn (#23) carries its damage in `units`; a sheet
-   * special carries it here so a crit's own 2 units stay distinct from the effect.
+   * Flat rating damage a sheet SPECIAL inflicts on `targetId` — a Threat (Astrid's Apex Predator
+   * → 3, RULES §7 / issue #27) or an Objective (Chuck's Elbow Grease → 4, issue #30). Bypasses
+   * Challenge (not a normal allocated-die hit); a Threat at rating 0 → Attack 0. The counterpart to
+   * how a board-granted Crash & Burn (#23) carries its damage in `units`; a sheet special carries it
+   * here so a crit's own 2 units stay distinct from the effect.
    */
   ratingDamage?: number;
   /**
@@ -153,15 +154,20 @@ export function applyOneAllocation(
     case "special": {
       if (a.specialId) next.specialsActivated.push(a.specialId);
       // Flat rating damage from a SPECIAL — inflicted directly on `targetId`, independent of the
-      // crit's own 2 units and bypassing Challenge (it's not a normal attack); rating 0 → Attack 0
-      // (RULES §3), same as eliminate. A board-granted Crash & Burn (#23) carries it in `units`
-      // behind a namespaced id; a sheet special (Apex Predator, #27) carries it in `ratingDamage`.
+      // crit's own 2 units and bypassing Challenge (it's not a normal allocated-die hit). For a
+      // Threat: rating 0 → Attack 0 (RULES §3), same as eliminate. For an Objective: flat progress,
+      // rating clamped at 0 (Chuck's Elbow Grease, #30). A board-granted Crash & Burn (#23) carries
+      // it in `units` behind a namespaced id; a sheet special (Apex Predator #27 / Elbow Grease #30)
+      // carries it in `ratingDamage` and the engine applies it to whichever board entity it names.
       const dmg = (a.ratingDamage ?? 0) + (isBoardSpecialId(a.specialId) ? a.units : 0);
       if (dmg > 0 && a.targetId) {
         const thr = next.board.threats.find((t) => t.id === a.targetId);
         if (thr) {
           thr.rating = Math.max(0, thr.rating - dmg);
           if (thr.rating === 0) thr.attack = 0;
+        } else {
+          const obj = next.board.objectives.find((o) => o.id === a.targetId);
+          if (obj) obj.rating = Math.max(0, obj.rating - dmg);
         }
       }
       // A targetless "big Defend" SPECIAL (Unnatural Endurance, #28) sheds GM Attack dice this turn,

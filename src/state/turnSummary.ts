@@ -193,15 +193,22 @@ export function summarizeCommittedTurn(
     // Pair each activation with its Attack cut in order (#26) — a crit on Deadeye/Hex shaved a Threat.
     const cut = attackCuts.get(sid)?.shift();
     const cutText = cut ? ` — ${cut.threatName}'s Attack −${cut.amount} (now ${cut.attack})` : "";
-    // Apex Predator (#27): fold the rating cut in too. Read the now-rating/kill off the final board;
-    // owns the kill line only when no eliminate die already claims it (mirrors the Crash & Burn dedup).
+    // Flat rating cut from a sheet SPECIAL: Apex Predator (#27) on a Threat, Elbow Grease (#30) on an
+    // Objective. Read the now-rating/kill|completion off the final board; owns the kill/completion
+    // line only when no eliminate/advance die already claims it (mirrors the Crash & Burn dedup).
     const rcut = ratingCuts.get(sid)?.shift();
     let ratingText = "";
     if (rcut) {
       const t = state.board.threats.find((x) => x.id === rcut.targetId);
-      const tname = t?.name ?? "a threat";
-      if (t && t.rating <= 0 && !eliminate.has(rcut.targetId)) ratingText = ` — Eliminated ${tname}!`;
-      else ratingText = ` — ${tname} −${rcut.amount} rating (now ${t?.rating ?? "?"})`;
+      if (t) {
+        if (t.rating <= 0 && !eliminate.has(rcut.targetId)) ratingText = ` — Eliminated ${t.name}!`;
+        else ratingText = ` — ${t.name} −${rcut.amount} rating (now ${t.rating})`;
+      } else {
+        const o = state.board.objectives.find((x) => x.id === rcut.targetId);
+        const oname = o?.name ?? "an objective";
+        if (o && o.rating <= 0 && !advance.has(rcut.targetId)) ratingText = ` — Completed ${oname}!`;
+        else ratingText = ` — ${oname} −${rcut.amount} rating (now ${o?.rating ?? "?"})`;
+      }
     }
     // Unnatural Endurance (#28): a targetless "big Defend" — fold the shed GM Attack dice in.
     const gmCut = gmCuts.get(sid)?.shift();

@@ -481,6 +481,68 @@ describe("processIntent — Sapper −1 Objective/Threat Challenge (#29)", () =>
   });
 });
 
+describe("processIntent — Elbow Grease −4 Objective rating (#30)", () => {
+  const guardedObjective: Objective = { ...objective, rating: 6, challenge: 2 };
+  const unlockElbow: EventInput = { type: "ADVANCE_UNLOCKED", payload: { seat: "chuck", advanceId: "chuck-elbow-grease" }, actor: "chuck" };
+
+  it("a crit on Chuck's (unlocked) Elbow Grease carries server-authoritative ratingDamage to the Objective", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [guardedObjective], threats: [threat] }); // obj1 rating 6, challenge 2
+    d.seed([unlockElbow], "chuck");
+    d.run({ kind: "start_turn", seat: "chuck", stat: "FIX" }, sequenceRoller([]), "chuck");
+    const events = d.run(
+      // The client's bogus ratingDamage (99) is IGNORED — the handler recomputes 4 from the descriptor.
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "chuck-elbow-grease", targetId: "obj1", units: 2, ratingDamage: 99 }] },
+      sequenceRoller([]),
+      "chuck",
+    );
+    expect(events.map((e) => e.type)).toEqual(["DIE_ALLOCATED"]); // no separate event — rides the allocation
+    expect(events[0]?.payload).toMatchObject({ kind: "special", specialId: "chuck-elbow-grease", targetId: "obj1", ratingDamage: 4 });
+    expect(d.state.board.objectives[0]?.rating).toBe(2); // 6 − 4 in full; Challenge 2 does NOT soak it
+  });
+
+  it("Elbow Grease that finishes an Objective clamps its rating to 0", () => {
+    const weak: Objective = { ...guardedObjective, rating: 3 };
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [weak], threats: [threat] });
+    d.seed([unlockElbow], "chuck");
+    d.run({ kind: "start_turn", seat: "chuck", stat: "FIX" }, sequenceRoller([]), "chuck");
+    d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "chuck-elbow-grease", targetId: "obj1", units: 2 }] },
+      sequenceRoller([]),
+      "chuck",
+    );
+    expect(d.state.board.objectives[0]?.rating).toBe(0);
+  });
+
+  it("no target → just the activation, no ratingDamage emitted", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [guardedObjective], threats: [threat] });
+    d.seed([unlockElbow], "chuck");
+    d.run({ kind: "start_turn", seat: "chuck", stat: "FIX" }, sequenceRoller([]), "chuck");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "chuck-elbow-grease", units: 2 }] },
+      sequenceRoller([]),
+      "chuck",
+    );
+    expect(events[0]?.payload).not.toHaveProperty("ratingDamage");
+    expect(d.state.board.objectives[0]?.rating).toBe(6);
+  });
+
+  it("a LOCKED Elbow Grease carries no ratingDamage (anti-fudge — the advance must be unlocked)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [guardedObjective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "chuck", stat: "FIX" }, sequenceRoller([]), "chuck"); // NOT unlocked
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "chuck-elbow-grease", targetId: "obj1", units: 2, ratingDamage: 99 }] },
+      sequenceRoller([]),
+      "chuck",
+    );
+    expect(events[0]?.payload).not.toHaveProperty("ratingDamage"); // descriptor not read from a locked advance
+    expect(d.state.board.objectives[0]?.rating).toBe(6); // untouched
+  });
+});
+
 describe("processIntent — Last Stand (RULES §5)", () => {
   const allSixMarked = ([0, 1, 2] as const).flatMap((category) =>
     ([1, 2] as const).map((box) => ({ type: "INJURY_MARKED" as const, payload: { seat: "iryna" as const, category, box } })),

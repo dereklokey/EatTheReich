@@ -298,6 +298,48 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(summary.lines[0]?.text).toBe("Activated Apex Predator — Eliminated Police Patrol!");
   });
 
+  it("folds an Elbow Grease −Objective-rating into the activation line (#30)", () => {
+    const { ev } = log();
+    const obj: Objective = { id: "obj", name: "Wire the charges", kind: "objective", rating: 6, challenge: 2 };
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "chuck" }, "chuck"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [obj], threats: [] }),
+      ev("ADVANCE_UNLOCKED", { seat: "chuck", advanceId: "chuck-elbow-grease" }, "chuck"),
+      ev("TURN_STARTED", { seat: "chuck", stat: "FIX" }, "chuck"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 0 }),
+      ev("DIE_ALLOCATED", { kind: "special", specialId: "chuck-elbow-grease", targetId: "obj", units: 2, ratingDamage: 4 }, "chuck"),
+      ev("ALLOCATION_COMMITTED", {}, "chuck"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    expect(state.board.objectives[0]?.rating).toBe(2); // 6 − 4, Challenge bypassed
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines).toHaveLength(1);
+    expect(summary.lines[0]).toMatchObject({ kind: "special", text: "Activated Elbow Grease — Wire the charges −4 rating (now 2)" });
+  });
+
+  it("an Elbow Grease that finishes the Objective owns the completion line (#30)", () => {
+    const { ev } = log();
+    const obj: Objective = { id: "obj", name: "Wire the charges", kind: "objective", rating: 3 };
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "chuck" }, "chuck"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [obj], threats: [] }),
+      ev("ADVANCE_UNLOCKED", { seat: "chuck", advanceId: "chuck-elbow-grease" }, "chuck"),
+      ev("TURN_STARTED", { seat: "chuck", stat: "FIX" }, "chuck"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 0 }),
+      ev("DIE_ALLOCATED", { kind: "special", specialId: "chuck-elbow-grease", targetId: "obj", units: 2, ratingDamage: 4 }, "chuck"),
+      ev("ALLOCATION_COMMITTED", {}, "chuck"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines[0]?.text).toBe("Activated Elbow Grease — Completed Wire the charges!");
+  });
+
   it("folds an Unnatural Endurance GM-dice reduction into the activation line (#28)", () => {
     const { ev } = log();
     const events = [
