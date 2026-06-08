@@ -103,6 +103,9 @@ export function summarizeCommittedTurn(
   // Apex Predator (#27): the flat rating a crit-SPECIAL knocked off a Threat (DIE_ALLOCATED.ratingDamage),
   // keyed by specialId so it folds into the "Activated …" line (kill/now-N read off the final board).
   const ratingCuts = new Map<string, { targetId: string; amount: number }[]>();
+  // Unnatural Endurance (#28): the GM Attack dice a targetless crit-SPECIAL shed (DIE_ALLOCATED.gmDiceReduction),
+  // keyed by specialId so it folds into the "Activated …" line.
+  const gmCuts = new Map<string, number[]>();
 
   const add = (m: Map<string, number>, id: string | undefined, units: number) => {
     if (!id) return;
@@ -125,6 +128,12 @@ export function summarizeCommittedTurn(
               const list = ratingCuts.get(e.payload.specialId) ?? [];
               list.push({ targetId: e.payload.targetId, amount: e.payload.ratingDamage });
               ratingCuts.set(e.payload.specialId, list);
+            }
+            // Unnatural Endurance (#28): a targetless SPECIAL that shed GM Attack dice — record it for the fold.
+            if (e.payload.gmDiceReduction) {
+              const list = gmCuts.get(e.payload.specialId) ?? [];
+              list.push(e.payload.gmDiceReduction);
+              gmCuts.set(e.payload.specialId, list);
             }
           }
         }
@@ -185,7 +194,10 @@ export function summarizeCommittedTurn(
       if (t && t.rating <= 0 && !eliminate.has(rcut.targetId)) ratingText = ` — Eliminated ${tname}!`;
       else ratingText = ` — ${tname} −${rcut.amount} rating (now ${t?.rating ?? "?"})`;
     }
-    lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}${cutText}${ratingText}` });
+    // Unnatural Endurance (#28): a targetless "big Defend" — fold the shed GM Attack dice in.
+    const gmCut = gmCuts.get(sid)?.shift();
+    const gmText = gmCut ? ` — −${gmCut} Reich Attack ${plural(gmCut, "die", "dice")}` : "";
+    lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}${cutText}${ratingText}${gmText}` });
   }
 
   // Board-granted damage SPECIALs (Crash & Burn, #23): the crit inflicted a flat amount on the

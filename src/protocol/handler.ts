@@ -141,6 +141,22 @@ function specialRatingReduction(state: GameState, seat: CharId, specialId: strin
 }
 
 /**
+ * GM Attack dice a targetless SPECIAL sheds this turn (Astrid's Unnatural Endurance → 3; rulebook
+ * p57). Same sheet lookup as {@link specialBloodGrant}, for the `reduceGmDice` descriptor. Computed
+ * server-side so the carried `gmDiceReduction` is authoritative (anti-fudge). Rides the DIE_ALLOCATED
+ * through the engine's `gmDiceRemaining` — no board target, no separate event.
+ */
+function specialGmDiceReduction(state: GameState, seat: CharId, specialId: string): number | undefined {
+  const sheet = CHARACTERS_BY_ID[seat];
+  if (!sheet) return undefined;
+  const unlocked = state.characters[seat]?.unlockedAdvances ?? [];
+  const power =
+    sheet.abilities.find((p) => p.id === specialId) ??
+    sheet.advances.find((p) => p.id === specialId && unlocked.includes(p.id));
+  return power?.reduceGmDice;
+}
+
+/**
  * GM-whiff escalation (RULES §8, rulebook p38), applied at the conclusion of the action it
  * happened in (NOT at end of round). If the Reich's Attack roll this turn produced zero
  * successes, the lead (anchor) Threat presses harder: +1 Attack. Returns the THREAT_UPDATED
@@ -349,9 +365,13 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
         // applies it (bypassing Challenge, rating 0 → Attack 0) — the client's value is ignored.
         const ratingDamage =
           a.kind === "special" && a.specialId && a.targetId ? specialRatingReduction(state, turn.seat, a.specialId) : undefined;
+        // Unnatural Endurance (#28): a targetless SPECIAL's GM-dice reduction, also recomputed from
+        // the descriptor server-side and carried on DIE_ALLOCATED so the engine sheds gmDiceRemaining.
+        const gmDiceReduction =
+          a.kind === "special" && a.specialId ? specialGmDiceReduction(state, turn.seat, a.specialId) : undefined;
         events.push({
           type: "DIE_ALLOCATED",
-          payload: { kind: a.kind, units: a.units, ...(a.targetId ? { targetId: a.targetId } : {}), ...(a.specialId ? { specialId: a.specialId } : {}), ...(ratingDamage ? { ratingDamage } : {}) },
+          payload: { kind: a.kind, units: a.units, ...(a.targetId ? { targetId: a.targetId } : {}), ...(a.specialId ? { specialId: a.specialId } : {}), ...(ratingDamage ? { ratingDamage } : {}), ...(gmDiceReduction ? { gmDiceReduction } : {}) },
           actor: turn.seat,
         });
         // A SPECIAL that's a pure self-buff applies its Blood here (Ravenous +3), as a logged

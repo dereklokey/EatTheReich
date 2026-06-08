@@ -358,6 +358,34 @@ describe("sheet SPECIAL flat rating damage: Apex Predator (Astrid, rulebook p57,
   });
 });
 
+describe("targetless SPECIAL: Unnatural Endurance GM-dice reduction (Astrid, rulebook p57, issue #28)", () => {
+  const board: BoardState = { objectives: [], threats: [] };
+
+  it("a `gmDiceReduction` special sheds that many GM Attack dice this turn (a big Defend)", () => {
+    const acc = applyOneAllocation(emptyAccumulator(board, 5), { kind: "special", specialId: "astrid-unnatural-endurance", units: 2, gmDiceReduction: 3 });
+    expect(acc.gmDiceRemaining).toBe(2); // 5 − 3
+    expect(acc.specialsActivated).toContain("astrid-unnatural-endurance");
+  });
+
+  it("clamps at 0 when it would knock off more dice than remain", () => {
+    const acc = applyOneAllocation(emptyAccumulator(board, 2), { kind: "special", specialId: "astrid-unnatural-endurance", units: 2, gmDiceReduction: 3 });
+    expect(acc.gmDiceRemaining).toBe(0);
+  });
+
+  it("stacks with a Defend allocation in the same turn", () => {
+    const acc = [
+      { kind: "defend" as const, units: 2 },
+      { kind: "special" as const, specialId: "astrid-unnatural-endurance", units: 2, gmDiceReduction: 3 },
+    ].reduce(applyOneAllocation, emptyAccumulator(board, 6));
+    expect(acc.gmDiceRemaining).toBe(1); // 6 − 2 (defend) − 3 (endurance)
+  });
+
+  it("a special with no gmDiceReduction leaves the GM dice alone", () => {
+    const acc = applyOneAllocation(emptyAccumulator(board, 4), { kind: "special", specialId: "flint-ravenous", units: 2 });
+    expect(acc.gmDiceRemaining).toBe(4);
+  });
+});
+
 describe("allocation: 'Painless' challenge bump (Einherjar, issue #19)", () => {
   // The Einherjar prints no Challenge; 'Painless' (rulebook p55) raises it per Reich 1 for the
   // action. challengeBump carries that raise into the soak, on top of any printed Challenge.

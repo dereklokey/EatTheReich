@@ -346,6 +346,10 @@ export function AllocationTray({
               />
             ));
           }
+          // A targetless SPECIAL — one card. Unnatural Endurance (#28) carries gmDiceReduction so the
+          // engine sheds GM dice (the Incoming row animates them off via its AnimatePresence); the sub
+          // notes the effect alongside any Blood grant (Ravenous).
+          const gmCut = sp.reduceGmDice ?? 0;
           return [
             <TargetCard
               key={sp.id}
@@ -353,9 +357,9 @@ export function AllocationTray({
               armed={critPicked}
               blocked={picked !== null && !critPicked}
               label={sp.name}
-              sub={`SPECIAL · critical only${sp.grantsBlood ? ` · +${sp.grantsBlood} Blood` : ""}`}
+              sub={`SPECIAL · critical only${sp.grantsBlood ? ` · +${sp.grantsBlood} Blood` : ""}${gmCut ? ` · −${gmCut} Reich Attack dice` : ""}`}
               hint={sp.text}
-              onClick={() => critPicked && place({ kind: "special", specialId: sp.id })}
+              onClick={() => critPicked && place({ kind: "special", specialId: sp.id, ...(gmCut ? { gmDiceReduction: gmCut } : {}) })}
               placed={placedOn((a) => a.kind === "special" && a.specialId === sp.id)}
               onUnplace={unassign}
             />,

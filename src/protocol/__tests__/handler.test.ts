@@ -369,6 +369,30 @@ describe("processIntent — Apex Predator −3 Threat rating (#27)", () => {
   });
 });
 
+describe("processIntent — Unnatural Endurance −3 GM Attack dice (#28)", () => {
+  it("a crit on Astrid's Unnatural Endurance sheds 3 GM dice, so commit closes with no Injury", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] }); // attack 3 → GM pool 3
+    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL" }, sequenceRoller([]), "astrid");
+    d.run({ kind: "roll", playerPoolDice: 1 }, sequenceRoller([6]), "astrid"); // a crit to spend on the SPECIAL
+    d.run({ kind: "roll_gm" }, sequenceRoller([6, 6, 4]), "gm"); // 3 GM successes → gmDiceRemaining 3
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "astrid");
+    const events = d.run(
+      // bogus client gmDiceReduction (99) is IGNORED — the handler recomputes 3 from the descriptor.
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "astrid-unnatural-endurance", units: 2, gmDiceReduction: 99 }] },
+      sequenceRoller([]),
+      "astrid",
+    );
+    expect(events.map((e) => e.type)).toEqual(["DIE_ALLOCATED"]); // no separate event — rides the allocation
+    expect(events[0]?.payload).toMatchObject({ kind: "special", specialId: "astrid-unnatural-endurance", gmDiceReduction: 3 });
+    expect(d.state.currentTurn?.gmDiceRemaining).toBe(0); // 3 − 3
+    // No GM die gets through → commit closes the turn outright (no INJURY_CHECK window).
+    const committed = d.run({ kind: "commit" }, sequenceRoller([]), "astrid");
+    expect(committed.map((e) => e.type)).toEqual(["ALLOCATION_COMMITTED"]);
+    expect(d.state.characters.astrid.injuries).toEqual([0, 0, 0]);
+  });
+});
+
 describe("processIntent — Last Stand (RULES §5)", () => {
   const allSixMarked = ([0, 1, 2] as const).flatMap((category) =>
     ([1, 2] as const).map((box) => ({ type: "INJURY_MARKED" as const, payload: { seat: "iryna" as const, category, box } })),

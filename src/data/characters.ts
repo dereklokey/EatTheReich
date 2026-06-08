@@ -201,7 +201,7 @@ export const ASTRID: CharacterSheet = {
   ],
   abilities: [
     { id: "astrid-apex-predator", name: "Apex Predator", text: "Reduce a Threat's rating by 3.", mechanic: "special", trigger: { type: "crit" }, reduceThreatRating: 3 },
-    { id: "astrid-unnatural-endurance", name: "Unnatural Endurance", text: "Reduce the GM's Attack dice by 3.", mechanic: "special", trigger: { type: "crit" } },
+    { id: "astrid-unnatural-endurance", name: "Unnatural Endurance", text: "Reduce the GM's Attack dice by 3.", mechanic: "special", trigger: { type: "crit" }, reduceGmDice: 3 },
     { id: "astrid-bloodhunt", name: "Bloodhunt", text: "Track targets or search for things using your sense of smell.", mechanic: "active", bloodCost: 1, bonus: { tag: "target fleeing", plus: 1 } },
   ],
   advances: [

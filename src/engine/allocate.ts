@@ -35,6 +35,13 @@ export interface Allocation {
    * special carries it here so a crit's own 2 units stay distinct from the effect.
    */
   ratingDamage?: number;
+  /**
+   * GM Attack dice a targetless SPECIAL knocks off this turn (Astrid's Unnatural Endurance → 3,
+   * RULES §7 / issue #28) — a crit-activated "big Defend" applied to `gmDiceRemaining` (clamped
+   * ≥0), independent of the crit's own 2 units. Carried here so a `special` allocation can shed
+   * GM dice without a board target.
+   */
+  gmDiceReduction?: number;
 }
 
 export interface BoardState {
@@ -157,6 +164,9 @@ export function applyOneAllocation(
           if (thr.rating === 0) thr.attack = 0;
         }
       }
+      // A targetless "big Defend" SPECIAL (Unnatural Endurance, #28) sheds GM Attack dice this turn,
+      // exactly like a Defend allocation but independent of the crit's units. Clamped ≥0.
+      if (a.gmDiceReduction) next.gmDiceRemaining = Math.max(0, next.gmDiceRemaining - a.gmDiceReduction);
       break;
     }
   }

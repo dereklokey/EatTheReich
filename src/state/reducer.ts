@@ -222,6 +222,7 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
         ...(e.payload.targetId ? { targetId: e.payload.targetId } : {}),
         ...(e.payload.specialId ? { specialId: e.payload.specialId } : {}),
         ...(e.payload.ratingDamage ? { ratingDamage: e.payload.ratingDamage } : {}),
+        ...(e.payload.gmDiceReduction ? { gmDiceReduction: e.payload.gmDiceReduction } : {}),
       };
       const acc: AllocationAccumulator = {
         board: { objectives: s.board.objectives, threats: s.board.threats },

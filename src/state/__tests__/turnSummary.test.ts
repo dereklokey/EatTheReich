@@ -298,6 +298,25 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(summary.lines[0]?.text).toBe("Activated Apex Predator — Eliminated Police Patrol!");
   });
 
+  it("folds an Unnatural Endurance GM-dice reduction into the activation line (#28)", () => {
+    const { ev } = log();
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "astrid" }, "astrid"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [] }),
+      ev("TURN_STARTED", { seat: "astrid", stat: "BRAWL" }, "astrid"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 3 }),
+      ev("DIE_ALLOCATED", { kind: "special", specialId: "astrid-unnatural-endurance", units: 2, gmDiceReduction: 3 }, "astrid"),
+      ev("ALLOCATION_COMMITTED", {}, "astrid"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines).toHaveLength(1);
+    expect(summary.lines[0]).toMatchObject({ kind: "special", text: "Activated Unnatural Endurance — −3 Reich Attack dice" });
+  });
+
   it("returns null for an empty turn and for a non-commit seq", () => {
     const events = irynaClockTowerEvents("g-iryna");
     const state = reduce(events);

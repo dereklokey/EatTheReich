@@ -82,6 +82,13 @@ export interface Power {
    * client preview reflects it. rating 0 → Attack 0 (RULES §3). A GM-editable default (§0).
    */
   reduceThreatRating?: number;
+  /**
+   * How many of the GM's surviving Attack dice this SPECIAL knocks off this turn — Astrid's
+   * Unnatural Endurance (−3, rulebook p57). A targetless, crit-activated "big Defend": it rides
+   * the `special` allocation as `gmDiceReduction` and folds through the engine's `gmDiceRemaining`
+   * (clamped ≥0), so the client's incoming-Attack preview drops live. A GM-editable default (§0).
+   */
+  reduceGmDice?: number;
 }
 
 export interface Equipment {

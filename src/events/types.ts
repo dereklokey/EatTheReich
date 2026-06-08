@@ -127,6 +127,9 @@ export interface EventPayloads {
     /** Flat rating damage from a sheet SPECIAL on `targetId` (Apex Predator → 3, #27); see
      *  Allocation.ratingDamage. Server-authoritative (recomputed from the power descriptor). */
     ratingDamage?: number;
+    /** GM Attack dice a targetless SPECIAL sheds this turn (Unnatural Endurance → 3, #28); see
+     *  Allocation.gmDiceReduction. Server-authoritative (recomputed from the power descriptor). */
+    gmDiceReduction?: number;
     detail?: string;
   };
   ALLOCATION_COMMITTED: Record<string, never>;
