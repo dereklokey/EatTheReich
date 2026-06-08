@@ -19,12 +19,13 @@ import {
   resolveInjury,
   rendInjury,
   reinforce,
+  lowerChallenge,
   LAST_STAND_DICE,
 } from "../engine/index.js";
 import { CHARACTERS_BY_ID } from "../data/characters.js";
 import { flashbackTriggerable, FLASHBACK_BONUS_DICE } from "../data/flashbacks.js";
 import { threatInPlay, anathemaInPlay, rendingClawsInPlay } from "../domain/types.js";
-import type { DieFace } from "../domain/types.js";
+import type { DieFace, Target } from "../domain/types.js";
 import type { Equipment } from "../domain/character.js";
 
 /**
@@ -154,6 +155,23 @@ function specialGmDiceReduction(state: GameState, seat: CharId, specialId: strin
     sheet.abilities.find((p) => p.id === specialId) ??
     sheet.advances.find((p) => p.id === specialId && unlocked.includes(p.id));
   return power?.reduceGmDice;
+}
+
+/**
+ * The Challenge a SPECIAL lowers on a chosen Objective- OR Threat (Nicole's Sapper → −1; rulebook
+ * p59). Same sheet lookup as {@link specialBloodGrant}, for the `reduceChallenge` descriptor —
+ * a crit spent on one of these, with a target, drops that target's Challenge as a logged,
+ * GM-editable default. The drop itself routes through {@link lowerChallenge} in the allocate branch
+ * (so the Werhund's lock is honoured); this just resolves the amount + the power's name for the log.
+ */
+function specialChallengeReduction(state: GameState, seat: CharId, specialId: string): { amount: number; name: string } | undefined {
+  const sheet = CHARACTERS_BY_ID[seat];
+  if (!sheet) return undefined;
+  const unlocked = state.characters[seat]?.unlockedAdvances ?? [];
+  const power =
+    sheet.abilities.find((p) => p.id === specialId) ??
+    sheet.advances.find((p) => p.id === specialId && unlocked.includes(p.id));
+  return power?.reduceChallenge ? { amount: power.reduceChallenge, name: power.name } : undefined;
 }
 
 /**
@@ -359,6 +377,9 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       // Running Attack per Threat so two Attack-shaving crits in one batch (Deadeye + Hex on the
       // same Threat) compose: each THREAT_ATTACK_REDUCED carries the resolved value the next reads.
       const attackNow = new Map<string, number>();
+      // Running Challenge per target (Sapper, #29): two explosives crits on one target compose,
+      // each CHALLENGE_REDUCED carrying the resolved value down through the lowerChallenge gate.
+      const challengeNow = new Map<string, number>();
       for (const a of intent.allocations) {
         // Apex Predator (#27): a sheet SPECIAL's flat rating damage is recomputed from the power
         // descriptor here (server-authoritative) and carried on DIE_ALLOCATED, so the engine
@@ -389,6 +410,21 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
             const next = Math.max(0, current - reduce.amount);
             attackNow.set(thr.id, next);
             events.push({ type: "THREAT_ATTACK_REDUCED", payload: { threatId: thr.id, threatName: thr.name, amount: reduce.amount, attack: next, specialId: a.specialId, specialName: reduce.name }, actor: turn.seat });
+          }
+          // A SPECIAL that lowers a chosen target's Challenge (Sapper, #29): the target can be an
+          // Objective OR a Threat, and the drop routes through lowerChallenge — so a Werhund's
+          // 'Unlowerable Challenge' (#25) keeps its value and emits NOTHING (no fake reduction).
+          const chalReduce = specialChallengeReduction(state, turn.seat, a.specialId);
+          const chalTarget: Target | undefined = a.targetId
+            ? state.board.objectives.find((o) => o.id === a.targetId) ?? state.board.threats.find((t) => t.id === a.targetId)
+            : undefined;
+          if (chalReduce && chalTarget) {
+            const current = challengeNow.get(chalTarget.id) ?? chalTarget.challenge ?? 0;
+            const next = lowerChallenge({ ...chalTarget, challenge: current }, chalReduce.amount);
+            if (next < current) {
+              challengeNow.set(chalTarget.id, next);
+              events.push({ type: "CHALLENGE_REDUCED", payload: { targetId: chalTarget.id, targetName: chalTarget.name, targetKind: chalTarget.kind, amount: chalReduce.amount, challenge: next, specialId: a.specialId, specialName: chalReduce.name }, actor: turn.seat });
+            }
           }
         }
       }

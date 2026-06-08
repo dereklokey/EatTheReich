@@ -106,6 +106,9 @@ export function summarizeCommittedTurn(
   // Unnatural Endurance (#28): the GM Attack dice a targetless crit-SPECIAL shed (DIE_ALLOCATED.gmDiceReduction),
   // keyed by specialId so it folds into the "Activated …" line.
   const gmCuts = new Map<string, number[]>();
+  // Sapper (#29): the Challenge a crit-SPECIAL lowered on an Objective/Threat (CHALLENGE_REDUCED),
+  // keyed by specialId so it folds into that special's "Activated …" line (like the Attack-cut fold).
+  const challengeCuts = new Map<string, { targetName: string; amount: number; challenge: number }[]>();
 
   const add = (m: Map<string, number>, id: string | undefined, units: number) => {
     if (!id) return;
@@ -169,6 +172,12 @@ export function summarizeCommittedTurn(
         attackCuts.set(e.payload.specialId, list);
         break;
       }
+      case "CHALLENGE_REDUCED": {
+        const list = challengeCuts.get(e.payload.specialId) ?? [];
+        list.push({ targetName: e.payload.targetName, amount: e.payload.amount, challenge: e.payload.challenge });
+        challengeCuts.set(e.payload.specialId, list);
+        break;
+      }
     }
   }
 
@@ -197,7 +206,10 @@ export function summarizeCommittedTurn(
     // Unnatural Endurance (#28): a targetless "big Defend" — fold the shed GM Attack dice in.
     const gmCut = gmCuts.get(sid)?.shift();
     const gmText = gmCut ? ` — −${gmCut} Reich Attack ${plural(gmCut, "die", "dice")}` : "";
-    lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}${cutText}${ratingText}${gmText}` });
+    // Sapper (#29): fold the Challenge cut in (parallel to the Attack cut) — Objective or Threat.
+    const chalCut = challengeCuts.get(sid)?.shift();
+    const chalText = chalCut ? ` — ${chalCut.targetName}'s Challenge −${chalCut.amount} (now ${chalCut.challenge})` : "";
+    lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}${cutText}${ratingText}${gmText}${chalText}` });
   }
 
   // Board-granted damage SPECIALs (Crash & Burn, #23): the crit inflicted a flat amount on the

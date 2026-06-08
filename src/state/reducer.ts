@@ -135,6 +135,13 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
           t.id === e.payload.threatId ? { ...t, attack: e.payload.attack } : t,
         ),
       });
+    case "CHALLENGE_REDUCED":
+      // Sapper (#29): a crit-SPECIAL lowered a target's Challenge. The new value is carried resolved
+      // — the handler already routed it through lowerChallenge, so a Werhund's lock never reaches
+      // here (no event is emitted). Set it on the right board list per targetKind.
+      return e.payload.targetKind === "threat"
+        ? withBoard(s, { ...s.board, threats: s.board.threats.map((t) => (t.id === e.payload.targetId ? { ...t, challenge: e.payload.challenge } : t)) })
+        : withBoard(s, { ...s.board, objectives: s.board.objectives.map((o) => (o.id === e.payload.targetId ? { ...o, challenge: e.payload.challenge } : o)) });
 
     case "TURN_STARTED":
       return {

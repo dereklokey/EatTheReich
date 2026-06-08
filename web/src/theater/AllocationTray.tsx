@@ -320,6 +320,34 @@ export function AllocationTray({
         {/* SPECIALs sit in the list like any other target so the table sees them, but only
             a critical can arm one (RULES §4). A non-crit pick greys them with the reason. */}
         {specials.flatMap((sp) => {
+          // Sapper (#29): a crit that lowers an Objective- OR Threat's Challenge by 1 (rulebook p59).
+          // Expands to one card per in-play target that HAS Challenge to shave; a Werhund's
+          // 'Unlowerable Challenge' (#25) shows locked (the server emits nothing for it either).
+          if (sp.reduceChallenge) {
+            const cut = sp.reduceChallenge;
+            const targets = [
+              ...objLive.filter((o) => (o.challenge ?? 0) > 0).map((o) => ({ id: o.id, name: o.name, challenge: o.challenge ?? 0, locked: false })),
+              ...thrLive.filter((t) => (t.challenge ?? 0) > 0).map((t) => ({ id: t.id, name: t.name, challenge: t.challenge ?? 0, locked: t.unlowerableChallenge === true })),
+            ];
+            return targets.map((tg) => (
+              <TargetCard
+                key={`${sp.id}:${tg.id}`}
+                special
+                armed={critPicked && !tg.locked}
+                blocked={(picked !== null && !critPicked) || tg.locked}
+                label={`${sp.name} → ${tg.name}`}
+                sub={
+                  tg.locked
+                    ? `SPECIAL · ${tg.name}'s Challenge can't be lowered`
+                    : `SPECIAL · critical only · challenge −${cut} (${tg.challenge} → ${Math.max(0, tg.challenge - cut)})`
+                }
+                hint={sp.text}
+                onClick={() => critPicked && !tg.locked && place({ kind: "special", specialId: sp.id, targetId: tg.id })}
+                placed={placedOn((a) => a.kind === "special" && a.specialId === sp.id && a.targetId === tg.id)}
+                onUnplace={unassign}
+              />
+            ));
+          }
           // Target-picking SPECIALs expand to one card per in-play Threat (mirroring the board-granted
           // specials): Deadeye Shot / Back-Pocket Hex (#26, −Attack) and Apex Predator (#27, −rating).
           // The crit's units still go to the SPECIAL; the effect rides `targetId` (rating damage is

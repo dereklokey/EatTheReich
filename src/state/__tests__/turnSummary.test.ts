@@ -317,6 +317,28 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(summary.lines[0]).toMatchObject({ kind: "special", text: "Activated Unnatural Endurance — −3 Reich Attack dice" });
   });
 
+  it("folds a Sapper −Challenge into the activation line (#29)", () => {
+    const { ev } = log();
+    const thr: Threat = { id: "thr", name: "Nazi Squad", kind: "threat", rating: 4, attack: 3, startingAttack: 3, challenge: 2, reinforces: true, restoresAtZero: true };
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "nicole" }, "nicole"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [thr] }),
+      ev("TURN_STARTED", { seat: "nicole", stat: "FIX", tags: ["explosives"] }, "nicole"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 0 }),
+      ev("DIE_ALLOCATED", { kind: "special", specialId: "nicole-sapper", targetId: "thr", units: 2 }, "nicole"),
+      ev("CHALLENGE_REDUCED", { targetId: "thr", targetName: "Nazi Squad", targetKind: "threat", amount: 1, challenge: 1, specialId: "nicole-sapper", specialName: "Sapper" }, "nicole"),
+      ev("ALLOCATION_COMMITTED", {}, "nicole"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    expect(state.board.threats[0]?.challenge).toBe(1);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines).toHaveLength(1);
+    expect(summary.lines[0]).toMatchObject({ kind: "special", text: "Activated Sapper — Nazi Squad's Challenge −1 (now 1)" });
+  });
+
   it("returns null for an empty turn and for a non-commit seq", () => {
     const events = irynaClockTowerEvents("g-iryna");
     const state = reduce(events);

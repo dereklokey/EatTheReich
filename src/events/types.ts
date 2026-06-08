@@ -114,6 +114,17 @@ export interface EventPayloads {
    */
   THREAT_ATTACK_REDUCED: { threatId: string; threatName: string; amount: number; attack: number; specialId: string; specialName: string };
   /**
+   * A crit-SPECIAL lowered an Objective- or Threat's Challenge (Nicole's Sapper, −1; rulebook p59,
+   * "when you use explosives"). Fired from the ALLOCATE branch when a crit is spent on a
+   * `reduceChallenge` SPECIAL that carries a target — the Objective/Threat counterpart of
+   * THREAT_ATTACK_REDUCED. `challenge` is the resolved new value, already routed through engine
+   * `lowerChallenge`, so the Werhund's 'Unlowerable Challenge' (#25) is respected: the event is
+   * ONLY emitted when the value actually dropped. `targetKind` says which board list holds the
+   * target; `specialId`/`specialName` let the after-action report fold the cut into the "Activated …"
+   * line. A logged, GM-overridable default (CLAUDE.md §0).
+   */
+  CHALLENGE_REDUCED: { targetId: string; targetName: string; targetKind: "objective" | "threat"; amount: number; challenge: number; specialId: string; specialName: string };
+  /**
    * Mid-allocation bonus dice (RULES §4 — the pool is NOT frozen at roll time). A newly
    * narrated advantage adds `count` dice now; the server rolls and discards them, and the
    * survivors join the allocation tray. `label` tags their pool source.

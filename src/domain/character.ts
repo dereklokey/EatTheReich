@@ -89,6 +89,15 @@ export interface Power {
    * (clamped ≥0), so the client's incoming-Attack preview drops live. A GM-editable default (§0).
    */
   reduceGmDice?: number;
+  /**
+   * How much this SPECIAL lowers a chosen Objective- OR Threat's Challenge when activated (a crit
+   * on it WITH a target) — Nicole's Sapper (−1, rulebook p59, "when you use explosives"). Unlike the
+   * rating/Attack cuts this can aim at EITHER board kind, so it rides on the `special` allocation's
+   * `targetId`; the handler routes the drop through the engine's
+   * {@link import("../engine/challenge.js").lowerChallenge} chokepoint, so the Werhund's 'Unlowerable
+   * Challenge' (#25) is respected. Applied as a logged, GM-editable CHALLENGE_REDUCED (CLAUDE.md §0).
+   */
+  reduceChallenge?: number;
 }
 
 export interface Equipment {

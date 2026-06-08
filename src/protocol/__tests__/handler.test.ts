@@ -393,6 +393,94 @@ describe("processIntent — Unnatural Endurance −3 GM Attack dice (#28)", () =
   });
 });
 
+describe("processIntent — Sapper −1 Objective/Threat Challenge (#29)", () => {
+  const guardedThreat: Threat = { ...threat, challenge: 2 };
+  const guardedObjective: Objective = { ...objective, challenge: 2 };
+
+  it("a crit on Nicole's Sapper, aimed at a Threat, lowers its Challenge by 1 (logged, GM-editable)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [guardedThreat] });
+    d.run({ kind: "start_turn", seat: "nicole", stat: "FIX", tags: ["explosives"] }, sequenceRoller([]), "nicole");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "nicole-sapper", targetId: "thr1", units: 2 }] },
+      sequenceRoller([]),
+      "nicole",
+    );
+    expect(events.map((e) => e.type)).toEqual(["DIE_ALLOCATED", "CHALLENGE_REDUCED"]);
+    expect(events.find((e) => e.type === "CHALLENGE_REDUCED")?.payload).toMatchObject({
+      targetId: "thr1",
+      targetName: "Nazi Squad",
+      targetKind: "threat",
+      amount: 1,
+      challenge: 1, // 2 − 1, resolved
+      specialId: "nicole-sapper",
+      specialName: "Sapper",
+    });
+    expect(d.state.board.threats[0]?.challenge).toBe(1);
+  });
+
+  it("aimed at an Objective, it lowers the Objective's Challenge the same way", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [guardedObjective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "nicole", stat: "FIX", tags: ["explosives"] }, sequenceRoller([]), "nicole");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "nicole-sapper", targetId: "obj1", units: 2 }] },
+      sequenceRoller([]),
+      "nicole",
+    );
+    expect(events.find((e) => e.type === "CHALLENGE_REDUCED")?.payload).toMatchObject({ targetId: "obj1", targetKind: "objective", challenge: 1 });
+    expect(d.state.board.objectives[0]?.challenge).toBe(1);
+  });
+
+  it("no target → just the activation, no Challenge change", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [guardedThreat] });
+    d.run({ kind: "start_turn", seat: "nicole", stat: "FIX", tags: ["explosives"] }, sequenceRoller([]), "nicole");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "nicole-sapper", units: 2 }] },
+      sequenceRoller([]),
+      "nicole",
+    );
+    expect(events.map((e) => e.type)).toEqual(["DIE_ALLOCATED"]);
+    expect(d.state.board.threats[0]?.challenge).toBe(2);
+  });
+
+  it("honours the Werhund's 'Unlowerable Challenge' (#25): targeting it emits nothing, Challenge unchanged", () => {
+    const dog = { ...werhund(), id: "thr1" } as Threat; // challenge 1, unlowerableChallenge true
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [dog] });
+    d.run({ kind: "start_turn", seat: "nicole", stat: "FIX", tags: ["explosives"] }, sequenceRoller([]), "nicole");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "nicole-sapper", targetId: "thr1", units: 2 }] },
+      sequenceRoller([]),
+      "nicole",
+    );
+    expect(events.map((e) => e.type)).toEqual(["DIE_ALLOCATED"]); // no CHALLENGE_REDUCED — the lock held
+    expect(d.state.board.threats[0]?.challenge).toBe(1);
+  });
+
+  it("two explosives crits on one target compose and clamp at 0", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [{ ...threat, challenge: 1 }] });
+    d.run({ kind: "start_turn", seat: "nicole", stat: "FIX", tags: ["explosives"] }, sequenceRoller([]), "nicole");
+    const events = d.run(
+      {
+        kind: "allocate",
+        allocations: [
+          { kind: "special", specialId: "nicole-sapper", targetId: "thr1", units: 2 },
+          { kind: "special", specialId: "nicole-sapper", targetId: "thr1", units: 2 },
+        ],
+      },
+      sequenceRoller([]),
+      "nicole",
+    );
+    // 1 → 0 (emitted), then 0 can't drop further → the gate suppresses the second event.
+    const reduced = events.filter((e) => e.type === "CHALLENGE_REDUCED").map((e) => e.payload.challenge);
+    expect(reduced).toEqual([0]);
+    expect(d.state.board.threats[0]?.challenge).toBe(0);
+  });
+});
+
 describe("processIntent — Last Stand (RULES §5)", () => {
   const allSixMarked = ([0, 1, 2] as const).flatMap((category) =>
     ([1, 2] as const).map((box) => ({ type: "INJURY_MARKED" as const, payload: { seat: "iryna" as const, category, box } })),

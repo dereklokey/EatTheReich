@@ -39,7 +39,9 @@ the **book** in each case.
    weapon"; Sapper "when you use explosives"). Encoded as crit triggers with `tag`
    conditions. Back-Pocket Hex / Deadeye Shot's −1 Threat Attack is wired (#26):
    `Power.reduceThreatAttack` + a target-carrying `special` allocation → a logged
-   THREAT_ATTACK_REDUCED. Sapper's −1 Challenge is still backlog (#29).
+   THREAT_ATTACK_REDUCED. Sapper's −1 Challenge is wired (#29): `Power.reduceChallenge`
+   + a target-carrying `special` allocation (Objective OR Threat) → a logged
+   CHALLENGE_REDUCED, routed through engine `lowerChallenge` so the Werhund's lock holds.
 
 ## Engine rules confirmed against the rulebook (no change needed)
 
