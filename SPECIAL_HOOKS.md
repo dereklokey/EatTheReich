@@ -96,7 +96,7 @@ feel).
 | Dead Man's Luck | Cosgrave | `ROLL_RESULTS` | auto / system | ✅ |
 | Bone Armour | Flint | `ROLL_RESULTS` | auto / system | ✅ |
 | Feed on Fear (+3 on reduce-to-0) | Nicole | `TURN_END` | auto / system | ✅ |
-| Corrosive Fluids (−2 on Injury) | Chuck | `INJURY` | select / player | ⬜ #34 |
+| Corrosive Fluids (−2 on Injury) | Chuck | `INJURY` | select / player | ✅ |
 | Tethered Phantom / Hellish Screech (−1 Challenge) | Astrid, Flint | `DECLARE` | select / player | ⬜ #35 |
 
 ### Cross-turn stances & objectives

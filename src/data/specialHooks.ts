@@ -403,14 +403,13 @@ export const SPECIAL_HOOKS: SpecialHook[] = [
     id: "advance.corrosive-fluids",
     name: "Corrosive Fluids",
     source: { kind: "advance", character: "Chuck", powerIds: ["chuck-corrosive-fluids"] },
-    rule: "When you mark an Injury, reduce a Threat you're engaged with by 2.",
+    rule: "When you mark an Injury, reduce a Threat you're engaged with by 2 — via the Power.reduceThreatRatingOnInjury descriptor. A triggered passive (not crit-allocated): the handler fires it from the `resolve_injury` path the moment an INJURY_MARKED lands, against the in-play Threat the player named (`resolve_injury.corrosiveTargetId`), as a logged, GM-editable THREAT_RATING_REDUCED. Direct damage like Apex Predator — bypasses Challenge, rating 0 → Attack 0. A locked advance / shrugged-off wound corrodes nothing.",
     hook: "INJURY",
     trigger: "an Injury is marked on Chuck",
     resolution: "select",
     actor: "player",
     target: "threat",
-    status: "planned",
-    issue: 34,
+    status: "implemented",
   },
 
   // ── No-die actives that mutate the board from the sheet — planned ──────────

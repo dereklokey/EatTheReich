@@ -749,6 +749,89 @@ describe("processIntent — Feed on Fear +3 Blood on reduce-to-0 (#33)", () => {
   });
 });
 
+describe("processIntent — Corrosive Fluids −2 Threat rating on Injury (#34)", () => {
+  const unlock: EventInput = { type: "ADVANCE_UNLOCKED", payload: { seat: "chuck", advanceId: "chuck-corrosive-fluids" }, actor: "chuck" };
+
+  /** Drive Chuck to a parked single-box Injury (d6=1 → category 0) against `threats`; each Threat's
+   *  Attack is forced to 3 so a single in-play Threat keeps the GM pool a tidy 3 dice (1 gets through,
+   *  so the injury check opens). Corrosive unlocked unless told otherwise. */
+  function parkChuckInjury(threats: Threat[], { unlock: doUnlock = true } = {}) {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: threats.map((t) => ({ ...t, attack: 3 })) });
+    if (doUnlock) d.seed([unlock], "chuck");
+    d.run({ kind: "start_turn", seat: "chuck", stat: "BRAWL" }, sequenceRoller([]), "chuck");
+    d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 4]), "chuck"); // 2 player successes
+    d.run({ kind: "roll_gm" }, sequenceRoller([6, 2, 2]), "gm"); // 3 GM dice, 1 success
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "chuck");
+    d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }, { kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), "chuck"); // no Defend → 1 GM left
+    d.run({ kind: "commit" }, sequenceRoller([]), "chuck"); // opens INJURY_CHECK
+    d.run({ kind: "roll_injury" }, sequenceRoller([1]), "chuck"); // 1 leftover → injury, d6=1 → category 0
+    return d;
+  }
+
+  it("marking the wound corrodes the named Threat −2 (THREAT_RATING_REDUCED after INJURY_MARKED)", () => {
+    const d = parkChuckInjury([threat]); // thr1 rating 4
+    const events = d.run({ kind: "resolve_injury", corrosiveTargetId: "thr1" }, sequenceRoller([]), "chuck");
+    expect(events.map((e) => e.type)).toEqual(["INJURY_MARKED", "THREAT_RATING_REDUCED", "ALLOCATION_COMMITTED"]);
+    expect(events.find((e) => e.type === "THREAT_RATING_REDUCED")?.payload).toMatchObject({
+      threatId: "thr1",
+      threatName: "Nazi Squad",
+      amount: 2,
+      rating: 2,
+      passiveId: "chuck-corrosive-fluids",
+      passiveName: "Corrosive Fluids",
+    });
+    expect(d.state.board.threats[0]?.rating).toBe(2); // 4 − 2
+    expect(d.state.characters.chuck.injuries[0]).toBe(1); // the wound still landed
+  });
+
+  it("corroding a Threat to 0 also drops its Attack to 0 (direct damage, RULES §3)", () => {
+    const weak: Threat = { ...threat, rating: 2 };
+    const d = parkChuckInjury([weak]);
+    d.run({ kind: "resolve_injury", corrosiveTargetId: "thr1" }, sequenceRoller([]), "chuck");
+    expect(d.state.board.threats[0]).toMatchObject({ rating: 0, attack: 0 });
+  });
+
+  it("a LOCKED Corrosive Fluids corrodes nothing (anti-fudge — the advance must be unlocked)", () => {
+    const d = parkChuckInjury([threat], { unlock: false });
+    const events = d.run({ kind: "resolve_injury", corrosiveTargetId: "thr1" }, sequenceRoller([]), "chuck");
+    expect(events.map((e) => e.type)).toEqual(["INJURY_MARKED", "ALLOCATION_COMMITTED"]);
+    expect(d.state.board.threats[0]?.rating).toBe(4); // untouched
+  });
+
+  it("no target named → just the wound, no corrosion", () => {
+    const d = parkChuckInjury([threat]);
+    const events = d.run({ kind: "resolve_injury" }, sequenceRoller([]), "chuck");
+    expect(events.map((e) => e.type)).toEqual(["INJURY_MARKED", "ALLOCATION_COMMITTED"]);
+    expect(d.state.board.threats[0]?.rating).toBe(4);
+  });
+
+  it("a shrugged-off wound (ignore) marks nothing and corrodes nothing", () => {
+    const d = parkChuckInjury([threat]);
+    d.run({ kind: "use_equipment", seat: "chuck", itemId: "chuck-cowboy-hat" }, sequenceRoller([]), "chuck");
+    const events = d.run({ kind: "resolve_injury", ignore: true, corrosiveTargetId: "thr1" }, sequenceRoller([]), "chuck");
+    expect(events.map((e) => e.type)).toEqual(["ALLOCATION_COMMITTED"]); // no INJURY_MARKED, no corrosion
+    expect(d.state.board.threats[0]?.rating).toBe(4);
+  });
+
+  it("a not-in-play (staged) target corrodes nothing", () => {
+    const staged: Threat = { ...threat, id: "staged", active: false };
+    const d = parkChuckInjury([threat, staged]); // only thr1 is in play / feeds the GM pool
+    const events = d.run({ kind: "resolve_injury", corrosiveTargetId: "staged" }, sequenceRoller([]), "chuck");
+    expect(events.map((e) => e.type)).toEqual(["INJURY_MARKED", "ALLOCATION_COMMITTED"]);
+    expect(d.state.board.threats.find((t) => t.id === "staged")?.rating).toBe(4);
+  });
+
+  it("corrosion also rides the Rending Claws escalation (still an Injury marked)", () => {
+    const beast: Threat = { ...werhund(), id: "werhund1", rating: 6 }; // the lone in-play Threat → pool stays 3
+    const d = parkChuckInjury([beast]); // a Werhund in play → the wound can be rended, and it's the corrode target
+    const events = d.run({ kind: "resolve_injury", rending: true, corrosiveTargetId: "werhund1" }, sequenceRoller([]), "chuck");
+    expect(events.map((e) => e.type)).toEqual(["INJURY_MARKED", "THREAT_RATING_REDUCED", "ALLOCATION_COMMITTED"]);
+    expect(d.state.characters.chuck.injuries[0]).toBe(2); // whole category filled
+    expect(d.state.board.threats.find((t) => t.id === "werhund1")?.rating).toBe(4); // 6 − 2
+  });
+});
+
 describe("processIntent — Last Stand (RULES §5)", () => {
   const allSixMarked = ([0, 1, 2] as const).flatMap((category) =>
     ([1, 2] as const).map((box) => ({ type: "INJURY_MARKED" as const, payload: { seat: "iryna" as const, category, box } })),

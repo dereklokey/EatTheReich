@@ -134,6 +134,15 @@ export interface Power {
    * §0) — mirroring {@link grantsBlood}'s self-buff, but keyed to the kill rather than the crit.
    */
   bloodOnThreatKill?: number;
+  /**
+   * Flat rating a triggered PASSIVE knocks off a Threat the actor names when they MARK an Injury —
+   * Chuck's Corrosive Fluids (−2, rulebook, Chuck advance; issue #34). Like {@link bloodOnThreatKill}
+   * it isn't allocated to: the handler fires it from the `resolve_injury` path, the moment an
+   * INJURY_MARKED lands, against a chosen in-play Threat (`resolve_injury.corrosiveTargetId`). Direct
+   * damage like Apex Predator — it bypasses Challenge and rating 0 → Attack 0 (RULES §3) — but landed
+   * as its own logged, GM-editable THREAT_RATING_REDUCED (CLAUDE.md §0), not a crit's `ratingDamage`.
+   */
+  reduceThreatRatingOnInjury?: number;
 }
 
 export interface Equipment {

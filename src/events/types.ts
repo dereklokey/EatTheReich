@@ -114,6 +114,16 @@ export interface EventPayloads {
    */
   THREAT_ATTACK_REDUCED: { threatId: string; threatName: string; amount: number; attack: number; specialId: string; specialName: string };
   /**
+   * A triggered PASSIVE corroded a Threat's *rating* the moment the actor marked an Injury (Chuck's
+   * Corrosive Fluids, −2; rulebook, Chuck advance; issue #34). Fired from the `resolve_injury` path
+   * alongside INJURY_MARKED, against the in-play Threat the actor named. Direct damage like Apex
+   * Predator — it bypasses Challenge — so `rating` is the resolved new value (clamped ≥0, rating 0 →
+   * Attack 0). Distinct from THREAT_UPDATED (a GM edit) so the log reads as the fiction it is and the
+   * after-action report can fold it in; `passiveId`/`passiveName` name the power. A GM-editable
+   * default (CLAUDE.md §0).
+   */
+  THREAT_RATING_REDUCED: { threatId: string; threatName: string; amount: number; rating: number; passiveId: string; passiveName: string };
+  /**
    * A crit-SPECIAL lowered an Objective- or Threat's Challenge (Nicole's Sapper, −1; rulebook p59,
    * "when you use explosives"). Fired from the ALLOCATE branch when a crit is spent on a
    * `reduceChallenge` SPECIAL that carries a target — the Objective/Threat counterpart of

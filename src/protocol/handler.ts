@@ -226,6 +226,21 @@ function feedOnThreatKill(state: GameState, seat: CharId): { amount: number; nam
 }
 
 /**
+ * The flat rating a triggered PASSIVE corrodes off a chosen Threat when the actor marks an Injury —
+ * Chuck's Corrosive Fluids (−2, rulebook, Chuck advance; issue #34). Scans the seat's *active*
+ * passives (abilities always; advances only once {@link activePassiveIds} confirms they're unlocked —
+ * so a locked Corrosive Fluids corrodes nothing, anti-fudge) for the `reduceThreatRatingOnInjury`
+ * descriptor. Returns the amount + the power's name for the THREAT_RATING_REDUCED log.
+ */
+function corrosiveOnInjury(state: GameState, seat: CharId): { amount: number; id: string; name: string } | undefined {
+  const sheet = CHARACTERS_BY_ID[seat];
+  if (!sheet) return undefined;
+  const active = activePassiveIds(seat, state);
+  const power = [...sheet.abilities, ...sheet.advances].find((p) => active.has(p.id) && p.reduceThreatRatingOnInjury);
+  return power?.reduceThreatRatingOnInjury ? { amount: power.reduceThreatRatingOnInjury, id: power.id, name: power.name } : undefined;
+}
+
+/**
  * Feed on Fear (#33) at the action's conclusion: a logged, GM-editable BLOOD_CHANGED for every Threat
  * this turn's allocations reduced to rating 0. Resolved at `commit` (TURN_END) off the post-allocation
  * board — the kill already landed during ALLOCATE, which mutates the board live — so it fires whether
@@ -619,6 +634,16 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
         const o = rending ? rendInjury(pending.outcome) : pending.outcome;
         if (o.kind === "injury") {
           events.push({ type: "INJURY_MARKED", payload: { seat: turn.seat, category: o.category, box: o.box, ...(o.penaltyTriggered ? { penalty: penaltyLabel(turn.seat, o.category) } : {}), ...(rending ? { rending: true } : {}) }, actor: turn.seat });
+          // Corrosive Fluids (#34): marking the wound corrodes a Threat the actor names (−2 rating).
+          // A triggered passive (not a crit) — gated on the unlocked descriptor, and only when the
+          // chosen Threat is in play with rating left to eat. Direct damage like Apex Predator: it
+          // bypasses Challenge (rating 0 → Attack 0 in the reducer), logged as a GM-editable default.
+          const corrosive = corrosiveOnInjury(state, turn.seat);
+          const thr = intent.corrosiveTargetId ? state.board.threats.find((t) => t.id === intent.corrosiveTargetId) : undefined;
+          if (corrosive && thr && threatInPlay(thr)) {
+            const rating = Math.max(0, thr.rating - corrosive.amount);
+            events.push({ type: "THREAT_RATING_REDUCED", payload: { threatId: thr.id, threatName: thr.name, amount: corrosive.amount, rating, passiveId: corrosive.id, passiveName: corrosive.name }, actor: turn.seat });
+          }
         } else if (o.kind === "downed") {
           events.push({ type: "DOWNED", payload: { seat: turn.seat, category: o.category }, actor: turn.seat });
         } else if (o.kind === "death") {

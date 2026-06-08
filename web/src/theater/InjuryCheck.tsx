@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DieFace } from "@shared/domain/types.js";
 import type { GameState, TurnState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
-import { rendingClawsInPlay } from "@shared/domain/types.js";
+import { rendingClawsInPlay, threatInPlay } from "@shared/domain/types.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
 import { seatName } from "@/game/seats";
 import { Die, type DieVisualState } from "@/components/dice/Die";
@@ -74,6 +74,9 @@ export function InjuryCheck({
   );
   const [arenaFading, setArenaFading] = useState(false);
   const [rolling, setRolling] = useState(false);
+  // Corrosive Fluids (#34): which Threat Chuck eats 2 rating off when this wound is marked.
+  // Undefined falls back to the first in-play Threat at send time (the usual single-Threat case).
+  const [corrosiveTargetId, setCorrosiveTargetId] = useState<string | undefined>(undefined);
 
   // The throw arrived (the driver pressed "Roll the wound") → fling it, or reveal at once
   // on a reduce-effects client.
@@ -195,6 +198,19 @@ export function InjuryCheck({
   const hat = outcome.kind !== "death" ? reactive.find((e) => e.reactive?.ignoreInjury) : undefined;
   const bloodItems = reactive.filter((e) => e.reactive?.blood);
 
+  // Corrosive Fluids (#34): if Chuck has the passive available and the wound is a normal Injury,
+  // marking it corrodes 2 rating off a Threat he names. Offered as a target picker among the Threats
+  // in play; the server recomputes the cut (anti-fudge). A locked advance / non-injury outcome → none.
+  const corrosivePower =
+    outcome.kind === "injury"
+      ? (sheet?.advances ?? []).find((p) => p.reduceThreatRatingOnInjury && char.unlockedAdvances.includes(p.id)) ??
+        (sheet?.abilities ?? []).find((p) => p.reduceThreatRatingOnInjury)
+      : undefined;
+  const corrosiveThreats = corrosivePower ? state.board.threats.filter(threatInPlay) : [];
+  // The Threat that'll actually be corroded: the explicit pick, else the first in play.
+  const corrosiveTarget = corrosiveThreats.find((t) => t.id === corrosiveTargetId) ?? corrosiveThreats[0];
+  const corrosivePayload = corrosiveTarget ? { corrosiveTargetId: corrosiveTarget.id } : {};
+
   const shrugOff = () => {
     if (!hat) return;
     play("defend");
@@ -207,7 +223,7 @@ export function InjuryCheck({
   };
   const takeHit = () => {
     play(outcome.kind === "death" ? "crit" : outcome.kind === "downed" ? "downed" : "hit");
-    send({ kind: "resolve_injury" });
+    send({ kind: "resolve_injury", ...corrosivePayload });
   };
   // Werhund 'Rending Claws' (rulebook p64, #24): a normal Injury attributed to a Werhund in
   // play marks the WHOLE category, not one box. The table pins the aggregate Reich hit on the
@@ -215,7 +231,7 @@ export function InjuryCheck({
   const werhundInPlay = rendingClawsInPlay(state.board.threats);
   const rendHit = () => {
     play("downed");
-    send({ kind: "resolve_injury", rending: true });
+    send({ kind: "resolve_injury", rending: true, ...corrosivePayload });
   };
 
   return (
@@ -234,6 +250,26 @@ export function InjuryCheck({
             <div className="injury-check__sub mono text-xs">{verdict.sub}</div>
           </div>
         </div>
+
+        {canDrive && corrosivePower && corrosiveThreats.length > 0 && (
+          <div className="injury-corrosive mt-4">
+            <p className="mono text-xs text-paper-fade">
+              <span className="text-blood">Corrosive Fluids</span> — the wound sprays acid, eating 2 rating off:
+            </p>
+            <div className="injury-corrosive__targets mt-2">
+              {corrosiveThreats.map((t) => (
+                <button
+                  key={t.id}
+                  className={`injury-corrosive__chip${corrosiveTarget?.id === t.id ? " injury-corrosive__chip--on" : ""}`}
+                  onClick={() => setCorrosiveTargetId(t.id)}
+                  title={`Corrode ${t.name} — rating ${t.rating} → ${Math.max(0, t.rating - (corrosivePower.reduceThreatRatingOnInjury ?? 0))}`}
+                >
+                  {t.name} <span className="mono text-xs">({t.rating}→{Math.max(0, t.rating - (corrosivePower.reduceThreatRatingOnInjury ?? 0))})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {canDrive ? (
           <div className="injury-actions mt-6">

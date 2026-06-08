@@ -50,8 +50,10 @@ export type Intent =
   /** Resolve the parked INJURY_CHECK: apply the rolled injury, `ignore` it (Chuck's hat), or
    *  `rending` — attribute a normal Injury to a Werhund in play, marking the WHOLE category
    *  (Rending Claws, rulebook p64, issue #24). `rending` is ignored unless the parked outcome
-   *  is a normal injury and a Werhund is in play. */
-  | { kind: "resolve_injury"; ignore?: boolean; rending?: boolean }
+   *  is a normal injury and a Werhund is in play. `corrosiveTargetId` names the in-play Threat
+   *  Chuck's Corrosive Fluids (#34) corrodes when the wound is marked (−2 rating); ignored unless
+   *  the seat has that passive unlocked and the outcome marks an Injury. */
+  | { kind: "resolve_injury"; ignore?: boolean; rending?: boolean; corrosiveTargetId?: string }
   /** Mid-allocation bonus dice (RULES §4): roll `count` more dice into the tray. */
   | { kind: "add_bonus_dice"; count: number; label?: string }
   /** Nicole's Scavenger SPECIAL (issue #32): throw the salvage d6 in the arena once a crit is on the

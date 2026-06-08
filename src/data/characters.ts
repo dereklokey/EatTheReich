@@ -172,7 +172,7 @@ export const CHUCK: CharacterSheet = {
   ],
   advances: [
     { id: "chuck-elbow-grease", name: "Elbow Grease", text: "When you take on an Objective single-handed with the FIX stat: reduce the Objective's rating by 4.", mechanic: "special", trigger: { type: "crit", requires: { solo: true, stat: "FIX", targetKind: "objective" } }, reduceObjectiveRating: 4 },
-    { id: "chuck-corrosive-fluids", name: "Corrosive Fluids", text: "When you mark an Injury, reduce the rating of a Threat you're engaged with by 2.", mechanic: "passive" },
+    { id: "chuck-corrosive-fluids", name: "Corrosive Fluids", text: "When you mark an Injury, reduce the rating of a Threat you're engaged with by 2.", mechanic: "passive", reduceThreatRatingOnInjury: 2 },
     { id: "chuck-lashing-tongue", name: "Lashing Tongue", text: "Your strong, prehensile tongue extends several yards out of your mouth.", mechanic: "active", bloodCost: 1, bonus: { tag: "restrain", plus: 1 } },
   ],
   injuries: injuries(

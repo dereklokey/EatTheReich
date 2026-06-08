@@ -366,6 +366,50 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(summary.lines[0]?.text).toBe("Activated Elbow Grease — Completed Wire the charges!");
   });
 
+  it("reports a Corrosive Fluids dent alongside the Injury it rode in on (#34)", () => {
+    const { ev } = log();
+    const thr: Threat = { id: "thr", name: "Nazi Squad", kind: "threat", rating: 4, attack: 3, startingAttack: 3, reinforces: true, restoresAtZero: true };
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "chuck" }, "chuck"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [thr] }),
+      ev("TURN_STARTED", { seat: "chuck", stat: "BRAWL" }, "chuck"),
+      ev("DICE_DISCARDED", { playerSurvivors: [4], gmSuccessCount: 1 }),
+      ev("INJURY_MARKED", { seat: "chuck", category: 0, box: 1 }, "chuck"),
+      ev("THREAT_RATING_REDUCED", { threatId: "thr", threatName: "Nazi Squad", amount: 2, rating: 2, passiveId: "chuck-corrosive-fluids", passiveName: "Corrosive Fluids" }, "chuck"),
+      ev("ALLOCATION_COMMITTED", {}, "chuck"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    expect(state.board.threats[0]?.rating).toBe(2);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    const texts = summary.lines.map((l) => l.text);
+    expect(texts).toContainEqual("Took an Injury");
+    expect(texts).toContainEqual("Corrosive Fluids — Nazi Squad −2 rating (now 2)");
+  });
+
+  it("a Corrosive Fluids hit that finishes the Threat owns the kill line (#34)", () => {
+    const { ev } = log();
+    const thr: Threat = { id: "thr", name: "Police Patrol", kind: "threat", rating: 2, attack: 2, startingAttack: 2, reinforces: true, restoresAtZero: true };
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "chuck" }, "chuck"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [thr] }),
+      ev("TURN_STARTED", { seat: "chuck", stat: "BRAWL" }, "chuck"),
+      ev("DICE_DISCARDED", { playerSurvivors: [4], gmSuccessCount: 1 }),
+      ev("INJURY_MARKED", { seat: "chuck", category: 0, box: 1 }, "chuck"),
+      ev("THREAT_RATING_REDUCED", { threatId: "thr", threatName: "Police Patrol", amount: 2, rating: 0, passiveId: "chuck-corrosive-fluids", passiveName: "Corrosive Fluids" }, "chuck"),
+      ev("ALLOCATION_COMMITTED", {}, "chuck"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    expect(state.board.threats[0]).toMatchObject({ rating: 0, attack: 0 });
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines.map((l) => l.text)).toContainEqual("Corrosive Fluids — Eliminated Police Patrol!");
+  });
+
   it("folds an Unnatural Endurance GM-dice reduction into the activation line (#28)", () => {
     const { ev } = log();
     const events = [

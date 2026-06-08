@@ -96,6 +96,9 @@ export function summarizeCommittedTurn(
   const passives: { id: string; detail?: string; bloodDelta?: number; gmSuccessDelta?: number }[] = [];
   let whiff: { name: string; attack: number; rating?: number } | null = null;
   let injury: { kind: "injury" | "downed"; penalty?: string; rending?: boolean } | null = null;
+  // Corrosive Fluids (#34): the rating a triggered passive corroded off a Threat when Chuck marked
+  // an Injury (THREAT_RATING_REDUCED). `rating` is the resolved post-corrosion value (a kill at 0).
+  const corrosions: { threatName: string; amount: number; rating: number; threatId: string }[] = [];
   let bonus = 0;
   let bonusLabel: string | undefined;
   // Einherjar 'Painless' (#19): per-action Challenge the Reich's 1s heaped onto a Threat, by id.
@@ -202,6 +205,10 @@ export function summarizeCommittedTurn(
       case "SCAVENGER_ROLLED":
         // Scavenger (#32): record the salvage so it folds into the special's "Activated …" line.
         salvages.set(e.payload.specialId, { face: e.payload.face, itemName: e.payload.itemName });
+        break;
+      case "THREAT_RATING_REDUCED":
+        // Corrosive Fluids (#34): the passive corroded a Threat as the wound was marked.
+        corrosions.push({ threatName: e.payload.threatName, amount: e.payload.amount, rating: e.payload.rating, threatId: e.payload.threatId });
         break;
     }
   }
@@ -333,6 +340,14 @@ export function summarizeCommittedTurn(
     // Rending Claws (#24) filled the whole category — name the Werhund so the table sees why
     // a single hit cost both boxes.
     lines.push({ kind: "injury", emphasis: true, text: `${injury.rending ? "Rending Claws — the whole wound opens" : "Took an Injury"}${injury.penalty ? ` — ${injury.penalty}` : ""}` });
+
+  // Corrosive Fluids (#34): marking that wound corroded a Threat (−2 rating). Reads right after the
+  // injury it rode in on. Owns the kill line only when no eliminate die already claims the Threat
+  // (mirrors the Apex Predator / Crash & Burn dedup); otherwise it just reports the rating it ate.
+  for (const c of corrosions) {
+    if (c.rating <= 0 && !eliminate.has(c.threatId)) lines.push({ kind: "kill", emphasis: true, text: `Corrosive Fluids — Eliminated ${c.threatName}!` });
+    else lines.push({ kind: "special", emphasis: true, text: `Corrosive Fluids — ${c.threatName} −${c.amount} rating (now ${c.rating})` });
+  }
 
   if (lines.length === 0) return null;
   return { seat, charName: CHARACTERS_BY_ID[seat]?.name ?? seat, lines };

@@ -135,6 +135,16 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
           t.id === e.payload.threatId ? { ...t, attack: e.payload.attack } : t,
         ),
       });
+    case "THREAT_RATING_REDUCED":
+      // Corrosive Fluids (#34): a triggered passive corroded the Threat's rating on an Injury. The
+      // new rating is carried resolved (clamped ≥0 in the handler); rating 0 → Attack 0 (RULES §3),
+      // matching the crit-SPECIAL ratingDamage path in the engine.
+      return withBoard(s, {
+        ...s.board,
+        threats: s.board.threats.map((t) =>
+          t.id === e.payload.threatId ? { ...t, rating: e.payload.rating, ...(e.payload.rating === 0 ? { attack: 0 } : {}) } : t,
+        ),
+      });
     case "CHALLENGE_REDUCED":
       // Sapper (#29): a crit-SPECIAL lowered a target's Challenge. The new value is carried resolved
       // — the handler already routed it through lowerChallenge, so a Werhund's lock never reaches

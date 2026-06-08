@@ -107,7 +107,11 @@ when their surfaces are built:
   (TURN_END) for every Threat the turn's allocations brought to rating 0, as a logged,
   GM-editable BLOOD_CHANGED. Fires on both the no-injury and injury-check commit branches.
 - **Corrosive Fluids** (Chuck advance): "when you mark an Injury, −2 a Threat you're
-  engaged with" — passive trigger still needing a hook (issue #34).
+  engaged with" — wired, issue #34. The `reduceThreatRatingOnInjury` descriptor; the
+  handler fires it from the `resolve_injury` path the moment an INJURY_MARKED lands,
+  against the in-play Threat the player named (`corrosiveTargetId`), as a logged,
+  GM-editable THREAT_RATING_REDUCED. Direct damage like Apex Predator (#27): bypasses
+  Challenge, rating 0 → Attack 0. A locked advance / shrugged-off wound corrodes nothing.
 
 ## Still pending (not in the rulebook text, or deferred)
 

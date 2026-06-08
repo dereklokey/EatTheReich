@@ -77,3 +77,33 @@
   color: var(--blood);
 }
 .injury-react--rend:hover { background: rgba(192, 20, 46, 0.14); }
+
+/* Corrosive Fluids (#34): the acid-spray target picker, between the verdict and the actions.
+   A row of Threat chips; the selected one glows like a hazard tag (the rating it'll eat). */
+.injury-corrosive { text-align: center; }
+.injury-corrosive__targets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+}
+.injury-corrosive__chip {
+  font-family: var(--font-display);
+  letter-spacing: 0.03em;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.7rem;
+  color: var(--paper-fade);
+  background: transparent;
+  border: 1px solid rgba(232, 220, 192, 0.22);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 80ms ease;
+}
+.injury-corrosive__chip:hover { background: rgba(124, 179, 66, 0.1); }
+.injury-corrosive__chip:active { transform: translateY(1px); }
+.injury-corrosive__chip--on {
+  color: var(--toxic, #9ccc65);
+  border-color: var(--toxic, #9ccc65);
+  background: rgba(124, 179, 66, 0.14);
+  box-shadow: 0 0 10px rgba(124, 179, 66, 0.35);
+}
