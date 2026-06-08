@@ -124,6 +124,23 @@ function specialAttackReduction(state: GameState, seat: CharId, specialId: strin
 }
 
 /**
+ * The flat rating damage a SPECIAL inflicts on a chosen Threat (Astrid's Apex Predator → 3;
+ * rulebook p57). Same sheet lookup as {@link specialBloodGrant}, for the `reduceThreatRating`
+ * descriptor. Computed server-side so the carried `ratingDamage` is authoritative (anti-fudge),
+ * not trusted from the client allocation. The effect rides the DIE_ALLOCATED through the engine
+ * (bypasses Challenge, rating 0 → Attack 0), so no separate event is needed.
+ */
+function specialRatingReduction(state: GameState, seat: CharId, specialId: string): number | undefined {
+  const sheet = CHARACTERS_BY_ID[seat];
+  if (!sheet) return undefined;
+  const unlocked = state.characters[seat]?.unlockedAdvances ?? [];
+  const power =
+    sheet.abilities.find((p) => p.id === specialId) ??
+    sheet.advances.find((p) => p.id === specialId && unlocked.includes(p.id));
+  return power?.reduceThreatRating;
+}
+
+/**
  * GM-whiff escalation (RULES §8, rulebook p38), applied at the conclusion of the action it
  * happened in (NOT at end of round). If the Reich's Attack roll this turn produced zero
  * successes, the lead (anchor) Threat presses harder: +1 Attack. Returns the THREAT_UPDATED
@@ -327,9 +344,14 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       // same Threat) compose: each THREAT_ATTACK_REDUCED carries the resolved value the next reads.
       const attackNow = new Map<string, number>();
       for (const a of intent.allocations) {
+        // Apex Predator (#27): a sheet SPECIAL's flat rating damage is recomputed from the power
+        // descriptor here (server-authoritative) and carried on DIE_ALLOCATED, so the engine
+        // applies it (bypassing Challenge, rating 0 → Attack 0) — the client's value is ignored.
+        const ratingDamage =
+          a.kind === "special" && a.specialId && a.targetId ? specialRatingReduction(state, turn.seat, a.specialId) : undefined;
         events.push({
           type: "DIE_ALLOCATED",
-          payload: { kind: a.kind, units: a.units, ...(a.targetId ? { targetId: a.targetId } : {}), ...(a.specialId ? { specialId: a.specialId } : {}) },
+          payload: { kind: a.kind, units: a.units, ...(a.targetId ? { targetId: a.targetId } : {}), ...(a.specialId ? { specialId: a.specialId } : {}), ...(ratingDamage ? { ratingDamage } : {}) },
           actor: turn.seat,
         });
         // A SPECIAL that's a pure self-buff applies its Blood here (Ravenous +3), as a logged

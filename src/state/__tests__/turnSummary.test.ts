@@ -258,6 +258,46 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(summary.lines[0]).toMatchObject({ kind: "special", text: "Activated Deadeye Shot — Nazi Squad's Attack −1 (now 2)" });
   });
 
+  it("folds an Apex Predator −rating into the activation line (#27)", () => {
+    const { ev } = log();
+    const thr: Threat = { id: "thr", name: "Infantry Squad", kind: "threat", rating: 6, attack: 3, startingAttack: 3, reinforces: true, restoresAtZero: true };
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "astrid" }, "astrid"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [thr] }),
+      ev("TURN_STARTED", { seat: "astrid", stat: "BRAWL" }, "astrid"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 0 }),
+      ev("DIE_ALLOCATED", { kind: "special", specialId: "astrid-apex-predator", targetId: "thr", units: 2, ratingDamage: 3 }, "astrid"),
+      ev("ALLOCATION_COMMITTED", {}, "astrid"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    expect(state.board.threats[0]?.rating).toBe(3); // 6 − 3
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines).toHaveLength(1);
+    expect(summary.lines[0]).toMatchObject({ kind: "special", text: "Activated Apex Predator — Infantry Squad −3 rating (now 3)" });
+  });
+
+  it("an Apex Predator that finishes the Threat owns the kill line (#27)", () => {
+    const { ev } = log();
+    const thr: Threat = { id: "thr", name: "Police Patrol", kind: "threat", rating: 2, attack: 2, startingAttack: 2, reinforces: true, restoresAtZero: true };
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "astrid" }, "astrid"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [thr] }),
+      ev("TURN_STARTED", { seat: "astrid", stat: "BRAWL" }, "astrid"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 0 }),
+      ev("DIE_ALLOCATED", { kind: "special", specialId: "astrid-apex-predator", targetId: "thr", units: 2, ratingDamage: 3 }, "astrid"),
+      ev("ALLOCATION_COMMITTED", {}, "astrid"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines[0]?.text).toBe("Activated Apex Predator — Eliminated Police Patrol!");
+  });
+
   it("returns null for an empty turn and for a non-commit seq", () => {
     const events = irynaClockTowerEvents("g-iryna");
     const state = reduce(events);

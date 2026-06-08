@@ -326,6 +326,49 @@ describe("processIntent — Deadeye Shot / Back-Pocket Hex −1 Threat Attack (#
   });
 });
 
+describe("processIntent — Apex Predator −3 Threat rating (#27)", () => {
+  it("a crit on Astrid's Apex Predator carries server-authoritative ratingDamage to the board", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] }); // thr1 rating 4
+    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL" }, sequenceRoller([]), "astrid");
+    const events = d.run(
+      // The client's bogus ratingDamage (99) is IGNORED — the handler recomputes 3 from the descriptor.
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "astrid-apex-predator", targetId: "thr1", units: 2, ratingDamage: 99 }] },
+      sequenceRoller([]),
+      "astrid",
+    );
+    expect(events.map((e) => e.type)).toEqual(["DIE_ALLOCATED"]); // no separate event — rides the allocation
+    expect(events[0]?.payload).toMatchObject({ kind: "special", specialId: "astrid-apex-predator", targetId: "thr1", ratingDamage: 3 });
+    expect(d.state.board.threats[0]?.rating).toBe(1); // 4 − 3
+  });
+
+  it("Apex Predator that finishes a Threat forces its Attack to 0", () => {
+    const weak: Threat = { ...threat, rating: 2 };
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [weak] });
+    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL" }, sequenceRoller([]), "astrid");
+    d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "astrid-apex-predator", targetId: "thr1", units: 2 }] },
+      sequenceRoller([]),
+      "astrid",
+    );
+    expect(d.state.board.threats[0]).toMatchObject({ rating: 0, attack: 0 });
+  });
+
+  it("no target Threat → just the activation, no ratingDamage emitted", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL" }, sequenceRoller([]), "astrid");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "astrid-apex-predator", units: 2 }] },
+      sequenceRoller([]),
+      "astrid",
+    );
+    expect(events[0]?.payload).not.toHaveProperty("ratingDamage");
+    expect(d.state.board.threats[0]?.rating).toBe(4);
+  });
+});
+
 describe("processIntent — Last Stand (RULES §5)", () => {
   const allSixMarked = ([0, 1, 2] as const).flatMap((category) =>
     ([1, 2] as const).map((box) => ({ type: "INJURY_MARKED" as const, payload: { seat: "iryna" as const, category, box } })),

@@ -74,6 +74,14 @@ export interface Power {
    * applies it as a logged THREAT_ATTACK_REDUCED (a default the GM can still edit, CLAUDE.md §0).
    */
   reduceThreatAttack?: number;
+  /**
+   * Flat amount this SPECIAL knocks off a chosen Threat's *rating* when activated (a crit on it
+   * WITH a target Threat) — Astrid's Apex Predator (−3, rulebook p57). Like a board-granted
+   * Crash & Burn hit it's direct damage: it bypasses Challenge (not a normal attack) and rides
+   * the `special` allocation as `ratingDamage`, so it folds through the same engine path and the
+   * client preview reflects it. rating 0 → Attack 0 (RULES §3). A GM-editable default (§0).
+   */
+  reduceThreatRating?: number;
 }
 
 export interface Equipment {

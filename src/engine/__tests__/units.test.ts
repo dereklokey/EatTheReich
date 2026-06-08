@@ -22,7 +22,7 @@ import {
   type BoardState,
 } from "../index.js";
 import { markInjury, emptyInjuryTrack, defaultCategoryFromD6, rendInjury, resolveInjury } from "../injury.js";
-import { naziSquad, infantrySquad, policePatrol, einherjar, paratrooperSquad, motorcycleSquad, werhund, tank } from "../../data/threats.js";
+import { naziSquad, infantrySquad, armouredInfantrySquad, policePatrol, einherjar, paratrooperSquad, motorcycleSquad, werhund, tank } from "../../data/threats.js";
 import { feedBlockedByBloodless, rendingClawsInPlay, isChallengeUnlowerable } from "../../domain/types.js";
 import type { Objective } from "../../domain/types.js";
 
@@ -321,6 +321,40 @@ describe("board-granted SPECIAL: Motorcycle 'Crash & Burn' (rulebook p61, issue 
     const acc = applyOneAllocation(emptyAccumulator(board, 0), { kind: "special", specialId: "flint-ravenous", targetId: moto.id, units: 2 });
     expect(acc.board.threats[0]!.rating).toBe(10); // untouched
     expect(acc.specialsActivated).toContain("flint-ravenous");
+  });
+});
+
+describe("sheet SPECIAL flat rating damage: Apex Predator (Astrid, rulebook p57, issue #27)", () => {
+  it("a `ratingDamage` special drops the target's rating in full, bypassing Challenge", () => {
+    const squad = armouredInfantrySquad(); // rating 6, attack 3, challenge 1
+    const board: BoardState = { objectives: [], threats: [squad] };
+    const acc = applyOneAllocation(emptyAccumulator(board, 0), { kind: "special", specialId: "astrid-apex-predator", targetId: squad.id, units: 2, ratingDamage: 3 });
+    expect(acc.board.threats[0]!.rating).toBe(3); // 6 − 3 in full; Challenge 1 does NOT soak it
+    expect(acc.specialsActivated).toContain("astrid-apex-predator");
+  });
+
+  it("damage that finishes the Threat forces its Attack to 0 (RULES §3)", () => {
+    const squad = { ...armouredInfantrySquad(), rating: 2 };
+    const board: BoardState = { objectives: [], threats: [squad] };
+    const acc = applyOneAllocation(emptyAccumulator(board, 0), { kind: "special", specialId: "astrid-apex-predator", targetId: squad.id, units: 2, ratingDamage: 3 });
+    expect(acc.board.threats[0]!).toMatchObject({ rating: 0, attack: 0 });
+  });
+
+  it("a special with no ratingDamage records but does not touch the board", () => {
+    const squad = infantrySquad();
+    const board: BoardState = { objectives: [], threats: [squad] };
+    const acc = applyOneAllocation(emptyAccumulator(board, 0), { kind: "special", specialId: "astrid-apex-predator", targetId: squad.id, units: 2 });
+    expect(acc.board.threats[0]!.rating).toBe(6); // untouched without the carried amount
+  });
+
+  it("composes with an eliminate die on the same Threat in one turn", () => {
+    const squad = infantrySquad(); // rating 6
+    const board: BoardState = { objectives: [], threats: [squad] };
+    const acc = [
+      { kind: "eliminate" as const, targetId: squad.id, units: 2 },
+      { kind: "special" as const, specialId: "astrid-apex-predator", targetId: squad.id, units: 2, ratingDamage: 3 },
+    ].reduce(applyOneAllocation, emptyAccumulator(board, 0));
+    expect(acc.board.threats[0]!.rating).toBe(1); // 6 − 2 (eliminate) − 3 (apex)
   });
 });
 

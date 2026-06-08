@@ -28,6 +28,13 @@ export interface Allocation {
   units: number;
   /** SPECIAL id for `kind: "special"`. */
   specialId?: string;
+  /**
+   * Flat rating damage a sheet SPECIAL inflicts on `targetId` (Astrid's Apex Predator → 3,
+   * RULES §7 / issue #27) — bypasses Challenge (not a normal attack), rating 0 → Attack 0. The
+   * counterpart to how a board-granted Crash & Burn (#23) carries its damage in `units`; a sheet
+   * special carries it here so a crit's own 2 units stay distinct from the effect.
+   */
+  ratingDamage?: number;
 }
 
 export interface BoardState {
@@ -136,20 +143,22 @@ export function applyOneAllocation(
     case "feed":
       next.bloodGained += a.units;
       break;
-    case "special":
+    case "special": {
       if (a.specialId) next.specialsActivated.push(a.specialId);
-      // A board-granted damage SPECIAL (Crash & Burn, RULES §7 / issue #23) carries the granting
-      // Threat as `targetId` and its flat damage in `units`; spending a crit here inflicts that
-      // damage directly — independent of the crit's own 2 units, and bypassing Challenge (it's
-      // not a normal attack). rating 0 → Attack 0 (RULES §3), same as eliminate.
-      if (isBoardSpecialId(a.specialId) && a.targetId) {
+      // Flat rating damage from a SPECIAL — inflicted directly on `targetId`, independent of the
+      // crit's own 2 units and bypassing Challenge (it's not a normal attack); rating 0 → Attack 0
+      // (RULES §3), same as eliminate. A board-granted Crash & Burn (#23) carries it in `units`
+      // behind a namespaced id; a sheet special (Apex Predator, #27) carries it in `ratingDamage`.
+      const dmg = (a.ratingDamage ?? 0) + (isBoardSpecialId(a.specialId) ? a.units : 0);
+      if (dmg > 0 && a.targetId) {
         const thr = next.board.threats.find((t) => t.id === a.targetId);
         if (thr) {
-          thr.rating = Math.max(0, thr.rating - a.units);
+          thr.rating = Math.max(0, thr.rating - dmg);
           if (thr.rating === 0) thr.attack = 0;
         }
       }
       break;
+    }
   }
 
   return next;

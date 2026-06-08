@@ -124,6 +124,9 @@ export interface EventPayloads {
     targetId?: string;
     units: number;
     specialId?: string;
+    /** Flat rating damage from a sheet SPECIAL on `targetId` (Apex Predator → 3, #27); see
+     *  Allocation.ratingDamage. Server-authoritative (recomputed from the power descriptor). */
+    ratingDamage?: number;
     detail?: string;
   };
   ALLOCATION_COMMITTED: Record<string, never>;

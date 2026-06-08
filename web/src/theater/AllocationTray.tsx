@@ -149,9 +149,12 @@ export function AllocationTray({
         const thr = preview.board.threats.find((t) => t.id === bs.threatId);
         fireCard(bs.threatId, thr && thr.rating - units <= 0 ? "kill" : "spray");
       } else if (alloc.targetId) {
-        // A targeted sheet SPECIAL clips a Threat (Deadeye Shot / Back-Pocket Hex, #26 → −Attack) —
-        // a light spray on its card so the table sees which enemy took the hit.
-        fireCard(alloc.targetId, "spray");
+        // A targeted sheet SPECIAL clips a Threat: Deadeye/Hex (#26 −Attack) or Apex Predator
+        // (#27 −rating). For rating damage, escalate to the kill burst when it finishes the Threat;
+        // otherwise a light spray so the table sees which enemy took the hit.
+        const dmg = alloc.ratingDamage ?? 0;
+        const thr = preview.board.threats.find((t) => t.id === alloc.targetId);
+        fireCard(alloc.targetId, dmg > 0 && thr && thr.rating - dmg <= 0 ? "kill" : "spray");
       }
     }
   };
@@ -317,11 +320,13 @@ export function AllocationTray({
         {/* SPECIALs sit in the list like any other target so the table sees them, but only
             a critical can arm one (RULES §4). A non-crit pick greys them with the reason. */}
         {specials.flatMap((sp) => {
-          // Deadeye Shot / Back-Pocket Hex (#26): the SPECIAL needs a target Threat, so it expands
-          // to one card per in-play Threat (mirroring the board-granted specials). The crit's units
-          // still go to the SPECIAL; the −Attack is server-resolved off `targetId`.
-          if (sp.reduceThreatAttack) {
-            const cut = sp.reduceThreatAttack;
+          // Target-picking SPECIALs expand to one card per in-play Threat (mirroring the board-granted
+          // specials): Deadeye Shot / Back-Pocket Hex (#26, −Attack) and Apex Predator (#27, −rating).
+          // The crit's units still go to the SPECIAL; the effect rides `targetId` (rating damage is
+          // carried so the live preview drops it, Attack is server-resolved).
+          if (sp.reduceThreatAttack || sp.reduceThreatRating) {
+            const ratingCut = sp.reduceThreatRating ?? 0;
+            const atkCut = sp.reduceThreatAttack ?? 0;
             return thrLive.map((t) => (
               <TargetCard
                 key={`${sp.id}:${t.id}`}
@@ -329,9 +334,13 @@ export function AllocationTray({
                 armed={critPicked}
                 blocked={picked !== null && !critPicked}
                 label={`${sp.name} → ${t.name}`}
-                sub={`SPECIAL · critical only · ATK −${cut} (${t.attack} → ${Math.max(0, t.attack - cut)})`}
+                sub={
+                  ratingCut
+                    ? `SPECIAL · critical only · rating −${ratingCut} (${t.rating} → ${Math.max(0, t.rating - ratingCut)})`
+                    : `SPECIAL · critical only · ATK −${atkCut} (${t.attack} → ${Math.max(0, t.attack - atkCut)})`
+                }
                 hint={sp.text}
-                onClick={() => critPicked && place({ kind: "special", specialId: sp.id, targetId: t.id })}
+                onClick={() => critPicked && place({ kind: "special", specialId: sp.id, targetId: t.id, ...(ratingCut ? { ratingDamage: ratingCut } : {}) })}
                 placed={placedOn((a) => a.kind === "special" && a.specialId === sp.id && a.targetId === t.id)}
                 onUnplace={unassign}
               />

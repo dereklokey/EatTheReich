@@ -100,6 +100,9 @@ export function summarizeCommittedTurn(
   // Deadeye Shot / Back-Pocket Hex (#26): the Attack a crit-SPECIAL shaved off a Threat, keyed by
   // specialId so it folds into that special's "Activated …" line (parallel to the Ravenous blood fold).
   const attackCuts = new Map<string, { threatName: string; amount: number; attack: number }[]>();
+  // Apex Predator (#27): the flat rating a crit-SPECIAL knocked off a Threat (DIE_ALLOCATED.ratingDamage),
+  // keyed by specialId so it folds into the "Activated …" line (kill/now-N read off the final board).
+  const ratingCuts = new Map<string, { targetId: string; amount: number }[]>();
 
   const add = (m: Map<string, number>, id: string | undefined, units: number) => {
     if (!id) return;
@@ -115,7 +118,15 @@ export function summarizeCommittedTurn(
         else if (e.payload.kind === "feed") feed += e.payload.units;
         else if (e.payload.kind === "special" && e.payload.specialId) {
           if (isBoardSpecialId(e.payload.specialId)) boardSpecialHits.push({ targetId: e.payload.targetId, units: e.payload.units });
-          else specials.push(e.payload.specialId);
+          else {
+            specials.push(e.payload.specialId);
+            // Apex Predator (#27): a sheet SPECIAL that carried flat rating damage — record it for the fold.
+            if (e.payload.ratingDamage && e.payload.targetId) {
+              const list = ratingCuts.get(e.payload.specialId) ?? [];
+              list.push({ targetId: e.payload.targetId, amount: e.payload.ratingDamage });
+              ratingCuts.set(e.payload.specialId, list);
+            }
+          }
         }
         break;
       case "BLOOD_CHANGED":
@@ -164,7 +175,17 @@ export function summarizeCommittedTurn(
     // Pair each activation with its Attack cut in order (#26) — a crit on Deadeye/Hex shaved a Threat.
     const cut = attackCuts.get(sid)?.shift();
     const cutText = cut ? ` — ${cut.threatName}'s Attack −${cut.amount} (now ${cut.attack})` : "";
-    lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}${cutText}` });
+    // Apex Predator (#27): fold the rating cut in too. Read the now-rating/kill off the final board;
+    // owns the kill line only when no eliminate die already claims it (mirrors the Crash & Burn dedup).
+    const rcut = ratingCuts.get(sid)?.shift();
+    let ratingText = "";
+    if (rcut) {
+      const t = state.board.threats.find((x) => x.id === rcut.targetId);
+      const tname = t?.name ?? "a threat";
+      if (t && t.rating <= 0 && !eliminate.has(rcut.targetId)) ratingText = ` — Eliminated ${tname}!`;
+      else ratingText = ` — ${tname} −${rcut.amount} rating (now ${t?.rating ?? "?"})`;
+    }
+    lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}${cutText}${ratingText}` });
   }
 
   // Board-granted damage SPECIALs (Crash & Burn, #23): the crit inflicted a flat amount on the
