@@ -166,7 +166,11 @@ export interface EventPayloads {
    *  log/summary the category filled because the table pinned the hit on the Werhund. */
   INJURY_MARKED: { seat: CharId; category: 0 | 1 | 2; box: 1 | 2; penalty?: string; rending?: boolean };
   DOWNED: { seat: CharId; category: 0 | 1 | 2; rescueObjectiveId?: string };
-  HEALED: { seat: CharId; category: 0 | 1 | 2; box: 1 | 2 };
+  /** A marked Injury box was cleared (RULES §5). The sheet's manual heal omits `specialId`; a crit-
+   *  SPECIAL heal (Astrid's Nightmare Regeneration, #31) carries `specialId`/`specialName` so the
+   *  after-action report folds the clear into that special's "Activated …" line. `box` is the box
+   *  that was cleared (resolved server-side from the live track), so replay reverses it deterministically. */
+  HEALED: { seat: CharId; category: 0 | 1 | 2; box: 1 | 2; specialId?: string; specialName?: string };
   DEATH_LAST_STAND: { seat: CharId }; // all 6 boxes marked → opens the Last Stand (RULES §5)
   LAST_STAND_ROLLED: { seat: CharId; dice: DieFace[] }; // the final 8d6
   LAST_STAND_ENDED: { seat: CharId }; // final sacrifice allocated → the vampire retires (dead)

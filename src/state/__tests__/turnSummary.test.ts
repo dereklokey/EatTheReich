@@ -381,6 +381,28 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     expect(summary.lines[0]).toMatchObject({ kind: "special", text: "Activated Sapper — Nazi Squad's Challenge −1 (now 1)" });
   });
 
+  it("folds a Nightmare Regeneration heal into the activation line, named off the sheet (#31)", () => {
+    const { ev } = log();
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "astrid" }, "astrid"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [] }),
+      ev("INJURY_MARKED", { seat: "astrid", category: 2, box: 1 }, "astrid"), // "Limping" — before the turn
+      ev("TURN_STARTED", { seat: "astrid", stat: "BRAWL" }, "astrid"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 0 }),
+      ev("DIE_ALLOCATED", { kind: "special", specialId: "astrid-nightmare-regeneration", units: 2 }, "astrid"),
+      ev("HEALED", { seat: "astrid", category: 2, box: 1, specialId: "astrid-nightmare-regeneration", specialName: "Nightmare Regeneration" }, "astrid"),
+      ev("ALLOCATION_COMMITTED", {}, "astrid"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    expect(state.characters.astrid.injuries).toEqual([0, 0, 0]); // the box was cleared
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines).toHaveLength(1);
+    expect(summary.lines[0]).toMatchObject({ kind: "special", text: "Activated Nightmare Regeneration — cleared an Injury (Limping)" });
+  });
+
   it("returns null for an empty turn and for a non-commit seq", () => {
     const events = irynaClockTowerEvents("g-iryna");
     const state = reduce(events);

@@ -43,6 +43,14 @@ export interface Allocation {
    * GM dice without a board target.
    */
   gmDiceReduction?: number;
+  /**
+   * Which of the acting vampire's own Injury categories a healing SPECIAL clears (Astrid's Nightmare
+   * Regeneration, RULES §7 / issue #31). The crit aims INWARD, not at the board, so this carries the
+   * player's chosen wound rather than a `targetId`; the handler resolves the marked box from the live
+   * track and emits HEALED. {@link applyOneAllocation} ignores it — the heal mutates the character's
+   * injury track (held off the board), never the Objective/Threat accumulator the engine folds.
+   */
+  injuryCategory?: 0 | 1 | 2;
 }
 
 export interface BoardState {

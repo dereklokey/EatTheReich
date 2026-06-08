@@ -109,6 +109,9 @@ export function summarizeCommittedTurn(
   // Sapper (#29): the Challenge a crit-SPECIAL lowered on an Objective/Threat (CHALLENGE_REDUCED),
   // keyed by specialId so it folds into that special's "Activated …" line (like the Attack-cut fold).
   const challengeCuts = new Map<string, { targetName: string; amount: number; challenge: number }[]>();
+  // Nightmare Regeneration (#31): the Injury box a crit-SPECIAL cleared (HEALED with a specialId),
+  // keyed by specialId so it folds into that special's "Activated …" line (like the Challenge-cut fold).
+  const healClears = new Map<string, { category: 0 | 1 | 2; box: 1 | 2 }[]>();
 
   const add = (m: Map<string, number>, id: string | undefined, units: number) => {
     if (!id) return;
@@ -178,6 +181,16 @@ export function summarizeCommittedTurn(
         challengeCuts.set(e.payload.specialId, list);
         break;
       }
+      case "HEALED": {
+        // Only a crit-SPECIAL heal (Nightmare Regeneration, #31) carries a specialId — a manual
+        // sheet heal doesn't, and isn't part of a turn's allocation story, so it's skipped here.
+        if (e.payload.specialId) {
+          const list = healClears.get(e.payload.specialId) ?? [];
+          list.push({ category: e.payload.category, box: e.payload.box });
+          healClears.set(e.payload.specialId, list);
+        }
+        break;
+      }
     }
   }
 
@@ -216,7 +229,11 @@ export function summarizeCommittedTurn(
     // Sapper (#29): fold the Challenge cut in (parallel to the Attack cut) — Objective or Threat.
     const chalCut = challengeCuts.get(sid)?.shift();
     const chalText = chalCut ? ` — ${chalCut.targetName}'s Challenge −${chalCut.amount} (now ${chalCut.challenge})` : "";
-    lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}${cutText}${ratingText}${gmText}${chalText}` });
+    // Nightmare Regeneration (#31): fold in the wound this crit cleared, named off the seat's sheet.
+    const heal = healClears.get(sid)?.shift();
+    const woundLabel = heal ? CHARACTERS_BY_ID[seat]?.injuries[heal.category]?.boxes[heal.box - 1]?.label : undefined;
+    const healText = heal ? ` — cleared an Injury${woundLabel ? ` (${woundLabel})` : ""}` : "";
+    lines.push({ kind: "special", emphasis: true, text: `Activated ${name}${grant ? ` (+${grant.delta} Blood)` : ""}${cutText}${ratingText}${gmText}${chalText}${healText}` });
   }
 
   // Board-granted damage SPECIALs (Crash & Burn, #23): the crit inflicted a flat amount on the

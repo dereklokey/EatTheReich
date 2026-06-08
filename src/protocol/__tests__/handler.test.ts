@@ -543,6 +543,82 @@ describe("processIntent — Elbow Grease −4 Objective rating (#30)", () => {
   });
 });
 
+describe("processIntent — Nightmare Regeneration clear-an-Injury (#31)", () => {
+  const unlockRegen: EventInput = { type: "ADVANCE_UNLOCKED", payload: { seat: "astrid", advanceId: "astrid-nightmare-regeneration" }, actor: "astrid" };
+  const markCat2Box1: EventInput = { type: "INJURY_MARKED", payload: { seat: "astrid", category: 2, box: 1 } };
+  const markCat2Box2: EventInput = { type: "INJURY_MARKED", payload: { seat: "astrid", category: 2, box: 2 } };
+
+  it("a crit on Astrid's (unlocked) Nightmare Regeneration clears the chosen wound, box resolved server-side", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.seed([unlockRegen, markCat2Box1], "astrid"); // injuries[2] = 1 ("Limping")
+    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL" }, sequenceRoller([]), "astrid");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "astrid-nightmare-regeneration", injuryCategory: 2, units: 2 }] },
+      sequenceRoller([]),
+      "astrid",
+    );
+    expect(events.map((e) => e.type)).toEqual(["DIE_ALLOCATED", "HEALED"]);
+    expect(events.find((e) => e.type === "HEALED")?.payload).toMatchObject({
+      seat: "astrid",
+      category: 2,
+      box: 1, // the highest marked box, read off the live track (not trusted from the client)
+      specialId: "astrid-nightmare-regeneration",
+      specialName: "Nightmare Regeneration",
+    });
+    expect(d.state.characters.astrid.injuries).toEqual([0, 0, 0]);
+  });
+
+  it("two heal crits on one category peel off two boxes (compose via the running track)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.seed([unlockRegen, markCat2Box2], "astrid"); // injuries[2] = 2 (both boxes marked)
+    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL" }, sequenceRoller([]), "astrid");
+    const events = d.run(
+      {
+        kind: "allocate",
+        allocations: [
+          { kind: "special", specialId: "astrid-nightmare-regeneration", injuryCategory: 2, units: 2 },
+          { kind: "special", specialId: "astrid-nightmare-regeneration", injuryCategory: 2, units: 2 },
+        ],
+      },
+      sequenceRoller([]),
+      "astrid",
+    );
+    const boxes = events.filter((e) => e.type === "HEALED").map((e) => e.payload.box);
+    expect(boxes).toEqual([2, 1]); // box 2 first, then the box below it
+    expect(d.state.characters.astrid.injuries).toEqual([0, 0, 0]);
+  });
+
+  it("an unmarked category heals nothing — no phantom HEALED (anti-fudge)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.seed([unlockRegen], "astrid"); // no injuries marked
+    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL" }, sequenceRoller([]), "astrid");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "astrid-nightmare-regeneration", injuryCategory: 0, units: 2 }] },
+      sequenceRoller([]),
+      "astrid",
+    );
+    expect(events.map((e) => e.type)).toEqual(["DIE_ALLOCATED"]); // nothing to clear
+    expect(d.state.characters.astrid.injuries).toEqual([0, 0, 0]);
+  });
+
+  it("a LOCKED Nightmare Regeneration heals nothing (anti-fudge — the advance must be unlocked)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.seed([markCat2Box1], "astrid"); // injuries[2] = 1, but the advance is NOT unlocked
+    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL" }, sequenceRoller([]), "astrid");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "astrid-nightmare-regeneration", injuryCategory: 2, units: 2 }] },
+      sequenceRoller([]),
+      "astrid",
+    );
+    expect(events.map((e) => e.type)).toEqual(["DIE_ALLOCATED"]); // descriptor not read from a locked advance
+    expect(d.state.characters.astrid.injuries).toEqual([0, 0, 1]); // untouched
+  });
+});
+
 describe("processIntent — Last Stand (RULES §5)", () => {
   const allSixMarked = ([0, 1, 2] as const).flatMap((category) =>
     ([1, 2] as const).map((box) => ({ type: "INJURY_MARKED" as const, payload: { seat: "iryna" as const, category, box } })),

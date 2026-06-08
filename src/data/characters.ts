@@ -205,7 +205,7 @@ export const ASTRID: CharacterSheet = {
     { id: "astrid-bloodhunt", name: "Bloodhunt", text: "Track targets or search for things using your sense of smell.", mechanic: "active", bloodCost: 1, bonus: { tag: "target fleeing", plus: 1 } },
   ],
   advances: [
-    { id: "astrid-nightmare-regeneration", name: "Nightmare Regeneration", text: "Clear a marked Injury.", mechanic: "special", trigger: { type: "crit" } },
+    { id: "astrid-nightmare-regeneration", name: "Nightmare Regeneration", text: "Clear a marked Injury.", mechanic: "special", trigger: { type: "crit" }, clearsInjury: true },
     { id: "astrid-spirit-storm", name: "Spirit Storm", text: "Hurl items like a poltergeist.", mechanic: "active", bloodCost: 1, bonus: { tag: "something sharp AND heavy", plus: 2 } },
     { id: "astrid-tethered-phantom", name: "Tethered Phantom", text: "Reduce an Objective or Threat's Challenge by 1 until the end of the round.", mechanic: "active", bloodCost: 1, addsDie: false },
   ],

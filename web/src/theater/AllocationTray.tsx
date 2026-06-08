@@ -322,6 +322,31 @@ export function AllocationTray({
         {/* SPECIALs sit in the list like any other target so the table sees them, but only
             a critical can arm one (RULES §4). A non-crit pick greys them with the reason. */}
         {specials.flatMap((sp) => {
+          // Nightmare Regeneration (#31): a crit that clears one of Astrid's own marked Injury boxes
+          // (rulebook p55). Aims INWARD — one card per category that HAS a marked box, carrying the
+          // chosen injuryCategory (the server resolves WHICH box). No board preview to fold; the heal
+          // mutates her track, surfaced on the sheet and the after-action report. Unhurt → no cards.
+          if (sp.clearsInjury) {
+            return ([0, 1, 2] as const).flatMap((cat) => {
+              const box = char.injuries[cat];
+              if (box < 1) return [];
+              const woundLabel = sheet?.injuries[cat]?.boxes[box - 1]?.label;
+              return [
+                <TargetCard
+                  key={`${sp.id}:${cat}`}
+                  special
+                  armed={critPicked}
+                  blocked={picked !== null && !critPicked}
+                  label={`${sp.name} → ${woundLabel ?? `Injury ${cat + 1}`}`}
+                  sub={`SPECIAL · critical only · clear this Injury${box === 2 ? " (the worse of two)" : ""}`}
+                  hint={sp.text}
+                  onClick={() => critPicked && place({ kind: "special", specialId: sp.id, injuryCategory: cat })}
+                  placed={placedOn((a) => a.kind === "special" && a.specialId === sp.id && a.injuryCategory === cat)}
+                  onUnplace={unassign}
+                />,
+              ];
+            });
+          }
           // Sapper (#29): a crit that lowers an Objective- OR Threat's Challenge by 1 (rulebook p59).
           // Expands to one card per in-play target that HAS Challenge to shave; a Werhund's
           // 'Unlowerable Challenge' (#25) shows locked (the server emits nothing for it either).

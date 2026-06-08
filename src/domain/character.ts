@@ -107,6 +107,15 @@ export interface Power {
    * Challenge' (#25) is respected. Applied as a logged, GM-editable CHALLENGE_REDUCED (CLAUDE.md §0).
    */
   reduceChallenge?: number;
+  /**
+   * True for a SPECIAL that clears one of the acting vampire's own marked Injury boxes — Astrid's
+   * Nightmare Regeneration (rulebook p55, issue #31). Unlike the rating/Attack/Challenge cuts this
+   * aims INWARD: a crit on it, with a chosen injury category (`Allocation.injuryCategory`), heals the
+   * highest marked box in that category. The handler resolves the box from the live track
+   * (server-authoritative — the client can't name an unmarked box) and emits a logged, GM-editable
+   * HEALED (CLAUDE.md §0); an unmarked category emits nothing, so it can't mint a phantom heal.
+   */
+  clearsInjury?: boolean;
 }
 
 export interface Equipment {

@@ -177,6 +177,23 @@ function specialChallengeReduction(state: GameState, seat: CharId, specialId: st
 }
 
 /**
+ * The healing SPECIAL that clears one of the acting vampire's own marked Injury boxes (Astrid's
+ * Nightmare Regeneration → clear a marked Injury; rulebook p55). Same sheet lookup as
+ * {@link specialBloodGrant}, for the `clearsInjury` descriptor — so a LOCKED advance yields nothing
+ * (anti-fudge, the heal can't fire until the advance is unlocked). Returns the power's name for the
+ * HEALED log; the *which box* is resolved server-side from the live injury track in the allocate branch.
+ */
+function specialInjuryClear(state: GameState, seat: CharId, specialId: string): { name: string } | undefined {
+  const sheet = CHARACTERS_BY_ID[seat];
+  if (!sheet) return undefined;
+  const unlocked = state.characters[seat]?.unlockedAdvances ?? [];
+  const power =
+    sheet.abilities.find((p) => p.id === specialId) ??
+    sheet.advances.find((p) => p.id === specialId && unlocked.includes(p.id));
+  return power?.clearsInjury ? { name: power.name } : undefined;
+}
+
+/**
  * GM-whiff escalation (RULES §8, rulebook p38), applied at the conclusion of the action it
  * happened in (NOT at end of round). If the Reich's Attack roll this turn produced zero
  * successes, the lead (anchor) Threat presses harder: +1 Attack. Returns the THREAT_UPDATED
@@ -382,6 +399,10 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       // Running Challenge per target (Sapper, #29): two explosives crits on one target compose,
       // each CHALLENGE_REDUCED carrying the resolved value down through the lowerChallenge gate.
       const challengeNow = new Map<string, number>();
+      // Running marked-box per injury category (Nightmare Regeneration, #31): two heal crits aimed at
+      // one category clear two boxes — each HEALED reads the running value so the second peels off the
+      // next box down (state.injuries doesn't update between allocations in this one intent batch).
+      const healNow = new Map<0 | 1 | 2, number>();
       for (const a of intent.allocations) {
         // Apex Predator (#27): a sheet SPECIAL's flat rating damage is recomputed from the power
         // descriptor here (server-authoritative) and carried on DIE_ALLOCATED, so the engine
@@ -426,6 +447,19 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
             if (next < current) {
               challengeNow.set(chalTarget.id, next);
               events.push({ type: "CHALLENGE_REDUCED", payload: { targetId: chalTarget.id, targetName: chalTarget.name, targetKind: chalTarget.kind, amount: chalReduce.amount, challenge: next, specialId: a.specialId, specialName: chalReduce.name }, actor: turn.seat });
+            }
+          }
+          // A SPECIAL that clears one of the acting vampire's own marked Injury boxes (Nightmare
+          // Regeneration, #31): the crit carries the chosen category, and the box is resolved from the
+          // live track here — the highest marked box (1 or 2). An unmarked category (box 0) emits
+          // NOTHING (nothing to heal — the client can't mint a phantom HEALED). Composes via healNow.
+          const heal = specialInjuryClear(state, turn.seat, a.specialId);
+          if (heal && a.injuryCategory !== undefined) {
+            const cat = a.injuryCategory;
+            const box = healNow.get(cat) ?? state.characters[turn.seat].injuries[cat];
+            if (box >= 1) {
+              events.push({ type: "HEALED", payload: { seat: turn.seat, category: cat, box: box as 1 | 2, specialId: a.specialId, specialName: heal.name }, actor: turn.seat });
+              healNow.set(cat, box - 1);
             }
           }
         }
