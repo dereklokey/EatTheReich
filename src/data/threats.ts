@@ -92,18 +92,20 @@ export const naziSquad = (): Threat => makeThreat({ name: "Nazi Squad", rating: 
 export const einherjar = (): Threat => makeThreat({ name: "Einherjar", rating: 7, attack: 3, rules: ["painless", "bloodless"] });
 
 // ── Übermenschen (rulebook pp. 52–64) — do not reinforce; higher Attack ──────
+// All four carry the "ubermensch" CLASSIFICATION tag (see isUbermensch) — distinct from the
+// behaviour keys in THREAT_RULES; it's what Iryna's Enervation (#36) homes its SPECIAL on.
 export const stahlsoldat = (): Threat =>
   // Hybrid: escalates like a normal threat (reinforces) but dies at 0 (restoresAtZero false).
-  makeThreat({ name: "Stahlsoldat", rating: 6, attack: 4, challenge: 2, reinforces: true, restoresAtZero: false, rules: ["powering-up"] });
+  makeThreat({ name: "Stahlsoldat", rating: 6, attack: 4, challenge: 2, reinforces: true, restoresAtZero: false, rules: ["ubermensch", "powering-up"] });
 
 export const rustWitch = (): Threat =>
-  makeThreat({ name: "Rust-Witch", rating: 10, attack: 6, reinforces: false, discardThreshold: 4, rules: ["solo", "aura-of-misfortune", "rust-curse"] });
+  makeThreat({ name: "Rust-Witch", rating: 10, attack: 6, reinforces: false, discardThreshold: 4, rules: ["ubermensch", "solo", "aura-of-misfortune", "rust-curse"] });
 
 export const damonenblut = (): Threat =>
-  makeThreat({ name: "Dämonenblut", rating: 12, attack: 4, challenge: 1, reinforces: false, rules: ["solo"] });
+  makeThreat({ name: "Dämonenblut", rating: 12, attack: 4, challenge: 1, reinforces: false, rules: ["ubermensch", "solo"] });
 
 export const werhund = (): Threat =>
-  makeThreat({ name: "Werhund", rating: 10, attack: 5, challenge: 1, unlowerableChallenge: true, reinforces: false, rules: ["solo", "rending-claws"] });
+  makeThreat({ name: "Werhund", rating: 10, attack: 5, challenge: 1, unlowerableChallenge: true, reinforces: false, rules: ["ubermensch", "solo", "rending-claws"] });
 
 export const COMMON_ENEMY_FACTORIES = [
   policePatrol, infantrySquad, armouredInfantrySquad, sniperTeam, armouredCar,

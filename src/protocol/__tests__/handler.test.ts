@@ -9,7 +9,9 @@ import type { Actor, GameEvent } from "../../events/types.js";
 import { sequenceRoller } from "../../domain/dice.js";
 import type { DiceRoller } from "../../domain/dice.js";
 import type { DieFace, Objective, Threat } from "../../domain/types.js";
-import { werhund } from "../../data/threats.js";
+import { werhund, stahlsoldat } from "../../data/threats.js";
+import { CHARACTERS_BY_ID } from "../../data/characters.js";
+import { activeMantle, effectiveStats } from "../../state/stances.js";
 
 const objective: Objective = { id: "obj1", name: "Take cover", kind: "objective", rating: 6 };
 const threat: Threat = { id: "thr1", name: "Nazi Squad", kind: "threat", rating: 4, attack: 3, startingAttack: 3, reinforces: true, restoresAtZero: true };
@@ -941,6 +943,129 @@ describe("processIntent — Tethered Phantom / Hellish Screech −1 Challenge fr
     expect(d.state.board.threats[0]?.challenge).toBe(2); // handed back
     expect(d.state.board.threats[0]?.tempChallengeReduction).toBeUndefined();
     expect(d.state.board.threats[0]?.attack).toBe(4); // still reinforced (+1) — restore didn't undo that
+  });
+});
+
+describe("processIntent — cross-turn stances (Iryna's #36 actives)", () => {
+  const guardedThreat: Threat = { ...threat, rating: 4, challenge: 2 };
+  const give = (n: number): EventInput => ({ type: "BLOOD_CHANGED", payload: { seat: "iryna", delta: n }, actor: "iryna" });
+  const unlock = (advanceId: string): EventInput => ({ type: "ADVANCE_UNLOCKED", payload: { seat: "iryna", advanceId }, actor: "iryna" });
+
+  // ── Hell's Ravenous Fire — ignore Threat Challenge on the next action ──────
+  it("arming Hell's Ravenous Fire parks the stance and spends 1 Blood", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [guardedThreat] });
+    d.seed([unlock("iryna-hells-fire"), give(3)], "iryna");
+    const events = d.run({ kind: "set_stance", seat: "iryna", powerId: "iryna-hells-fire" }, sequenceRoller([]), "iryna");
+    expect(events.map((e) => e.type)).toEqual(["STANCE_SET", "BLOOD_CHANGED"]);
+    expect(events[0]?.payload).toMatchObject({ kind: "ignore-threat-challenge", powerId: "iryna-hells-fire", powerName: "Hell's Ravenous Fire" });
+    expect(d.state.characters.iryna.stances).toEqual([{ kind: "ignore-threat-challenge", powerId: "iryna-hells-fire", powerName: "Hell's Ravenous Fire" }]);
+    expect(d.state.characters.iryna.blood).toBe(2); // 3 − 1
+  });
+
+  it("Hell's Ravenous Fire is consumed at the NEXT turn and that action ignores Threat Challenge", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [guardedThreat] }); // thr1 rating 4, challenge 2
+    d.seed([unlock("iryna-hells-fire"), give(3)], "iryna");
+    d.run({ kind: "set_stance", seat: "iryna", powerId: "iryna-hells-fire" }, sequenceRoller([]), "iryna");
+
+    const started = d.run({ kind: "start_turn", seat: "iryna", stat: "BRAWL" }, sequenceRoller([]), "iryna");
+    expect(started[0]?.payload).toMatchObject({ ignoreThreatChallenge: { powerId: "iryna-hells-fire", powerName: "Hell's Ravenous Fire" } });
+    expect(d.state.currentTurn?.ignoreThreatChallenge).toBe(true);
+    expect(d.state.characters.iryna.stances).toEqual([]); // consumed off the sheet
+
+    // 2 eliminate units would normally be wholly soaked by Challenge 2 (rating unchanged); ignored → −2.
+    d.run({ kind: "allocate", allocations: [{ kind: "eliminate", targetId: "thr1", units: 2 }] }, sequenceRoller([]), "iryna");
+    expect(d.state.board.threats[0]?.rating).toBe(2);
+  });
+
+  it("a LOCKED Hell's Ravenous Fire can't be armed (anti-fudge) and spends no Blood", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [guardedThreat] });
+    d.seed([give(3)], "iryna"); // Blood, but the advance is NOT unlocked
+    const r = d.fail({ kind: "set_stance", seat: "iryna", powerId: "iryna-hells-fire" }, "iryna");
+    expect(r.ok).toBe(false);
+    expect(d.state.characters.iryna.blood).toBe(3);
+    expect(d.state.characters.iryna.stances ?? []).toEqual([]);
+  });
+
+  it("re-arming a stance already held is rejected (no double Blood charge)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [guardedThreat] });
+    d.seed([unlock("iryna-hells-fire"), give(3)], "iryna");
+    d.run({ kind: "set_stance", seat: "iryna", powerId: "iryna-hells-fire" }, sequenceRoller([]), "iryna");
+    const r = d.fail({ kind: "set_stance", seat: "iryna", powerId: "iryna-hells-fire" }, "iryna");
+    expect(r.ok).toBe(false);
+    expect(d.state.characters.iryna.blood).toBe(2); // charged once only
+  });
+
+  it("not enough Blood → rejected (Mantle needs 2)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [guardedThreat] });
+    d.seed([unlock("iryna-mantle"), give(1)], "iryna"); // Mantle costs 2
+    const r = d.fail({ kind: "set_stance", seat: "iryna", powerId: "iryna-mantle", objectiveId: "obj1" }, "iryna");
+    expect(r.ok).toBe(false);
+  });
+
+  // ── Enervation of the Soul — granted SPECIAL: 4 to an Übermensch ───────────
+  it("Enervation grants a next-roll SPECIAL inflicting 4 to an Übermensch (folds ratingDamage, bypasses Challenge)", () => {
+    const uber = { ...stahlsoldat(), id: "uber" }; // rating 6, challenge 2, ubermensch
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [uber] });
+    d.seed([unlock("iryna-enervation"), give(3)], "iryna");
+    d.run({ kind: "set_stance", seat: "iryna", powerId: "iryna-enervation" }, sequenceRoller([]), "iryna");
+
+    const started = d.run({ kind: "start_turn", seat: "iryna", stat: "TERRIFY" }, sequenceRoller([]), "iryna");
+    expect(started[0]?.payload).toMatchObject({ enervation: { powerId: "iryna-enervation", powerName: "Enervation of the Soul", damage: 4 } });
+    expect(d.state.currentTurn?.enervation).toMatchObject({ damage: 4 });
+    expect(d.state.characters.iryna.stances).toEqual([]); // consumed
+
+    const events = d.run(
+      // client ratingDamage is ignored — recomputed from the turn's grant; the Übermensch's Challenge 2 doesn't soak it.
+      { kind: "allocate", allocations: [{ kind: "special", specialId: "iryna-enervation", targetId: "uber", units: 2, ratingDamage: 99 }] },
+      sequenceRoller([]),
+      "iryna",
+    );
+    expect(events[0]?.payload).toMatchObject({ kind: "special", specialId: "iryna-enervation", targetId: "uber", ratingDamage: 4 });
+    expect(d.state.board.threats[0]?.rating).toBe(2); // 6 − 4 in full
+  });
+
+  // ── Mantle of the Fell Beast — stat transform + item lock until the Objective completes ──
+  it("Mantle binds to an Objective, costs 2 Blood, and transforms stats via activeMantle", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] }); // obj1 "Take cover", rating 6
+    d.seed([unlock("iryna-mantle"), give(3)], "iryna");
+    const events = d.run({ kind: "set_stance", seat: "iryna", powerId: "iryna-mantle", objectiveId: "obj1" }, sequenceRoller([]), "iryna");
+    expect(events[0]?.payload).toMatchObject({ kind: "mantle", objectiveId: "obj1", objectiveName: "Take cover", highValue: 4, lowValue: 1, blocksItems: true });
+    expect(d.state.characters.iryna.blood).toBe(1); // 3 − 2
+    const m = activeMantle(d.state.characters.iryna, d.state.board.objectives);
+    expect(m?.objectiveId).toBe("obj1");
+    expect(effectiveStats(CHARACTERS_BY_ID.iryna!.stats, m)).toMatchObject({ BRAWL: 4, TERRIFY: 4, SHOOT: 1, CON: 1 });
+  });
+
+  it("Mantle requires a real in-play Objective to bind to", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.seed([unlock("iryna-mantle"), give(3)], "iryna");
+    const r = d.fail({ kind: "set_stance", seat: "iryna", powerId: "iryna-mantle", objectiveId: "nope" }, "iryna");
+    expect(r.ok).toBe(false);
+    expect(d.state.characters.iryna.blood).toBe(3); // nothing spent
+  });
+
+  it("Mantle ends when its Objective completes (derived) and is then re-castable on a new Objective", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [{ ...objective, rating: 2 }], threats: [threat] });
+    d.seed([unlock("iryna-mantle"), give(5)], "iryna");
+    d.run({ kind: "set_stance", seat: "iryna", powerId: "iryna-mantle", objectiveId: "obj1" }, sequenceRoller([]), "iryna");
+    expect(activeMantle(d.state.characters.iryna, d.state.board.objectives)).toBeTruthy();
+
+    d.run({ kind: "complete_objective", id: "obj1" });
+    expect(activeMantle(d.state.characters.iryna, d.state.board.objectives)).toBeUndefined(); // derived off rating 0
+
+    // The spent Mantle no longer blocks re-arming on a fresh Objective (the re-arm guard reads activeMantle).
+    d.run({ kind: "add_objective", objective: { id: "obj2", name: "Reach the vault", kind: "objective", rating: 4 } });
+    d.run({ kind: "set_stance", seat: "iryna", powerId: "iryna-mantle", objectiveId: "obj2" }, sequenceRoller([]), "iryna");
+    expect(activeMantle(d.state.characters.iryna, d.state.board.objectives)?.objectiveId).toBe("obj2");
   });
 });
 

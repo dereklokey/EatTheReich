@@ -24,6 +24,7 @@ import {
   LAST_STAND_DICE,
 } from "../engine/index.js";
 import { CHARACTERS_BY_ID } from "../data/characters.js";
+import { activeMantle } from "../state/stances.js";
 import { flashbackTriggerable, FLASHBACK_BONUS_DICE } from "../data/flashbacks.js";
 import { threatInPlay, anathemaInPlay, rendingClawsInPlay } from "../domain/types.js";
 import type { DieFace, Target } from "../domain/types.js";
@@ -194,6 +195,34 @@ function sheetChallengePower(state: GameState, seat: CharId, powerId: string): P
     sheet.abilities.find((p) => p.id === powerId) ??
     sheet.advances.find((p) => p.id === powerId && unlocked.includes(p.id));
   return power?.sheetChallengeReduction ? power : undefined;
+}
+
+/**
+ * The no-die ACTIVE that arms a cross-turn stance (Iryna's Hell's Ravenous Fire / Enervation of the Soul /
+ * Mantle of the Fell Beast, #36), for the `set_stance` intent. Same sheet lookup + advance gate as
+ * {@link sheetChallengePower}, for the `setsStance` descriptor — so a LOCKED advance yields nothing
+ * (anti-fudge; the stance can't be armed until the advance is unlocked).
+ */
+function stancePower(state: GameState, seat: CharId, powerId: string): Power | undefined {
+  const sheet = CHARACTERS_BY_ID[seat];
+  if (!sheet) return undefined;
+  const unlocked = state.characters[seat]?.unlockedAdvances ?? [];
+  const power =
+    sheet.abilities.find((p) => p.id === powerId) ??
+    sheet.advances.find((p) => p.id === powerId && unlocked.includes(p.id));
+  return power?.setsStance ? power : undefined;
+}
+
+/**
+ * Enervation of the Soul (#36): the flat rating damage its granted SPECIAL inflicts when a crit is
+ * allocated to it. The grant lives on the turn (`turn.enervation`, set at TURN_STARTED when the stance
+ * was consumed), NOT on a sheet `special` power — so unlike Apex Predator (#27, {@link specialRatingReduction})
+ * this is keyed off the turn, identified by the crit's `specialId` matching the granting power. Folds
+ * through the SAME `ratingDamage` engine path, so it bypasses Challenge and rating 0 → Attack 0.
+ */
+function enervationRatingDamage(state: GameState, specialId: string): number | undefined {
+  const en = state.currentTurn?.enervation;
+  return en && en.powerId === specialId ? en.damage : undefined;
 }
 
 /**
@@ -410,8 +439,24 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
     case "set_loot_revealed":
       return ok([{ type: "SCENE_LOOT_REVEALED", payload: { name: intent.name, revealed: intent.revealed } }]);
 
-    case "start_turn":
-      return ok([{ type: "TURN_STARTED", payload: { seat: intent.seat, stat: intent.stat, ...(intent.tags ? { tags: intent.tags } : {}) }, actor: intent.seat }]);
+    case "start_turn": {
+      // Consume any armed next-turn stances (Iryna's #36 actives) onto this turn-start event, so the
+      // reducer both applies the buff to this turn AND clears the stance, and replay stays faithful.
+      const stances = state.characters[intent.seat]?.stances ?? [];
+      const ignore = stances.find((s) => s.kind === "ignore-threat-challenge");
+      const enerv = stances.find((s) => s.kind === "enervation");
+      return ok([{
+        type: "TURN_STARTED",
+        payload: {
+          seat: intent.seat,
+          stat: intent.stat,
+          ...(intent.tags ? { tags: intent.tags } : {}),
+          ...(ignore ? { ignoreThreatChallenge: { powerId: ignore.powerId, powerName: ignore.powerName } } : {}),
+          ...(enerv ? { enervation: { powerId: enerv.powerId, powerName: enerv.powerName, damage: enerv.damage ?? 0 } } : {}),
+        },
+        actor: intent.seat,
+      }]);
+    }
     case "cancel_turn": {
       const turn = state.currentTurn;
       if (!turn) return err("no turn in progress");
@@ -503,8 +548,12 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
         // Apex Predator (#27): a sheet SPECIAL's flat rating damage is recomputed from the power
         // descriptor here (server-authoritative) and carried on DIE_ALLOCATED, so the engine
         // applies it (bypassing Challenge, rating 0 → Attack 0) — the client's value is ignored.
+        // Enervation of the Soul (#36): the same flat-damage fold, but the amount comes off the turn's
+        // granted SPECIAL (`turn.enervation`) rather than a sheet `special` power.
         const ratingDamage =
-          a.kind === "special" && a.specialId && a.targetId ? specialRatingReduction(state, turn.seat, a.specialId) : undefined;
+          a.kind === "special" && a.specialId && a.targetId
+            ? specialRatingReduction(state, turn.seat, a.specialId) ?? enervationRatingDamage(state, a.specialId)
+            : undefined;
         // Unnatural Endurance (#28): a targetless SPECIAL's GM-dice reduction, also recomputed from
         // the descriptor server-side and carried on DIE_ALLOCATED so the engine sheds gmDiceRemaining.
         const gmDiceReduction =
@@ -758,6 +807,54 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
         {
           type: "CHALLENGE_REDUCED",
           payload: { targetId: target.id, targetName: target.name, targetKind: target.kind, amount: reduction.amount, challenge: next, powerId: power.id, powerName: power.name, ...(reduction.expiresAtRoundEnd ? { temporary: true } : {}) },
+          actor: seat,
+        },
+      ];
+      if (cost > 0) events.push({ type: "BLOOD_CHANGED", payload: { seat, delta: -cost, reason: power.name }, actor: seat });
+      return ok(events);
+    }
+    case "set_stance": {
+      // Arm a cross-turn stance from the sheet (Iryna's Hell's Ravenous Fire / Enervation of the Soul /
+      // Mantle of the Fell Beast, #36): spend the power's Blood and park an ActiveStance. A locked advance
+      // has no descriptor → the lookup fails (anti-fudge). Re-arming a stance you already hold is rejected
+      // so the Blood isn't double-charged (Mantle: only an ACTIVE Mantle blocks — a spent one whose
+      // Objective is done can be re-cast on a new Objective).
+      const seat = intent.seat;
+      const power = stancePower(state, seat, intent.powerId);
+      const spec = power?.setsStance;
+      if (!power || !spec) return err("no such power available");
+      const cost = power.bloodCost ?? 0;
+      if ((state.characters[seat]?.blood ?? 0) < cost) return err("not enough Blood");
+      const held = state.characters[seat]?.stances ?? [];
+      const alreadyHeld =
+        spec.kind === "mantle"
+          ? activeMantle(state.characters[seat], state.board.objectives) !== undefined
+          : held.some((s) => s.kind === spec.kind);
+      if (alreadyHeld) return err("that stance is already active");
+      // Mantle binds to the Objective whose completion ends it (rulebook p57).
+      let objectiveId: string | undefined;
+      let objectiveName: string | undefined;
+      if (spec.kind === "mantle") {
+        const obj = state.board.objectives.find((o) => o.id === intent.objectiveId && o.rating > 0);
+        if (!obj) return err("pick an Objective to bind the Mantle to");
+        objectiveId = obj.id;
+        objectiveName = obj.name;
+      }
+      const events: EventInput[] = [
+        {
+          type: "STANCE_SET",
+          payload: {
+            seat,
+            kind: spec.kind,
+            powerId: power.id,
+            powerName: power.name,
+            ...(spec.damage !== undefined ? { damage: spec.damage } : {}),
+            ...(spec.highStats ? { highStats: spec.highStats } : {}),
+            ...(spec.highValue !== undefined ? { highValue: spec.highValue } : {}),
+            ...(spec.lowValue !== undefined ? { lowValue: spec.lowValue } : {}),
+            ...(spec.blocksItems ? { blocksItems: true } : {}),
+            ...(objectiveId ? { objectiveId, objectiveName } : {}),
+          },
           actor: seat,
         },
       ];

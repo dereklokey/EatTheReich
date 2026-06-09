@@ -1,4 +1,4 @@
-import type { GameState, CharacterRuntime, BoardSnapshot, TurnState } from "./types.js";
+import type { GameState, CharacterRuntime, BoardSnapshot, TurnState, ActiveStance } from "./types.js";
 import { initialState } from "./init.js";
 import type { GameEvent, CharId } from "../events/types.js";
 import type { Allocation, AllocationAccumulator } from "../engine/allocate.js";
@@ -165,8 +165,12 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
         : withBoard(s, { ...s.board, objectives: s.board.objectives.map((o) => (o.id === e.payload.targetId ? apply(o) : o)) });
     }
 
-    case "TURN_STARTED":
-      return {
+    case "TURN_STARTED": {
+      // Consume any armed next-turn stances (Iryna's #36): apply the buff to this turn AND clear the
+      // stance off the actor. Mantle is NOT consumed here — it's read derived (activeMantle) and persists.
+      const ignore = e.payload.ignoreThreatChallenge;
+      const enerv = e.payload.enervation;
+      const base: GameState = {
         ...s,
         activeSeat: e.payload.seat,
         currentTurn: {
@@ -176,8 +180,18 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
           tags: e.payload.tags ?? [],
           allocations: [],
           challengeConsumed: {},
+          ...(ignore ? { ignoreThreatChallenge: true } : {}),
+          ...(enerv ? { enervation: enerv } : {}),
         },
       };
+      if (!ignore && !enerv) return base;
+      return updateChar(base, e.payload.seat, (c) => ({
+        ...c,
+        stances: (c.stances ?? []).filter(
+          (st) => !(ignore && st.kind === "ignore-threat-challenge") && !(enerv && st.kind === "enervation"),
+        ),
+      }));
+    }
     case "TURN_CANCELLED":
       // Abort: drop the in-progress turn. NOT added to actedThisRound — the
       // character can still take their turn this round (unlike ALLOCATION_COMMITTED).
@@ -260,6 +274,7 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
         challengeConsumed: turn.challengeConsumed,
         specialsActivated: [],
         ...(turn.challengeBump ? { challengeBump: turn.challengeBump } : {}),
+        ...(turn.ignoreThreatChallenge ? { ignoreThreatChallenge: true } : {}),
       };
       const next = applyOneAllocation(acc, alloc);
       let out: GameState = withBoard(s, {
@@ -453,6 +468,25 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
       return withBoard(s, { ...s.board, revealedLoot });
     }
 
+    case "STANCE_SET":
+      // Park the armed cross-turn stance (Iryna's #36) on the character. Replace any same-kind stance
+      // (re-arming overwrites — the handler already blocks re-arming an ACTIVE one, so this only matters
+      // for re-casting Mantle once its old Objective is done).
+      return updateChar(s, e.payload.seat, (c) => {
+        const stance: ActiveStance = {
+          kind: e.payload.kind,
+          powerId: e.payload.powerId,
+          powerName: e.payload.powerName,
+          ...(e.payload.damage !== undefined ? { damage: e.payload.damage } : {}),
+          ...(e.payload.highStats ? { highStats: e.payload.highStats } : {}),
+          ...(e.payload.highValue !== undefined ? { highValue: e.payload.highValue } : {}),
+          ...(e.payload.lowValue !== undefined ? { lowValue: e.payload.lowValue } : {}),
+          ...(e.payload.blocksItems ? { blocksItems: true } : {}),
+          ...(e.payload.objectiveId ? { objectiveId: e.payload.objectiveId, objectiveName: e.payload.objectiveName } : {}),
+        };
+        const rest = (c.stances ?? []).filter((x) => x.kind !== stance.kind);
+        return { ...c, stances: [...rest, stance] };
+      });
     case "FLASHBACK_TRIGGERED":
       return updateChar(s, e.payload.seat, (c) => ({ ...c, flashbackUsedThisSession: true }));
     case "ROUND_ENDED": {

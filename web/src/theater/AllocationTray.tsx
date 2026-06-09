@@ -5,7 +5,7 @@ import type { PlayerDie } from "@shared/engine/dice.js";
 import type { Allocation } from "@shared/engine/allocate.js";
 import { applyOneAllocation, emptyAccumulator } from "@shared/engine/allocate.js";
 import { boardGrantedSpecials } from "@shared/engine/specials.js";
-import { feedBlockedByBloodless, anathemaInPlay } from "@shared/domain/types.js";
+import { feedBlockedByBloodless, anathemaInPlay, isUbermensch } from "@shared/domain/types.js";
 import type { DieFace } from "@shared/domain/types.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
 import type { Power } from "@shared/domain/character.js";
@@ -146,7 +146,8 @@ export function AllocationTray({
       setFeedSeq((n) => n + 1);
     } else if (alloc.kind === "special" && alloc.specialId && !reduced) {
       const bs = boardSpecials.find((b) => b.id === alloc.specialId);
-      const name = bs?.name ?? specials.find((s) => s.id === alloc.specialId)?.name ?? "SPECIAL";
+      const enervationName = turn.enervation?.powerId === alloc.specialId ? turn.enervation.powerName : undefined;
+      const name = bs?.name ?? specials.find((s) => s.id === alloc.specialId)?.name ?? enervationName ?? "SPECIAL";
       setSpecial({ seq: ++fxSeq.current, name });
       // A board-granted damage SPECIAL also slams the granting Threat (Crash & Burn → −3):
       // burst its card, escalating to the kill burst when the hit finishes it.
@@ -466,6 +467,41 @@ export function AllocationTray({
             />,
           ];
         })}
+        {/* Enervation of the Soul (#36): a one-roll granted SPECIAL (turn.enervation) — spend a crit to
+            inflict flat damage to an Übermensch. Not a sheet `special` power, so it's injected here off the
+            turn rather than the specials list above; one card per in-play Übermensch (folds ratingDamage so
+            the preview drops it, server-recomputed). No Übermensch in play → a single, inert reminder card. */}
+        {turn.enervation && (
+          thrLive.filter(isUbermensch).length > 0 ? (
+            thrLive.filter(isUbermensch).map((t) => (
+              <TargetCard
+                key={`enervation:${t.id}`}
+                special
+                armed={critPicked}
+                blocked={picked !== null && !critPicked}
+                label={`${turn.enervation!.powerName} → ${t.name}`}
+                sub={`SPECIAL · critical only · inflict ${turn.enervation!.damage} (${t.rating} → ${Math.max(0, t.rating - turn.enervation!.damage)})`}
+                hint="Enervation of the Soul (#36): spend a crit to inflict flat damage to an Übermensch."
+                onClick={() => critPicked && place({ kind: "special", specialId: turn.enervation!.powerId, targetId: t.id, ratingDamage: turn.enervation!.damage })}
+                placed={placedOn((a) => a.kind === "special" && a.specialId === turn.enervation!.powerId && a.targetId === t.id)}
+                onUnplace={unassign}
+              />
+            ))
+          ) : (
+            <TargetCard
+              key="enervation-none"
+              special
+              armed={false}
+              blocked
+              label={turn.enervation.powerName}
+              sub="SPECIAL · no Übermensch in play"
+              hint="Enervation of the Soul (#36): its granted SPECIAL inflicts damage only to an Übermensch — none is in play."
+              onClick={() => {}}
+              placed={[]}
+              onUnplace={unassign}
+            />
+          )
+        )}
         {/* Board-granted SPECIALs (Crash & Burn, #23) — every vampire gets these while the
             granting Threat is in play. Crit-only like sheet specials; spend a crit → deal 3. */}
         {boardSpecials.map((bs) => (

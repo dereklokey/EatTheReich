@@ -92,6 +92,38 @@ export interface CharacterRuntime {
   dead: boolean;
   /** Reset to false on SESSION_STARTED (RULES §9). */
   flashbackUsedThisSession: boolean;
+  /**
+   * Cross-turn stances armed by Iryna's no-die actives (#36; rulebook p57): each buffs a FUTURE
+   * action and is carried here until consumed/applied (see {@link ActiveStance}). The `next-turn`
+   * stances (Hell's Ravenous Fire, Enervation) clear at the actor's next TURN_STARTED; `mantle`
+   * persists — but is read through {@link import("./stances.js").activeMantle}, which gates it on the
+   * bound Objective still being in play, so completing the Objective by ANY path ends it (no clear
+   * event needed). Absent/empty for everyone else. A spent-but-uncleared mantle may linger here
+   * harmlessly; the derive keeps it inactive and re-arming overwrites it.
+   */
+  stances?: ActiveStance[];
+}
+
+/**
+ * A cross-turn stance held on a character (Iryna's #36 advances; see
+ * {@link import("../domain/character.js").Power.setsStance}). The numeric/flag fields are snapshotted
+ * from the power's {@link import("../domain/character.js").StanceSpec} at activation so the
+ * reducer/client never re-look-up the descriptor.
+ */
+export interface ActiveStance {
+  kind: "ignore-threat-challenge" | "enervation" | "mantle";
+  powerId: string;
+  powerName: string;
+  /** Enervation: flat rating damage its granted SPECIAL inflicts on an Übermensch. */
+  damage?: number;
+  /** Mantle: the transform applied to stats + the item lock (snapshotted from StanceSpec). */
+  highStats?: Stat[];
+  highValue?: number;
+  lowValue?: number;
+  blocksItems?: boolean;
+  /** Mantle: the Objective whose completion ends the stance. */
+  objectiveId?: string;
+  objectiveName?: string;
 }
 
 /** Resolution-theater state for the in-progress turn (RULES §4 pipeline). */
@@ -137,4 +169,17 @@ export interface TurnState {
    * omitted when the face hit an unfilled slot (a visible throw that restored nothing).
    */
   scavenge?: { face: DieFace; itemId?: string; itemName?: string };
+  /**
+   * Hell's Ravenous Fire (#36): this turn ignores Threat Challenge (the `eliminate` soak treats every
+   * Threat's Challenge — printed AND any 'Painless' bump — as 0). Set at TURN_STARTED when the actor had
+   * the `ignore-threat-challenge` stance armed (which is then consumed); absent otherwise, so it never
+   * bleeds into the next turn.
+   */
+  ignoreThreatChallenge?: boolean;
+  /**
+   * Enervation of the Soul (#36): this roll grants a SPECIAL — a crit allocated to it inflicts `damage`
+   * flat rating to an Übermensch (folded through the same `ratingDamage` engine path as Apex Predator).
+   * Set at TURN_STARTED when the actor had the `enervation` stance armed (then consumed); absent otherwise.
+   */
+  enervation?: { powerId: string; powerName: string; damage: number };
 }

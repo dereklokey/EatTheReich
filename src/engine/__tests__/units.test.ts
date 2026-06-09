@@ -284,6 +284,17 @@ describe("allocation: feed, defend, eliminate", () => {
     expect(r.board.threats[0]!.rating).toBe(0);
     expect(r.board.threats[0]!.attack).toBe(0);
   });
+
+  it("Hell's Ravenous Fire (#36): ignoreThreatChallenge makes eliminate dice bypass a Threat's Challenge", () => {
+    const guarded = { ...infantrySquad(), rating: 4, challenge: 2 };
+    const board: BoardState = { objectives: [], threats: [guarded] };
+    // Normally Challenge 2 soaks both units (rating unchanged)...
+    const soaked = applyOneAllocation(emptyAccumulator(board, 0), { kind: "eliminate", targetId: guarded.id, units: 2 });
+    expect(soaked.board.threats[0]!.rating).toBe(4);
+    // ...but with the stance every unit cuts rating (4 → 2), and the bump is ignored too.
+    const ignored = applyOneAllocation(emptyAccumulator(board, 0, { [guarded.id]: 3 }, true), { kind: "eliminate", targetId: guarded.id, units: 2 });
+    expect(ignored.board.threats[0]!.rating).toBe(2);
+  });
 });
 
 describe("board-granted SPECIAL: Motorcycle 'Crash & Burn' (rulebook p61, issue #23)", () => {

@@ -69,6 +69,7 @@ function subjectSeat(intent: Intent): SeatId | undefined {
     case "heal":
     case "mark_injury":
     case "use_power": // a no-die active on your own sheet (Tethered Phantom / Hellish Screech, #35)
+    case "set_stance": // arm a cross-turn stance on your own sheet (Iryna's #36 actives)
     case "use_equipment":
     case "restore_equipment":
     case "loot_activate": // the owner activates their own loot; granting (loot_add) is GM-only

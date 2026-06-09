@@ -64,9 +64,9 @@ export const IRYNA: CharacterSheet = {
     { id: "iryna-deadeye-shot", name: "Deadeye Shot", text: "When you use a ranged weapon: reduce a Threat's Attack rating by 1.", mechanic: "special", trigger: { type: "crit", requires: { tag: "ranged weapon" } }, reduceThreatAttack: 1 },
   ],
   advances: [
-    { id: "iryna-hells-fire", name: "Hell's Ravenous Fire", text: "Ignore Challenge on your next action against a Threat.", mechanic: "active", bloodCost: 1, addsDie: false },
-    { id: "iryna-enervation", name: "Enervation of the Soul", text: "On your next roll, gain SPECIAL: inflict 4 damage to an Übermensch.", mechanic: "active", bloodCost: 1, addsDie: false },
-    { id: "iryna-mantle", name: "Mantle of the Fell Beast", text: "BRAWL and TERRIFY become 4, all other stats are set to 1, and you cannot use items. Lasts until the Objective is completed.", mechanic: "active", bloodCost: 2, addsDie: false },
+    { id: "iryna-hells-fire", name: "Hell's Ravenous Fire", text: "Ignore Challenge on your next action against a Threat.", mechanic: "active", bloodCost: 1, addsDie: false, setsStance: { kind: "ignore-threat-challenge", duration: "next-turn" } },
+    { id: "iryna-enervation", name: "Enervation of the Soul", text: "On your next roll, gain SPECIAL: inflict 4 damage to an Übermensch.", mechanic: "active", bloodCost: 1, addsDie: false, setsStance: { kind: "enervation", duration: "next-turn", damage: 4 } },
+    { id: "iryna-mantle", name: "Mantle of the Fell Beast", text: "BRAWL and TERRIFY become 4, all other stats are set to 1, and you cannot use items. Lasts until the Objective is completed.", mechanic: "active", bloodCost: 2, addsDie: false, setsStance: { kind: "mantle", duration: "until-objective", highStats: ["BRAWL", "TERRIFY"], highValue: 4, lowValue: 1, blocksItems: true } },
   ],
   injuries: injuries(
     ["Can't use + dice", ["Suit Torn", "Abdominal Puncture"]],

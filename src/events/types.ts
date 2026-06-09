@@ -80,7 +80,19 @@ export interface EventPayloads {
    *  'Rapid Deployment' (#22): its +1 Attack is a Reinforcement bump, so the rating climbs +2. */
   GM_WHIFF: { threatId: string; name: string; attack: number; rating?: number };
 
-  TURN_STARTED: { seat: CharId; stat?: Stat; tags?: string[] };
+  /**
+   * `ignoreThreatChallenge`/`enervation` are present when the actor had the matching cross-turn stance
+   * armed (Iryna's #36 actives): they're carried on the turn-start event so the reducer both applies the
+   * buff to this turn AND consumes the stance off the character, and the after-action report can name the
+   * power. `enervation.damage` is the granted SPECIAL's flat damage. Absent → no stance was consumed.
+   */
+  TURN_STARTED: {
+    seat: CharId;
+    stat?: Stat;
+    tags?: string[];
+    ignoreThreatChallenge?: { powerId: string; powerName: string };
+    enervation?: { powerId: string; powerName: string; damage: number };
+  };
   /** Abort an in-progress turn without it counting as the character's action. */
   TURN_CANCELLED: { seat: CharId };
   POOL_BUILT: { who: "player" | "gm"; dice: number; sources?: PoolSource[] };
@@ -225,6 +237,26 @@ export interface EventPayloads {
   /** Staged loot reveal (issue #15): show/hide one scene "Loot within reach" item (by name) to players. */
   SCENE_LOOT_REVEALED: { name: string; revealed: boolean };
 
+  /**
+   * A cross-turn STANCE was armed from the sheet (Iryna's Hell's Ravenous Fire / Enervation of the Soul /
+   * Mantle of the Fell Beast, issue #36) via the `set_stance` intent. The reducer parks an ActiveStance on
+   * the character; the Blood spend rides a sibling BLOOD_CHANGED (like the #35 no-die actives). The
+   * numeric/flag fields are snapshotted from the power's StanceSpec; `objectiveId`/`objectiveName` bind a
+   * Mantle to its Objective. A logged, GM-overridable default (CLAUDE.md §0).
+   */
+  STANCE_SET: {
+    seat: CharId;
+    kind: "ignore-threat-challenge" | "enervation" | "mantle";
+    powerId: string;
+    powerName: string;
+    damage?: number;
+    highStats?: Stat[];
+    highValue?: number;
+    lowValue?: number;
+    blocksItems?: boolean;
+    objectiveId?: string;
+    objectiveName?: string;
+  };
   /** The flashback scene is narrated out loud, not typed — the event just records who spent it. */
   FLASHBACK_TRIGGERED: { seat: CharId };
   ROUND_ENDED: Record<string, never>;

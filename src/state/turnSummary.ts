@@ -101,6 +101,9 @@ export function summarizeCommittedTurn(
   const corrosions: { threatName: string; amount: number; rating: number; threatId: string }[] = [];
   let bonus = 0;
   let bonusLabel: string | undefined;
+  // Hell's Ravenous Fire (#36): this action ignored Threat Challenge. Armed before the turn (a sheet
+  // active outside the window), so it's read off the TURN_STARTED event that opens the window itself.
+  let ignoredChallenge: { powerName: string } | null = null;
   // Einherjar 'Painless' (#19): per-action Challenge the Reich's 1s heaped onto a Threat, by id.
   const challengeBump = new Map<string, number>();
   // Vampirjäger 'Anathema' (#21): extra GM successes the Reich's 6s scored by double-counting.
@@ -131,6 +134,9 @@ export function summarizeCommittedTurn(
 
   for (const e of turn) {
     switch (e.type) {
+      case "TURN_STARTED":
+        if (e.payload.ignoreThreatChallenge) ignoredChallenge = { powerName: e.payload.ignoreThreatChallenge.powerName };
+        break;
       case "DIE_ALLOCATED":
         if (e.payload.kind === "advance") add(advance, e.payload.targetId, e.payload.units);
         else if (e.payload.kind === "eliminate") add(eliminate, e.payload.targetId, e.payload.units);
@@ -222,6 +228,13 @@ export function summarizeCommittedTurn(
   const lines: TurnSummaryLine[] = [];
   const objName = (id: string) => state.board.objectives.find((o) => o.id === id)?.name ?? "an objective";
 
+  // Hell's Ravenous Fire (#36) leads: the stance reshaped the whole action (Threat Challenge ignored),
+  // so it reads before the dice it enabled. The Enervation grant (#36) needs no line here — its crit
+  // commits as a `special` with ratingDamage, folding through the ratingCuts path below like Apex Predator.
+  if (ignoredChallenge) {
+    lines.push({ kind: "special", emphasis: true, text: `Activated ${ignoredChallenge.powerName} — ignored Threat Challenge this action` });
+  }
+
   // SPECIALs first — and fold any matching Blood grant (Ravenous +3) into the line.
   const foldedReasons = new Set<string>();
   for (const sid of specials) {
@@ -299,7 +312,9 @@ export function summarizeCommittedTurn(
   for (const [id, units] of eliminate) {
     const t = state.board.threats.find((x) => x.id === id);
     const name = t?.name ?? "a threat";
-    const reduction = Math.max(0, units - ((t?.challenge ?? 0) + (challengeBump.get(id) ?? 0)));
+    // Hell's Ravenous Fire (#36) zeroes the Threat soak for this action; otherwise printed + 'Painless' bump.
+    const soak = ignoredChallenge ? 0 : (t?.challenge ?? 0) + (challengeBump.get(id) ?? 0);
+    const reduction = Math.max(0, units - soak);
     if (t && t.rating <= 0) lines.push({ kind: "kill", emphasis: true, text: `Eliminated ${name}!` });
     else if (reduction > 0) lines.push({ kind: "eliminate", text: `Hit ${name} — −${reduction} rating (now ${t?.rating ?? "?"})` });
     else lines.push({ kind: "eliminate", text: `${units} ${plural(units, "success", "successes")} soaked by ${name}'s Challenge` });

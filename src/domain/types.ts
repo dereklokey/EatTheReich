@@ -177,6 +177,17 @@ export function rendingClawsInPlay(threats: readonly Threat[]): boolean {
 export type Target = Objective | Threat;
 
 /**
+ * An Übermensch — the rulebook's mini-bosses (Stahlsoldat, Rust-Witch, Dämonenblut, Werhund;
+ * pp52–64). Flagged with the `"ubermensch"` classification tag in the catalog (a CLASSIFICATION,
+ * not a behaviour hook like `painless`/`anathema`, so it's deliberately NOT in `THREAT_RULES`).
+ * Consumed by Iryna's 'Enervation of the Soul' (#36), whose granted SPECIAL inflicts flat damage
+ * only to an Übermensch — the tray offers it per in-play Übermensch. A hand-built boss the GM never
+ * tagged simply won't be offered (suggest-don't-enforce: the GM can still apply damage by hand). */
+export function isUbermensch(t: Threat): boolean {
+  return (t.rules ?? []).includes("ubermensch");
+}
+
+/**
  * Werhund 'Unlowerable Challenge' (rulebook p64, issue #25): its Challenge cannot be lowered.
  * THE single predicate that consumes the `unlowerableChallenge` field — the board flags the
  * lock (the `message`) and every Challenge-reduction effect (Sapper #29, Tethered Phantom /

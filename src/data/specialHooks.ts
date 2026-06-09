@@ -426,18 +426,17 @@ export const SPECIAL_HOOKS: SpecialHook[] = [
     status: "implemented",
   },
 
-  // ── Cross-turn stances (pending-buff state) — planned ──────────────────────
+  // ── Cross-turn stances (pending-buff state) — implemented ──────────────────
   {
     id: "stance.cross-turn",
     name: "Mantle / Enervation / Hell's Ravenous Fire",
     source: { kind: "ability", character: "Iryna", powerIds: ["iryna-mantle", "iryna-enervation", "iryna-hells-fire"] },
-    rule: "Buff a FUTURE action/turn: ignore Challenge next action · grant a 4-dmg SPECIAL next roll · stat transform until the Objective completes.",
+    rule: "No-die actives that buff a FUTURE action, armed from the sheet via the `set_stance` intent (Power.setsStance → an ActiveStance parked on the character). Hell's Ravenous Fire: the next turn ignores Threat Challenge (the engine `eliminate` soak treats it as 0; consumed at TURN_STARTED). Enervation of the Soul: the next roll grants a SPECIAL that inflicts 4 to an Übermensch, folded through the same `ratingDamage` engine path as Apex Predator (the tray offers it per in-play Übermensch). Mantle of the Fell Beast: BRAWL/TERRIFY → 4, all else → 1, items locked — read derived (activeMantle) against the bound Objective's rating, so completing it by any path ends the stance.",
     hook: "DECLARE",
-    trigger: "the stance is set, then consumed on the affected turn",
+    trigger: "the stance is armed, then consumed on the affected turn (Mantle persists until its Objective completes)",
     resolution: "auto",
     actor: "player",
-    status: "planned",
-    issue: 36,
+    status: "implemented",
   },
 
   // ── Objective rewards — planned ────────────────────────────────────────────

@@ -4,9 +4,10 @@ import type { Intent } from "@shared/protocol/messages.js";
 import type { CharId } from "@shared/events/types.js";
 import { CHAR_IDS } from "@shared/events/types.js";
 import { STATS, threatInPlay, isChallengeUnlowerable } from "@shared/domain/types.js";
-import type { BoardSnapshot } from "@shared/state/types.js";
+import type { BoardSnapshot, CharacterRuntime } from "@shared/state/types.js";
 import type { Power } from "@shared/domain/character.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
+import { activeMantle, effectiveStats, itemsBlockedByMantle } from "@shared/state/stances.js";
 import { useEffects } from "@/effects/EffectsContext";
 import { seatName } from "@/game/seats";
 import "./sheet.css";
@@ -73,6 +74,12 @@ export function CharacterSheet({
 
   if (!sheet) return null;
 
+  // Mantle of the Fell Beast (#36): a persistent stance that reshapes stats + locks items until its
+  // bound Objective is done. Read derived (activeMantle) so completing the Objective by any path ends it.
+  const mantle = activeMantle(char, state.board.objectives);
+  const stats = effectiveStats(sheet.stats, mantle);
+  const itemsLocked = itemsBlockedByMantle(char, state.board.objectives);
+
   return (
     <div className="fixed inset-0 z-[66] flex justify-end">
       <button className="flex-1 bg-night-deep/70" aria-label="close" onClick={onClose} />
@@ -96,17 +103,28 @@ export function CharacterSheet({
         <BloodSection seat={seat} char={char} canEdit={canEdit} state={state} send={send} />
 
         <Section title="Stats">
+          {mantle && (
+            <div className="mono text-[0.62rem] text-blood mb-1.5" title={mantle.powerName}>
+              ⚝ {mantle.powerName} — BRAWL/TERRIFY {mantle.highValue}, all else {mantle.lowValue}, items locked (until {mantle.objectiveName ?? "the Objective"} is done)
+            </div>
+          )}
           <div className="grid grid-cols-4 gap-1.5">
-            {STATS.map((s) => (
-              <div key={s} className="text-center border border-paper-shadow py-1">
-                <div className="mono text-[0.6rem] text-paper-fade">{s}</div>
-                <div className="display text-xl">{sheet.stats[s]}</div>
-              </div>
-            ))}
+            {STATS.map((s) => {
+              const changed = mantle && stats[s] !== sheet.stats[s];
+              return (
+                <div key={s} className={`text-center border py-1 ${changed ? "border-blood" : "border-paper-shadow"}`}>
+                  <div className="mono text-[0.6rem] text-paper-fade">{s}</div>
+                  <div className={`display text-xl ${changed ? "text-blood" : ""}`}>{stats[s]}</div>
+                </div>
+              );
+            })}
           </div>
         </Section>
 
         <Section title="Equipment">
+          {itemsLocked && (
+            <div className="mono text-[0.62rem] text-blood italic mb-1.5">Items locked by {mantle?.powerName}.</div>
+          )}
           {sheet.equipment.map((e) => {
             const tracked = e.uses !== undefined;
             const remaining = char.equipmentUses[e.id] ?? e.uses ?? 0;
@@ -120,7 +138,7 @@ export function CharacterSheet({
                     <UseBoxes
                       total={e.uses ?? 0}
                       remaining={remaining}
-                      canEdit={canEdit}
+                      canEdit={canEdit && !itemsLocked}
                       onSpend={() => send({ kind: "use_equipment", seat, itemId: e.id })}
                       onRestore={() => send({ kind: "restore_equipment", seat, itemId: e.id })}
                     />
@@ -230,7 +248,7 @@ export function CharacterSheet({
                       <UseBoxes
                         total={item.uses ?? 0}
                         remaining={remaining}
-                        canEdit={canEdit}
+                        canEdit={canEdit && !itemsLocked}
                         onSpend={() => send({ kind: "use_equipment", seat, itemId: item.id })}
                         onRestore={() => send({ kind: "restore_equipment", seat, itemId: item.id })}
                       />
@@ -453,6 +471,9 @@ function PowerSection({
         // gets its own target-picker control instead of the generic "spend" button — the intent spends
         // the Blood server-side, so we don't also fire change_blood here.
         const challengeActive = p.mechanic === "active" && p.sheetChallengeReduction;
+        // A no-die active that arms a cross-turn stance (Iryna's #36): its own arm/transform control,
+        // also Blood-spent server-side, so no generic "spend" button either.
+        const stanceActive = p.mechanic === "active" && p.setsStance;
         return (
           <div key={p.id} className={`mb-2 border-b border-paper-shadow/40 pb-2 ${locked ? "opacity-50" : ""}`}>
             <div className="flex items-center gap-2">
@@ -463,7 +484,7 @@ function PowerSection({
                   unlock
                 </button>
               )}
-              {!locked && canEdit && p.mechanic === "active" && !challengeActive && p.bloodCost && char.blood >= p.bloodCost && (
+              {!locked && canEdit && p.mechanic === "active" && !challengeActive && !stanceActive && p.bloodCost && char.blood >= p.bloodCost && (
                 <button className="mono text-xs underline text-blood" onClick={() => send({ kind: "change_blood", seat, delta: -(p.bloodCost ?? 0), reason: p.name })}>
                   spend {p.bloodCost}
                 </button>
@@ -473,6 +494,9 @@ function PowerSection({
             {p.bonus && <div className="mono text-[0.65rem] text-paper-fade">+{p.bonus.plus} when “{p.bonus.tag}”</div>}
             {!locked && canEdit && challengeActive && (
               <ChallengeReductionControl power={p} seat={seat} blood={char.blood} board={board} send={send} />
+            )}
+            {!locked && stanceActive && (
+              <StanceControl power={p} seat={seat} char={char} board={board} canEdit={canEdit} send={send} />
             )}
           </div>
         );
@@ -534,6 +558,93 @@ function ChallengeReductionControl({
         }}
       >
         use{cost ? ` (${cost})` : ""}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * The cross-turn stance control (Iryna's #36 actives): arm a stance from the sheet via `set_stance`
+ * (the server spends the Blood). The two `next-turn` stances (Hell's Ravenous Fire, Enervation) arm
+ * with one tap and show an "armed — next turn" badge once held; Mantle of the Fell Beast needs an
+ * Objective to bind to (the one whose completion ends it) and shows "active until …" while it holds.
+ * The badge renders for everyone; the controls only for the owner/GM (canEdit).
+ */
+function StanceControl({
+  power,
+  seat,
+  char,
+  board,
+  canEdit,
+  send,
+}: {
+  power: Power;
+  seat: CharId;
+  char: CharacterRuntime;
+  board: BoardSnapshot;
+  canEdit: boolean;
+  send: (i: Intent) => void;
+}) {
+  const spec = power.setsStance!;
+  const cost = power.bloodCost ?? 0;
+  const [objectiveId, setObjectiveId] = useState("");
+
+  if (spec.kind === "mantle") {
+    const active = activeMantle(char, board.objectives);
+    if (active) {
+      return (
+        <div className="mono text-[0.62rem] text-blood mt-1">⚝ Active until {active.objectiveName ?? "the Objective"} is completed.</div>
+      );
+    }
+    const objectives = board.objectives.filter((o) => o.rating > 0);
+    if (!canEdit) return null;
+    if (objectives.length === 0) {
+      return <div className="mono text-[0.62rem] text-paper-fade italic mt-1">No Objective in play to bind to.</div>;
+    }
+    return (
+      <div className="mt-1.5 flex items-center gap-1.5">
+        <select
+          className="mono text-xs px-1 py-0.5 bg-paper-shadow/40 flex-1 min-w-0"
+          value={objectiveId}
+          onChange={(e) => setObjectiveId(e.target.value)}
+          aria-label="Mantle Objective"
+        >
+          <option value="">until Objective…</option>
+          {objectives.map((o) => (
+            <option key={o.id} value={o.id}>{o.name} (rating {o.rating})</option>
+          ))}
+        </select>
+        <button
+          className="mono text-xs underline text-blood disabled:opacity-40 shrink-0"
+          disabled={!objectiveId || char.blood < cost}
+          title={char.blood < cost ? `Needs ${cost} Blood` : undefined}
+          onClick={() => {
+            if (!objectiveId) return;
+            send({ kind: "set_stance", seat, powerId: power.id, objectiveId });
+            setObjectiveId("");
+          }}
+        >
+          transform{cost ? ` (${cost})` : ""}
+        </button>
+      </div>
+    );
+  }
+
+  // next-turn stances: ignore-threat-challenge / enervation.
+  const armed = (char.stances ?? []).some((s) => s.kind === spec.kind);
+  if (armed) {
+    return <div className="mono text-[0.62rem] text-dusk-mauve mt-1">⚡ Armed — applies on your next turn.</div>;
+  }
+  if (!canEdit) return null;
+  return (
+    <div className="mt-1.5">
+      <button
+        className="mono text-xs underline text-blood disabled:opacity-40"
+        disabled={char.blood < cost}
+        title={char.blood < cost ? `Needs ${cost} Blood` : "Arm this for your next turn"}
+        onClick={() => send({ kind: "set_stance", seat, powerId: power.id })}
+      >
+        arm{cost ? ` (${cost})` : ""}
       </button>
     </div>
   );

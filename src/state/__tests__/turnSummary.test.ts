@@ -521,4 +521,45 @@ describe("summarizeCommittedTurn — the after-action report", () => {
     // A seq that isn't an ALLOCATION_COMMITTED.
     expect(summarizeCommittedTurn(events, 1, state)).toBeNull();
   });
+
+  it("leads with Hell's Ravenous Fire when the action ignored Threat Challenge (#36)", () => {
+    const { ev } = log();
+    const guarded: Threat = { id: "thr", name: "Armoured Car", kind: "threat", rating: 4, attack: 2, startingAttack: 2, challenge: 2, reinforces: false, restoresAtZero: false };
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "iryna" }, "iryna"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [guarded] }),
+      ev("TURN_STARTED", { seat: "iryna", stat: "BRAWL", ignoreThreatChallenge: { powerId: "iryna-hells-fire", powerName: "Hell's Ravenous Fire" } }, "iryna"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6, 5], gmSuccessCount: 0 }),
+      ev("DIE_ALLOCATED", { kind: "eliminate", targetId: "thr", units: 2 }, "iryna"), // Challenge 2 ignored → −2 (4 → 2)
+      ev("ALLOCATION_COMMITTED", {}, "iryna"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    expect(state.board.threats[0]?.rating).toBe(2); // the engine honoured the ignore
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines[0]).toMatchObject({ kind: "special", emphasis: true, text: "Activated Hell's Ravenous Fire — ignored Threat Challenge this action" });
+    expect(summary.lines.find((l) => l.kind === "eliminate")?.text).toMatch(/Hit Armoured Car — −2 rating \(now 2\)/);
+  });
+
+  it("folds Enervation's granted SPECIAL into an Activated line via ratingDamage (#36)", () => {
+    const { ev } = log();
+    const uber: Threat = { id: "uber", name: "Stahlsoldat", kind: "threat", rating: 6, attack: 4, startingAttack: 4, challenge: 2, reinforces: true, restoresAtZero: false, rules: ["ubermensch"] };
+    const events = [
+      ev("GAME_CREATED", { createdAt: 1 }),
+      ev("ROLE_CLAIMED", { seat: "iryna" }, "iryna"),
+      ev("SESSION_STARTED", {}),
+      ev("SCENE_FRAMED", { objectives: [], threats: [uber] }),
+      ev("TURN_STARTED", { seat: "iryna", stat: "TERRIFY", enervation: { powerId: "iryna-enervation", powerName: "Enervation of the Soul", damage: 4 } }, "iryna"),
+      ev("DICE_DISCARDED", { playerSurvivors: [6], gmSuccessCount: 0 }),
+      ev("DIE_ALLOCATED", { kind: "special", specialId: "iryna-enervation", targetId: "uber", units: 2, ratingDamage: 4 }, "iryna"),
+      ev("ALLOCATION_COMMITTED", {}, "iryna"),
+    ] as GameEvent[];
+
+    const state = reduce(events);
+    expect(state.board.threats[0]?.rating).toBe(2); // 6 − 4, Challenge bypassed
+    const summary = summarizeCommittedTurn(events, committedSeqOf(events), state)!;
+    expect(summary.lines.find((l) => l.kind === "special")?.text).toBe("Activated Enervation of the Soul — Stahlsoldat −4 rating (now 2)");
+  });
 });

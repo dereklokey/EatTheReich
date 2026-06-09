@@ -80,6 +80,12 @@ export interface AllocationAccumulator {
    * the amount through here so the allocation soak matches. Per-turn — a fresh turn drops it.
    */
   challengeBump?: Record<string, number>;
+  /**
+   * Iryna's Hell's Ravenous Fire (#36): this action ignores Threat Challenge. When set, an `eliminate`
+   * die soaks NOTHING into a Threat's Challenge — printed or 'Painless'-bumped — so its full units cut
+   * rating. Objectives are unaffected (the rule is "against a Threat"). Per-turn, dropped next turn.
+   */
+  ignoreThreatChallenge?: boolean;
 }
 
 export interface AllocationResult {
@@ -98,6 +104,7 @@ export function emptyAccumulator(
   board: BoardState,
   gmDiceCount: number,
   challengeBump?: Record<string, number>,
+  ignoreThreatChallenge?: boolean,
 ): AllocationAccumulator {
   return {
     board: cloneBoard(board),
@@ -106,6 +113,7 @@ export function emptyAccumulator(
     challengeConsumed: {},
     specialsActivated: [],
     ...(challengeBump ? { challengeBump } : {}),
+    ...(ignoreThreatChallenge ? { ignoreThreatChallenge: true } : {}),
   };
 }
 
@@ -124,6 +132,7 @@ export function applyOneAllocation(
     challengeConsumed: { ...acc.challengeConsumed },
     specialsActivated: [...acc.specialsActivated],
     ...(acc.challengeBump ? { challengeBump: acc.challengeBump } : {}),
+    ...(acc.ignoreThreatChallenge ? { ignoreThreatChallenge: true } : {}),
   };
 
   const absorbChallenge = (id: string, declared: number | undefined, units: number): number => {
@@ -147,7 +156,8 @@ export function applyOneAllocation(
     case "eliminate": {
       const thr = a.targetId ? next.board.threats.find((t) => t.id === a.targetId) : undefined;
       if (thr) {
-        const absorb = absorbChallenge(thr.id, thr.challenge, a.units);
+        // Hell's Ravenous Fire (#36): ignore the Threat's Challenge entirely — every unit cuts rating.
+        const absorb = next.ignoreThreatChallenge ? 0 : absorbChallenge(thr.id, thr.challenge, a.units);
         thr.rating = Math.max(0, thr.rating - (a.units - absorb));
         if (thr.rating === 0) thr.attack = 0; // RULES §3: rating 0 → Attack 0
       }

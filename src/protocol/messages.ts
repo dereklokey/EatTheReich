@@ -77,6 +77,11 @@ export type Intent =
    *  #35): the player spends the power's Blood and drops `targetId`'s Challenge by 1, routed through
    *  lowerChallenge server-side (Werhund lock honoured). Self-scoped; not folded into the dice pool. */
   | { kind: "use_power"; seat: CharId; powerId: string; targetId: string }
+  /** Arm a cross-turn stance from the sheet (Iryna's Hell's Ravenous Fire / Enervation of the Soul /
+   *  Mantle of the Fell Beast, issue #36): the player spends the power's Blood and the server parks an
+   *  ActiveStance. `objectiveId` binds a Mantle to the Objective whose completion ends it (ignored by the
+   *  other two, which target nothing). Self-scoped; not folded into the dice pool. */
+  | { kind: "set_stance"; seat: CharId; powerId: string; objectiveId?: string }
   | { kind: "use_equipment"; seat: CharId; itemId: string }
   /** Un-spend an equipment use (the sheet's click-to-remove); restores 1 use up to the item's max. */
   | { kind: "restore_equipment"; seat: CharId; itemId: string }

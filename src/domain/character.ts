@@ -155,6 +155,37 @@ export interface Power {
    * drop to be handed back at ROUND_ENDED (carried meanwhile as the target's `tempChallengeReduction`).
    */
   sheetChallengeReduction?: { amount: number; scope: "threat" | "objective_or_threat"; expiresAtRoundEnd?: boolean };
+  /**
+   * A no-die ACTIVE that arms a cross-turn STANCE — Iryna's three advances (#36; rulebook p57). Used
+   * from the sheet via the `set_stance` intent (not folded into the dice pool, like the
+   * {@link sheetChallengeReduction} actives): the handler spends `bloodCost` and records a STANCE_SET,
+   * which parks an {@link import("../state/types.js").ActiveStance} on the character. Each buffs a
+   * FUTURE action and is consumed/applied later, not now:
+   *  - `ignore-threat-challenge` (Hell's Ravenous Fire): the actor's NEXT turn ignores Threat Challenge;
+   *  - `enervation` (Enervation of the Soul): the actor's NEXT roll grants a SPECIAL that inflicts
+   *    `damage` to an Übermensch (folded through the same `ratingDamage` engine path as Apex Predator #27);
+   *  - `mantle` (Mantle of the Fell Beast): `highStats` become `highValue`, every other stat collapses to
+   *    `lowValue`, and items are locked — until the bound Objective is completed (`duration: "until-objective"`).
+   * `duration` says when it ends: `next-turn` stances clear at the next TURN_STARTED; `until-objective`
+   * persists (derived against the live Objective rating). A GM-editable default throughout (CLAUDE.md §0).
+   */
+  setsStance?: StanceSpec;
+}
+
+/** Descriptor for a cross-turn stance an ACTIVE arms (Iryna's #36 advances; see {@link Power.setsStance}). */
+export interface StanceSpec {
+  kind: "ignore-threat-challenge" | "enervation" | "mantle";
+  /** `next-turn` arms the actor's next turn and clears when it starts; `until-objective` (Mantle)
+   *  persists until the bound Objective is completed (derived against its live rating). */
+  duration: "next-turn" | "until-objective";
+  /** Enervation: flat rating damage the granted SPECIAL inflicts on an Übermensch Threat. */
+  damage?: number;
+  /** Mantle: the stats forced HIGH (to `highValue`); every other stat collapses to `lowValue`. */
+  highStats?: Stat[];
+  highValue?: number;
+  lowValue?: number;
+  /** Mantle: the vampire cannot use items while it holds. */
+  blocksItems?: boolean;
 }
 
 export interface Equipment {

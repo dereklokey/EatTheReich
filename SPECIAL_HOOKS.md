@@ -102,7 +102,7 @@ feel).
 ### Cross-turn stances & objectives
 | Rule | Who | Hook | Resolution | Status |
 |---|---|---|---|---|
-| Mantle / Enervation / Hell's Ravenous Fire | Iryna | `DECLARE` | auto / player | ⬜ #36 |
+| Mantle / Enervation / Hell's Ravenous Fire | Iryna | `DECLARE` | auto / player | ✅ |
 | Secondary-objective reward menu | — | `TURN_END` | select / gm | ⬜ #37 |
 | Downed → rescue Secondary Objective | — | `INJURY` | select / gm | ⬜ #16 |
 

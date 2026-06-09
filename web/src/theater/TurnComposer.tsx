@@ -5,6 +5,7 @@ import type { CharId, SeatId } from "@shared/events/types.js";
 import type { Equipment } from "@shared/domain/character.js";
 import { STATS, threatInPlay, type Stat } from "@shared/domain/types.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
+import { activeMantle, effectiveStats, itemsBlockedByMantle } from "@shared/state/stances.js";
 import { buildGmPool, gmPoolContributions } from "@shared/engine/gmPool.js";
 import { seatName } from "@/game/seats";
 import { buildSuggestedPool, activePowers, itemsToSpend } from "./poolModel";
@@ -53,10 +54,23 @@ export function TurnComposer({
   const char = state.characters[seat];
   const canDrive = mySeat === seat || mySeat === "gm";
 
-  // Default the stat to the character's strongest — a suggestion, freely re-clicked.
+  // Mantle of the Fell Beast (#36): a persistent stance that reshapes the stat line (BRAWL/TERRIFY → 4,
+  // all else → 1) and locks items, until its bound Objective is done. Read derived (activeMantle) — the
+  // base pool, stat picker, and item options all build off the transformed numbers so the suggestion matches.
+  const mantle = activeMantle(char, state.board.objectives);
+  const stats = useMemo<Record<Stat, number>>(
+    () => effectiveStats(sheet?.stats ?? ({} as Record<Stat, number>), mantle),
+    [sheet, mantle],
+  );
+  const itemsLocked = itemsBlockedByMantle(char, state.board.objectives);
+  // Next-turn stances already armed for this character (Hell's Ravenous Fire / Enervation), surfaced as a
+  // heads-up since they fire automatically when this turn rolls.
+  const armedStances = (char.stances ?? []).filter((s) => s.kind === "ignore-threat-challenge" || s.kind === "enervation");
+
+  // Default the stat to the character's strongest (under any transform) — a suggestion, freely re-clicked.
   const bestStat = useMemo<Stat>(
-    () => (sheet ? [...STATS].sort((a, b) => (sheet.stats[b] ?? 0) - (sheet.stats[a] ?? 0))[0]! : "SHOOT"),
-    [sheet],
+    () => [...STATS].sort((a, b) => (stats[b] ?? 0) - (stats[a] ?? 0))[0]!,
+    [stats],
   );
   // Most dangerous first — by Attack descending (ties → closest to death). Purely a
   // reading order; the Reich pool is the same regardless (highest Attack + 1 per other).
@@ -88,7 +102,8 @@ export function TurnComposer({
     },
     [sheet, char.loot, activeLoot],
   );
-  const poolGear = gear.filter((e) => e.addsDie !== false && (e.uses === undefined || (char.equipmentUses[e.id] ?? 0) > 0));
+  // Mantle locks items out of the pool entirely (rulebook p57) — offer none while it holds.
+  const poolGear = itemsLocked ? [] : gear.filter((e) => e.addsDie !== false && (e.uses === undefined || (char.equipmentUses[e.id] ?? 0) > 0));
   // Reactive / economy gear that never adds a pool die (Chuck's hat, Iryna's cigarettes).
   const restGear = (sheet?.equipment ?? []).filter((e) => e.addsDie === false);
   const abilities = activePowers(sheet, char.unlockedAdvances);
@@ -99,7 +114,7 @@ export function TurnComposer({
     () =>
       buildSuggestedPool({
         statName: stat,
-        statRating: sheet?.stats[stat] ?? 2,
+        statRating: stats[stat] ?? 2,
         gear,
         abilities,
         usedItemIds: used,
@@ -107,7 +122,7 @@ export function TurnComposer({
         claimedBonusIds: claimed,
         equipmentUses: char.equipmentUses,
       }),
-    [stat, sheet, gear, abilities, used, powers, claimed, char.equipmentUses],
+    [stat, sheet, stats, gear, abilities, used, powers, claimed, char.equipmentUses],
   );
   const finalDice = override ?? suggested.total;
   const reichPool = buildGmPool(state.board.threats);
@@ -168,6 +183,17 @@ export function TurnComposer({
 
           <ComposerBlood blood={char.blood} reserved={committedBlood} />
 
+          {(mantle || armedStances.length > 0) && (
+            <div className="composer__group-label" style={{ marginTop: 0 }}>
+              {mantle && (
+                <span className="text-blood" title={mantle.powerName}>⚝ {mantle.powerName} — BRAWL/TERRIFY {mantle.highValue}, all else {mantle.lowValue}, items locked. </span>
+              )}
+              {armedStances.map((s) => (
+                <span key={s.kind} className="text-dusk-mauve">⚡ {s.powerName} armed. </span>
+              ))}
+            </div>
+          )}
+
           <div className="composer__group-label">Stat — pick one</div>
           <div className="flex flex-wrap gap-1.5">
             {STATS.map((s) => (
@@ -176,14 +202,16 @@ export function TurnComposer({
                 disabled={!canDrive}
                 className={`composer__stat ${stat === s ? "composer__stat--on" : ""}`}
                 onClick={() => setStat(s)}
+                title={mantle && stats[s] !== sheet.stats[s] ? `${mantle.powerName}: ${s} ${sheet.stats[s]} → ${stats[s]}` : undefined}
               >
-                {s} <span className="composer__stat-n">{sheet.stats[s]}</span>
+                {s} <span className="composer__stat-n">{stats[s]}</span>
               </button>
             ))}
           </div>
 
           <div className="composer__group-label">Equipment — tap to add (+1 die)</div>
-          {poolGear.length === 0 && <p className="mono text-xs text-paper-fade italic">Nothing to bring to bear.</p>}
+          {itemsLocked && <p className="mono text-xs text-blood italic">Items locked by {mantle?.powerName}.</p>}
+          {!itemsLocked && poolGear.length === 0 && <p className="mono text-xs text-paper-fade italic">Nothing to bring to bear.</p>}
           {poolGear.map((e) => (
             <PickRow
               key={e.id}
@@ -242,7 +270,7 @@ export function TurnComposer({
           <div className="composer__col-head">The pool</div>
 
           <div className="composer__sources">
-            <PoolLine label={stat} sub="stat" dice={sheet.stats[stat] ?? 2} base />
+            <PoolLine label={stat} sub="stat" dice={stats[stat] ?? 2} base />
             {usedGear.map((e) => (
               <PoolLine
                 key={e.id}
