@@ -4,7 +4,7 @@ import type { Intent } from "@shared/protocol/messages.js";
 import type { Objective, Threat, SecondaryObjective, RewardItem } from "@shared/domain/types.js";
 import { CHAR_IDS, type CharId, type SeatId, type GameEvent } from "@shared/events/types.js";
 import type { DieFace } from "@shared/domain/types.js";
-import { threatInPlay } from "@shared/domain/types.js";
+import { threatInPlay, isChallengeUnlowerable } from "@shared/domain/types.js";
 import { LOCATIONS_BY_SECTOR, LOCATIONS_BY_ID, type Sector, type LootRef } from "@shared/data/locations.js";
 import { SECONDARY_OBJECTIVE_REWARDS } from "@shared/data/rewards.js";
 import { seatName } from "@/game/seats";
@@ -322,12 +322,26 @@ function SecondaryObjectivesSection({ state, send }: { state: GameState; send: (
 
 function SecondaryRow({ o, state, send }: { o: SecondaryObjective; state: GameState; send: (i: Intent) => void }) {
   const [reward, setReward] = useState("");
+  const [rewardTarget, setRewardTarget] = useState(""); // chosen Objective/Threat id, or seat for +Blood (#37)
   const firstClaimed = CHAR_IDS.find((id) => state.seats[id]?.claimed) ?? CHAR_IDS[0]!;
   const [recipient, setRecipient] = useState<CharId>(firstClaimed);
   const done = o.rating <= 0;
   const gear = o.rewardEquipment ?? [];
   const hasGear = gear.length > 0;
   const rewardLabel = (id?: string) => SECONDARY_OBJECTIVE_REWARDS.find((r) => r.id === id)?.label;
+  // p38 reward auto-apply (#37): show a target picker scoped to the chosen reward's kind. The d6 is
+  // rolled server-side; here we only name where it lands (or who gains Blood).
+  const rewardKind = SECONDARY_OBJECTIVE_REWARDS.find((r) => r.id === reward)?.kind;
+  const objectiveTargets = state.board.objectives.filter((t) => t.rating > 0);
+  const threatTargets = state.board.threats.filter(threatInPlay);
+  const challengeTargets = [
+    ...state.board.objectives.filter((t) => (t.challenge ?? 0) > 0),
+    ...state.board.threats.filter((t) => threatInPlay(t) && (t.challenge ?? 0) > 0 && !isChallengeUnlowerable(t)),
+  ];
+  const completeReward =
+    rewardKind === "blood" && rewardTarget ? { rewardSeat: rewardTarget as CharId }
+    : rewardKind && rewardKind !== "blood" && rewardKind !== "equipment" && rewardTarget ? { rewardTargetId: rewardTarget }
+    : {};
   const patch = (p: Partial<SecondaryObjective>) => send({ kind: "update_secondary_objective", id: o.id, patch: p });
   // Slot-free gear (rulebook p39): granted as a no-slot asset to one player on completion.
   const grant = (g: RewardItem) => send({ kind: "loot_add", seat: recipient, item: newRewardGear(g.name, g.bonus, g.note) });
@@ -416,17 +430,43 @@ function SecondaryRow({ o, state, send }: { o: SecondaryObjective; state: GameSt
               </button>
             </>
           ) : (
-            <div className="flex items-center gap-1.5 mt-1.5">
+            <div className="flex flex-col gap-1.5 mt-1.5">
               {/* Rescue secondaries have a fixed reward (the rescued vampire); others draw the p38 menu. */}
               {!o.rescueFor && (
-                <select className="mono text-xs flex-1 min-w-0 px-1 py-0.5 bg-paper-shadow/40" value={reward} onChange={(e) => setReward(e.target.value)}>
+                <select className="mono text-xs px-1 py-0.5 bg-paper-shadow/40" value={reward} onChange={(e) => { setReward(e.target.value); setRewardTarget(""); }}>
                   <option value="">reward on completion…</option>
                   {SECONDARY_OBJECTIVE_REWARDS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
                 </select>
               )}
+              {/* Target picker for the auto-applied reward (#37). Scoped to the reward's kind; the d6 is
+                  server-rolled. Leave it on "—" to record the choice but apply the number by hand. */}
+              {rewardKind === "blood" && (
+                <select className="mono text-xs px-1 py-0.5 bg-paper-shadow/40" value={rewardTarget} onChange={(e) => setRewardTarget(e.target.value)}>
+                  <option value="">— who gains the Blood? —</option>
+                  {CHAR_IDS.map((id) => <option key={id} value={id}>{seatName(id)}{state.seats[id]?.claimed ? "" : " (unclaimed)"}</option>)}
+                </select>
+              )}
+              {rewardKind === "objective" && (
+                <select className="mono text-xs px-1 py-0.5 bg-paper-shadow/40" value={rewardTarget} onChange={(e) => setRewardTarget(e.target.value)}>
+                  <option value="">— which Objective? —</option>
+                  {objectiveTargets.map((t) => <option key={t.id} value={t.id}>{t.name} (rating {t.rating})</option>)}
+                </select>
+              )}
+              {(rewardKind === "threat" || rewardKind === "attack") && (
+                <select className="mono text-xs px-1 py-0.5 bg-paper-shadow/40" value={rewardTarget} onChange={(e) => setRewardTarget(e.target.value)}>
+                  <option value="">— which Threat? —</option>
+                  {threatTargets.map((t) => <option key={t.id} value={t.id}>{t.name} ({rewardKind === "attack" ? `attack ${t.attack}` : `rating ${t.rating}`})</option>)}
+                </select>
+              )}
+              {rewardKind === "challenge" && (
+                <select className="mono text-xs px-1 py-0.5 bg-paper-shadow/40" value={rewardTarget} onChange={(e) => setRewardTarget(e.target.value)}>
+                  <option value="">— whose Challenge? —</option>
+                  {challengeTargets.map((t) => <option key={t.id} value={t.id}>{t.name} (challenge {t.challenge})</option>)}
+                </select>
+              )}
               <button
                 className="display bg-dusk-mauve text-paper px-3 py-0.5 text-xs ml-auto" style={{ borderRadius: 2 }}
-                onClick={() => send({ kind: "complete_secondary_objective", id: o.id, ...(reward ? { rewardChoice: reward } : {}) })}
+                onClick={() => send({ kind: "complete_secondary_objective", id: o.id, ...(reward ? { rewardChoice: reward } : {}), ...completeReward })}
               >
                 {o.rescueFor ? "rescued" : "complete"}
               </button>

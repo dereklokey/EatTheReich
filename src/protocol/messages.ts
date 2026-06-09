@@ -31,7 +31,12 @@ export type Intent =
   | { kind: "remove_threat"; id: string }
   | { kind: "add_secondary_objective"; objective: SecondaryObjective }
   | { kind: "update_secondary_objective"; id: string; patch: Partial<SecondaryObjective> }
-  | { kind: "complete_secondary_objective"; id: string; rewardChoice?: string }
+  /** Complete a Secondary Objective and (issue #37) auto-apply the chosen p38 reward as an editable
+   *  default. `rewardChoice` is a SECONDARY_OBJECTIVE_REWARDS id; `rewardTargetId` names the Objective/
+   *  Threat the −D6/−2 Attack/−1 Challenge reward lands on; `rewardSeat` names the +D6 Blood recipient.
+   *  The server rolls the d6 and applies the effect; a missing/invalid target (or "gain equipment",
+   *  which routes through the issue-#4 reward-gear path) just completes without an auto-effect. */
+  | { kind: "complete_secondary_objective"; id: string; rewardChoice?: string; rewardTargetId?: string; rewardSeat?: CharId }
   | { kind: "remove_secondary_objective"; id: string }
   /** GM reveals / re-hides one scene loot item (by name) for players (issue #15). */
   | { kind: "set_loot_revealed"; name: string; revealed: boolean }

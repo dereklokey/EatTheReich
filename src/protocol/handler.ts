@@ -24,6 +24,7 @@ import {
   LAST_STAND_DICE,
 } from "../engine/index.js";
 import { CHARACTERS_BY_ID } from "../data/characters.js";
+import { SECONDARY_OBJECTIVE_REWARDS } from "../data/rewards.js";
 import { activeMantle } from "../state/stances.js";
 import { flashbackTriggerable, FLASHBACK_BONUS_DICE } from "../data/flashbacks.js";
 import { threatInPlay, anathemaInPlay, rendingClawsInPlay } from "../domain/types.js";
@@ -319,6 +320,63 @@ function feedOnFearEvents(state: GameState, turn: TurnState): EventInput[] {
 }
 
 /**
+ * Resolve a completed Secondary Objective's p38 reward (issue #37) into its effect event, or null.
+ * The GM picks one of the `SECONDARY_OBJECTIVE_REWARDS` and (where the reward needs one) names a
+ * target; the server rolls the d6 for the three dice rewards and bakes the resolved post-value so the
+ * reducer just sets it. Returns null when there's no reward, the named target is missing/invalid, a
+ * Challenge drop is a no-op (already 0 or a Werhund's locked Challenge — anti-fudge, like #29/#35), or
+ * the reward is "gain equipment" (handled by the slot-free reward-gear path, issue #4). A logged,
+ * GM-editable default (§0) — the GM can still tune the board by hand afterwards.
+ */
+function secondaryRewardEvent(
+  state: GameState,
+  intent: Extract<Intent, { kind: "complete_secondary_objective" }>,
+  deps: IntentDeps,
+): EventInput | null {
+  const reward = SECONDARY_OBJECTIVE_REWARDS.find((r) => r.id === intent.rewardChoice);
+  if (!reward) return null;
+  const base = { objectiveId: intent.id, rewardId: reward.id, rewardLabel: reward.label } as const;
+  const d6 = () => deps.roller.roll(1)[0]!;
+  switch (reward.kind) {
+    case "objective": {
+      const obj = intent.rewardTargetId ? state.board.objectives.find((o) => o.id === intent.rewardTargetId) : undefined;
+      if (!obj) return null;
+      const roll = d6();
+      return { type: "SECONDARY_OBJECTIVE_REWARD_APPLIED", payload: { ...base, kind: "objective", targetId: obj.id, targetName: obj.name, roll, amount: roll, rating: Math.max(0, obj.rating - roll) } };
+    }
+    case "threat": {
+      const thr = intent.rewardTargetId ? state.board.threats.find((t) => t.id === intent.rewardTargetId) : undefined;
+      if (!thr) return null;
+      const roll = d6();
+      return { type: "SECONDARY_OBJECTIVE_REWARD_APPLIED", payload: { ...base, kind: "threat", targetId: thr.id, targetName: thr.name, roll, amount: roll, rating: Math.max(0, thr.rating - roll) } };
+    }
+    case "blood": {
+      if (!intent.rewardSeat || !state.characters[intent.rewardSeat]) return null;
+      const roll = d6();
+      return { type: "SECONDARY_OBJECTIVE_REWARD_APPLIED", payload: { ...base, kind: "blood", seat: intent.rewardSeat, roll, amount: roll } };
+    }
+    case "attack": {
+      const thr = intent.rewardTargetId ? state.board.threats.find((t) => t.id === intent.rewardTargetId) : undefined;
+      if (!thr) return null;
+      const amount = typeof reward.amount === "number" ? reward.amount : 2;
+      return { type: "SECONDARY_OBJECTIVE_REWARD_APPLIED", payload: { ...base, kind: "attack", targetId: thr.id, targetName: thr.name, amount, attack: Math.max(0, thr.attack - amount) } };
+    }
+    case "challenge": {
+      const target: Target | undefined =
+        state.board.objectives.find((o) => o.id === intent.rewardTargetId) ??
+        state.board.threats.find((t) => t.id === intent.rewardTargetId);
+      if (!target) return null;
+      const amount = typeof reward.amount === "number" ? reward.amount : 1;
+      const challenge = lowerChallenge(target, amount); // Werhund's lock (#25) honoured in the chokepoint
+      if (challenge >= (target.challenge ?? 0)) return null; // no-op (locked / already 0) → emit nothing
+      return { type: "SECONDARY_OBJECTIVE_REWARD_APPLIED", payload: { ...base, kind: "challenge", targetId: target.id, targetName: target.name, targetKind: target.kind === "threat" ? "threat" : "objective", amount, challenge } };
+    }
+    default:
+      return null; // "equipment" → issue-#4 reward-gear path
+  }
+}
+
+/**
  * GM-whiff escalation (RULES §8, rulebook p38), applied at the conclusion of the action it
  * happened in (NOT at end of round). If the Reich's Attack roll this turn produced zero
  * successes, the lead (anchor) Threat presses harder: +1 Attack. Returns the THREAT_UPDATED
@@ -449,8 +507,15 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       return ok([{ type: "SECONDARY_OBJECTIVE_ADDED", payload: { objective: intent.objective } }]);
     case "update_secondary_objective":
       return ok([{ type: "SECONDARY_OBJECTIVE_UPDATED", payload: { id: intent.id, patch: intent.patch } }]);
-    case "complete_secondary_objective":
-      return ok([{ type: "SECONDARY_OBJECTIVE_COMPLETED", payload: { id: intent.id, ...(intent.rewardChoice ? { rewardChoice: intent.rewardChoice } : {}) } }]);
+    case "complete_secondary_objective": {
+      const events: EventInput[] = [
+        { type: "SECONDARY_OBJECTIVE_COMPLETED", payload: { id: intent.id, ...(intent.rewardChoice ? { rewardChoice: intent.rewardChoice } : {}) } },
+      ];
+      // Issue #37: auto-apply the chosen p38 reward (roll the d6, resolve the target) as an editable default.
+      const reward = secondaryRewardEvent(state, intent, deps);
+      if (reward) events.push(reward);
+      return ok(events);
+    }
     case "remove_secondary_objective":
       return ok([{ type: "SECONDARY_OBJECTIVE_REMOVED", payload: { id: intent.id } }]);
     case "set_loot_revealed":

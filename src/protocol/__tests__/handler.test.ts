@@ -246,6 +246,75 @@ describe("Downed → rescue → capture lifecycle (issue #16)", () => {
   });
 });
 
+describe("processIntent — secondary-objective reward menu auto-apply (issue #37)", () => {
+  // A board with a primary Objective, a Threat (rating 6, attack 3, challenge 2), and a plain secondary.
+  function boardWithSecondary() {
+    const d = makeDriver();
+    d.run({
+      kind: "frame_scene",
+      objectives: [{ id: "primary", name: "Plant the charges", kind: "objective", rating: 8, challenge: 2 }],
+      threats: [{ id: "tank", name: "Panzer", kind: "threat", rating: 6, attack: 3, startingAttack: 3, challenge: 2, reinforces: true, restoresAtZero: true }],
+      secondaryObjectives: [{ id: "sec", name: "Free the prisoners", kind: "secondary", rating: 3 }],
+    });
+    return d;
+  }
+
+  it("'reduce a primary Objective by D6' rolls the d6 and cuts the named Objective (bypassing Challenge)", () => {
+    const d = boardWithSecondary();
+    const events = d.run({ kind: "complete_secondary_objective", id: "sec", rewardChoice: "reduce-objective-d6", rewardTargetId: "primary" }, sequenceRoller([5]));
+    expect(events.map((e) => e.type)).toEqual(["SECONDARY_OBJECTIVE_COMPLETED", "SECONDARY_OBJECTIVE_REWARD_APPLIED"]);
+    expect(d.state.board.objectives.find((o) => o.id === "primary")!.rating).toBe(3); // 8 − 5, Challenge ignored
+  });
+
+  it("'reduce a Threat by D6' cuts rating; a kill forces Attack to 0", () => {
+    const d = boardWithSecondary();
+    d.run({ kind: "complete_secondary_objective", id: "sec", rewardChoice: "reduce-threat-d6", rewardTargetId: "tank" }, sequenceRoller([6]));
+    const tank = d.state.board.threats.find((t) => t.id === "tank")!;
+    expect(tank.rating).toBe(0); // 6 − 6
+    expect(tank.attack).toBe(0); // rating 0 → attack 0
+  });
+
+  it("'gain D6 Blood' rolls and banks Blood on the named seat", () => {
+    const d = boardWithSecondary();
+    d.run({ kind: "complete_secondary_objective", id: "sec", rewardChoice: "gain-blood-d6", rewardSeat: "iryna" }, sequenceRoller([4]));
+    expect(d.state.characters.iryna.blood).toBe(4);
+  });
+
+  it("'reduce a Threat's Attack by 2' is a fixed cut (no roll)", () => {
+    const d = boardWithSecondary();
+    d.run({ kind: "complete_secondary_objective", id: "sec", rewardChoice: "reduce-attack-2", rewardTargetId: "tank" });
+    expect(d.state.board.threats.find((t) => t.id === "tank")!.attack).toBe(1); // 3 − 2
+  });
+
+  it("'reduce a Challenge by 1' drops the named target's Challenge via lowerChallenge", () => {
+    const d = boardWithSecondary();
+    d.run({ kind: "complete_secondary_objective", id: "sec", rewardChoice: "reduce-challenge-1", rewardTargetId: "primary" });
+    expect(d.state.board.objectives.find((o) => o.id === "primary")!.challenge).toBe(1); // 2 − 1
+  });
+
+  it("the −1 Challenge reward is a no-op against a Werhund's locked Challenge (anti-fudge — emits nothing)", () => {
+    const d = makeDriver();
+    const dog = { ...werhund(), id: "dog" } as Threat; // unlowerableChallenge, challenge 1
+    d.run({ kind: "frame_scene", objectives: [], threats: [dog], secondaryObjectives: [{ id: "sec", name: "x", kind: "secondary", rating: 2 }] });
+    const events = d.run({ kind: "complete_secondary_objective", id: "sec", rewardChoice: "reduce-challenge-1", rewardTargetId: "dog" });
+    expect(events.map((e) => e.type)).toEqual(["SECONDARY_OBJECTIVE_COMPLETED"]); // no reward event
+    expect(d.state.board.threats.find((t) => t.id === "dog")!.challenge).toBe(dog.challenge);
+  });
+
+  it("a reward with no named target just completes (records the choice, applies nothing)", () => {
+    const d = boardWithSecondary();
+    const events = d.run({ kind: "complete_secondary_objective", id: "sec", rewardChoice: "reduce-objective-d6" });
+    expect(events.map((e) => e.type)).toEqual(["SECONDARY_OBJECTIVE_COMPLETED"]);
+    expect(d.state.board.objectives.find((o) => o.id === "primary")!.rating).toBe(8); // untouched
+  });
+
+  it("'gain equipment' applies no auto-effect (it's the issue-#4 reward-gear path)", () => {
+    const d = boardWithSecondary();
+    const events = d.run({ kind: "complete_secondary_objective", id: "sec", rewardChoice: "gain-equipment" });
+    expect(events.map((e) => e.type)).toEqual(["SECONDARY_OBJECTIVE_COMPLETED"]);
+  });
+});
+
 describe("processIntent — GM whiff escalates the anchor at the action's conclusion (RULES §8)", () => {
   it("a Reich roll with zero successes bumps the anchor Threat's Attack by 1 at commit", () => {
     const d = makeDriver();

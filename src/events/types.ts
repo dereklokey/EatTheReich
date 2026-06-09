@@ -242,6 +242,36 @@ export interface EventPayloads {
   SECONDARY_OBJECTIVE_ADDED: { objective: SecondaryObjective };
   SECONDARY_OBJECTIVE_UPDATED: { id: string; patch: Partial<SecondaryObjective> };
   SECONDARY_OBJECTIVE_COMPLETED: { id: string; rewardChoice?: string };
+  /**
+   * A p38 Secondary-Objective reward (the `SECONDARY_OBJECTIVE_REWARDS` menu) auto-applied as a logged,
+   * GM-editable default (issue #37). Emitted right after SECONDARY_OBJECTIVE_COMPLETED when the GM picked
+   * one of the five mechanical rewards and named a target. The server rolls the d6 for the dice rewards
+   * (`roll` baked in → replayable) and bakes the resolved post-value (`rating`/`attack`/`challenge`) so the
+   * reducer just sets it — the −D6 cuts are direct (bypass Challenge), −1 Challenge routes through
+   * `lowerChallenge` (a Werhund's lock or an already-0 target emits nothing). "Gain equipment" is NOT here —
+   * that's the slot-free reward-gear path (issue #4).
+   */
+  SECONDARY_OBJECTIVE_REWARD_APPLIED: {
+    objectiveId: string;
+    rewardId: string;
+    rewardLabel: string;
+    kind: "objective" | "threat" | "blood" | "attack" | "challenge";
+    /** Magnitude applied: the rolled d6 face for −D6/+D6, or the fixed 2/1 for −Attack/−Challenge. */
+    amount: number;
+    /** The d6 face for the three dice rewards; absent for the fixed −2 Attack / −1 Challenge. */
+    roll?: DieFace;
+    /** Objective/Threat id the board reward landed on (absent for the +D6 Blood reward). */
+    targetId?: string;
+    targetName?: string;
+    /** Which board list the −1 Challenge reward touched. */
+    targetKind?: "objective" | "threat";
+    /** +D6 Blood recipient. */
+    seat?: CharId;
+    /** Resolved post-values (server-clamped) so the reducer/replay just set them. */
+    rating?: number;
+    attack?: number;
+    challenge?: number;
+  };
   SECONDARY_OBJECTIVE_REMOVED: { id: string };
   /** Staged loot reveal (issue #15): show/hide one scene "Loot within reach" item (by name) to players. */
   SCENE_LOOT_REVEALED: { name: string; revealed: boolean };

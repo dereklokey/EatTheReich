@@ -475,6 +475,29 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
       }
       return board;
     }
+    case "SECONDARY_OBJECTIVE_REWARD_APPLIED": {
+      // A p38 reward (issue #37) auto-applied on completion. Every post-value is carried resolved
+      // (clamped server-side), so each branch just writes it. Direct −D6 cuts bypass Challenge; a
+      // Threat dropped to 0 loses its Attack (RULES §3); −1 Challenge was already routed through
+      // lowerChallenge in the handler.
+      const p = e.payload;
+      switch (p.kind) {
+        case "blood":
+          return p.seat ? updateChar(s, p.seat, (c) => ({ ...c, blood: clampBlood(c.blood + p.amount) })) : s;
+        case "objective":
+          return withBoard(s, { ...s.board, objectives: s.board.objectives.map((o) => (o.id === p.targetId ? { ...o, rating: p.rating ?? o.rating } : o)) });
+        case "threat":
+          return withBoard(s, { ...s.board, threats: s.board.threats.map((t) => (t.id === p.targetId ? { ...t, rating: p.rating ?? t.rating, ...(p.rating === 0 ? { attack: 0 } : {}) } : t)) });
+        case "attack":
+          return withBoard(s, { ...s.board, threats: s.board.threats.map((t) => (t.id === p.targetId ? { ...t, attack: p.attack ?? t.attack } : t)) });
+        case "challenge":
+          return p.targetKind === "threat"
+            ? withBoard(s, { ...s.board, threats: s.board.threats.map((t) => (t.id === p.targetId ? { ...t, challenge: p.challenge } : t)) })
+            : withBoard(s, { ...s.board, objectives: s.board.objectives.map((o) => (o.id === p.targetId ? { ...o, challenge: p.challenge } : o)) });
+        default:
+          return s;
+      }
+    }
     case "SECONDARY_OBJECTIVE_REMOVED":
       return withBoard(s, { ...s.board, secondaryObjectives: s.board.secondaryObjectives.filter((o) => o.id !== e.payload.id) });
     case "SCENE_LOOT_REVEALED": {

@@ -439,32 +439,30 @@ export const SPECIAL_HOOKS: SpecialHook[] = [
     status: "implemented",
   },
 
-  // ── Objective rewards — planned ────────────────────────────────────────────
+  // ── Objective rewards — wired ──────────────────────────────────────────────
   {
     id: "objective.secondary-rewards",
     name: "Secondary-objective reward menu",
     source: { kind: "objective" },
-    rule: "On completion, apply the chosen reward: −D6 Objective · −D6 Threat · +D6 Blood · −2 Attack · −1 Challenge · gain equipment.",
+    rule: "On completion, apply the chosen reward: −D6 Objective · −D6 Threat · +D6 Blood · −2 Attack · −1 Challenge · gain equipment (#37; equipment via the #4 reward-gear path).",
     hook: "TURN_END",
     trigger: "a Secondary Objective is completed",
     resolution: "select",
     actor: "gm",
     target: "objective_or_threat",
-    status: "planned",
-    issue: 37,
+    status: "implemented",
   },
   {
     id: "injury.downed-rescue-objective",
     name: "Downed → rescue Secondary Objective",
     source: { kind: "injury" },
-    rule: "A Downed vampire spawns a rescue Secondary Objective (rating ~2–4, GM sets).",
+    rule: "A Downed vampire auto-spawns an unrevealed rescue Secondary Objective (rating ~2–4, GM sets); unrescued at scene end → captured (#16).",
     hook: "INJURY",
     trigger: "a Downed outcome resolves",
     resolution: "select",
     actor: "gm",
     target: "objective",
-    status: "planned",
-    issue: 16,
+    status: "implemented",
   },
 
   // ── Reactive economy items — already wired ─────────────────────────────────
