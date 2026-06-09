@@ -113,6 +113,14 @@ export type Intent =
 export type ClientMessage =
   | { t: "hello"; seat?: SeatId; seatToken?: string }
   | { t: "heartbeat" }
+  /**
+   * Transient "I'm prepping a turn" signal (§3A-style, never logged). Sent when this
+   * device opens the Turn Composer and again with `seat: null` when it closes (cancel or
+   * roll). Lets every other client show "X is taking a turn" and hide their own start
+   * controls during the pre-roll window, before `start_turn` reaches the server. `seat` is
+   * the character being prepped (the GM may prep any; a player only their own — see room).
+   */
+  | { t: "composing"; seat: CharId | null }
   | { t: "intent"; intent: Intent; actor?: Actor };
 
 /**
@@ -126,6 +134,9 @@ export type ServerMessage =
   | { t: "sync"; state: GameState; events: GameEvent[] }
   | { t: "seat_granted"; seat: SeatId; seatToken: string }
   | { t: "presence"; online: SeatId[] }
+  /** Transient "who is prepping a turn right now" (the seat whose Composer is open), or null
+   *  when nobody is. Never reduced from events; rebuilt on reconnect like `presence` (§3A). */
+  | { t: "composing"; seat: CharId | null }
   /** The GM finished & deleted the game (§3A); clients clear their seat and return to start. */
   | { t: "deleted" }
   | { t: "error"; message: string };

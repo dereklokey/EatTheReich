@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
-import type { SeatId, GameEvent } from "@shared/events/types.js";
+import type { SeatId, CharId, GameEvent } from "@shared/events/types.js";
 import { GameConnection, type ConnStatus } from "./connection.js";
 
 /** How many recent events the client keeps for the GM rewind feed. */
@@ -21,6 +21,8 @@ export interface GameView {
   status: ConnStatus;
   state: GameState | null;
   online: SeatId[];
+  /** Transient: the character whose Turn Composer is currently open (pre-roll), or null (§3A). */
+  composingSeat: CharId | null;
   mySeat: SeatId | null;
   error: string | null;
   /** Recent events accumulated this session, for the GM rewind feed (§3.2). */
@@ -31,6 +33,8 @@ export interface GameView {
   releaseSeat: (seat: SeatId) => void;
   rewind: (toSeq: number) => void;
   deleteGame: () => void;
+  /** Announce (or clear, with null) that this device has the Composer open for `seat` (§3A). */
+  setComposing: (seat: CharId | null) => void;
   send: (intent: Intent) => void;
   clearError: () => void;
 }
@@ -63,6 +67,7 @@ export function useGame(code: string | null): GameView {
   const [status, setStatus] = useState<ConnStatus>("connecting");
   const [state, setState] = useState<GameState | null>(null);
   const [online, setOnline] = useState<SeatId[]>([]);
+  const [composingSeat, setComposingSeat] = useState<CharId | null>(null);
   const [mySeat, setMySeat] = useState<SeatId | null>(code ? (loadSeat(code)?.seat ?? null) : null);
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<GameEvent[]>([]);
@@ -73,6 +78,7 @@ export function useGame(code: string | null): GameView {
     if (!code) return;
     setMySeat(loadSeat(code)?.seat ?? null);
     setEvents([]);
+    setComposingSeat(null);
     setDeleted(false);
 
     const conn = new GameConnection(
@@ -100,6 +106,9 @@ export function useGame(code: string | null): GameView {
               break;
             case "presence":
               setOnline(m.online);
+              break;
+            case "composing":
+              setComposingSeat(m.seat);
               break;
             case "seat_granted":
               saveSeat(code, m.seat, m.seatToken);
@@ -135,7 +144,8 @@ export function useGame(code: string | null): GameView {
   const releaseSeat = useCallback((seat: SeatId) => send({ kind: "release_seat", seat }), [send]);
   const rewind = useCallback((toSeq: number) => send({ kind: "rewind", toSeq }), [send]);
   const deleteGame = useCallback(() => send({ kind: "delete_game" }), [send]);
+  const setComposing = useCallback((seat: CharId | null) => connRef.current?.send({ t: "composing", seat }), []);
   const clearError = useCallback(() => setError(null), []);
 
-  return { status, state, online, mySeat, error, events, deleted, claimSeat, releaseSeat, rewind, deleteGame, send, clearError };
+  return { status, state, online, composingSeat, mySeat, error, events, deleted, claimSeat, releaseSeat, rewind, deleteGame, setComposing, send, clearError };
 }

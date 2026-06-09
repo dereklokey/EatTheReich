@@ -10,7 +10,8 @@ import { authorizeIntent } from "../protocol/authz.js";
 import { mintSeatToken, hashSeatToken, verifySeatToken } from "../protocol/seat.js";
 import { normalizeJoinCode } from "../protocol/codes.js";
 import type { ClientMessage, ServerMessage } from "../protocol/messages.js";
-import type { GameEvent, SeatId } from "../events/types.js";
+import type { CharId, GameEvent, SeatId } from "../events/types.js";
+import { CHAR_IDS } from "../events/types.js";
 
 export interface Env {
   GAME: DurableObjectNamespace;
@@ -64,6 +65,15 @@ export class GameRoom implements DurableObject {
    * heartbeating after a wake. A seat renders online if seen within PRESENCE_WINDOW_MS.
    */
   private lastSeen = new Map<SeatId, number>();
+  /**
+   * Transient "who is prepping a turn right now" (the character whose Turn Composer is
+   * open on some device), with the authenticated seat that announced it so only that
+   * actor — or its socket closing — clears it. In-memory only, never logged, rebuilt as
+   * clients re-announce on reconnect; it fills the pre-roll gap before `start_turn` lands
+   * so every other client can hide its start controls and show "X is taking a turn".
+   */
+  private composingSeat: CharId | null = null;
+  private composingActor: SeatId | null = null;
   /** Serializes webSocket message handling (see webSocketMessage). */
   private tail: Promise<void> = Promise.resolve();
 
@@ -109,6 +119,7 @@ export class GameRoom implements DurableObject {
     await this.touch(); // a connection is activity — push the auto-expiry deadline out (§3A)
     this.sendTo(server, { t: "sync", state, events: [] });
     this.sendTo(server, { t: "presence", online: this.onlineSeats() });
+    this.sendTo(server, { t: "composing", seat: this.composingSeat });
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -169,6 +180,24 @@ export class GameRoom implements DurableObject {
       return;
     }
 
+    // "I'm prepping a turn" — transient, never logged (§3A). Announce who currently has
+    // the Composer open so every client can show "X is taking a turn" and hide its start
+    // controls during the pre-roll gap. Anti-fudge: a player may only speak for their own
+    // seat; the GM may prep any character. A null seat clears, but only the actor that set
+    // it (matched by authenticated seat) may clear it — a stale message can't unblock the
+    // table mid-prep.
+    if (msg.t === "composing") {
+      const conn = this.seatOf(ws);
+      if (!conn) return;
+      if (msg.seat === null) {
+        if (this.composingActor === conn) this.setComposing(null, null);
+        return;
+      }
+      const valid = CHAR_IDS.includes(msg.seat) && (conn === "gm" || conn === msg.seat);
+      if (valid) this.setComposing(msg.seat, conn);
+      return;
+    }
+
     // Reclaim handshake (§3.6/§3A): a returning client proves seat ownership with the
     // raw token it stored. Verify against the stored hash before binding the socket —
     // the seat in the message body is never trusted on its own.
@@ -179,6 +208,7 @@ export class GameRoom implements DurableObject {
         this.markSeen(msg.seat);
       }
       this.sendTo(ws, { t: "sync", state, events: [] });
+      this.sendTo(ws, { t: "composing", seat: this.composingSeat });
       this.broadcastPresence();
       return;
     }
@@ -253,6 +283,11 @@ export class GameRoom implements DurableObject {
     this.state = next;
     await this.touch(); // game activity — refresh the auto-expiry deadline (§3A)
 
+    // Once a turn is actually in progress the pre-roll "taking a turn" pointer is moot
+    // (every client already hides its start controls on currentTurn). Drop it so a lost
+    // client-side clear can't leave the signal stuck after the roll.
+    if (this.composingSeat && next.currentTurn) this.setComposing(null, null);
+
     // A successful claim binds this socket to the seat and returns the raw token so
     // the client can persist it for next week's reclaim.
     if (msg.intent.kind === "claim_seat" && mintedToken) {
@@ -267,6 +302,11 @@ export class GameRoom implements DurableObject {
   }
 
   async webSocketClose(ws: WebSocket, code: number): Promise<void> {
+    // If the device that was prepping a turn drops, release the "taking a turn" signal so
+    // the table isn't left waiting on a composer that's gone (§3A — transient, no log).
+    if (this.composingActor && this.seatOf(ws) === this.composingActor) {
+      this.setComposing(null, null);
+    }
     try {
       ws.close(code, "closing");
     } catch {
@@ -300,6 +340,14 @@ export class GameRoom implements DurableObject {
 
   private broadcastPresence(): void {
     this.broadcast({ t: "presence", online: this.onlineSeats() });
+  }
+
+  /** Set (or clear, with nulls) the transient "taking a turn" pointer and tell the room. */
+  private setComposing(seat: CharId | null, actor: SeatId | null): void {
+    if (this.composingSeat === seat && this.composingActor === actor) return;
+    this.composingSeat = seat;
+    this.composingActor = actor;
+    this.broadcast({ t: "composing", seat });
   }
 
   private sendTo(ws: WebSocket, msg: ServerMessage): void {

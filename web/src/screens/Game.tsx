@@ -49,6 +49,14 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
     else if (composeSeat != null && turnSeat != null && turnSeat !== composeSeat) setComposeSeat(null);
   }, [turnHasDice, turnSeat, composeSeat]);
 
+  // Tell the room while this device has the Composer open, so everyone else sees "X is
+  // taking a turn" and their start controls drop during the pre-roll gap (the server
+  // clears it on the roll or on disconnect — see room.ts). Transient, never logged (§3A).
+  const announceComposing = game.setComposing;
+  useEffect(() => {
+    announceComposing(composing ? composeSeat : null);
+  }, [composing, composeSeat, announceComposing]);
+
   if (game.deleted) return <GameEnded onExit={onExit} />;
 
   return (
@@ -89,7 +97,7 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
           onSetThreatActive={isGm ? (id, active) => game.send({ kind: "update_threat", id, patch: { active } }) : undefined}
           onSetSecondaryRevealed={isGm ? (id, revealed) => game.send({ kind: "update_secondary_objective", id, patch: { revealed } }) : undefined}
           onSetLootRevealed={isGm ? (name, revealed) => game.send({ kind: "set_loot_revealed", name, revealed }) : undefined}
-          turnControls={<TurnControls state={game.state} mySeat={game.mySeat} onCompose={setComposeSeat} />}
+          turnControls={<TurnControls state={game.state} mySeat={game.mySeat} composingSeat={game.composingSeat} onCompose={setComposeSeat} />}
           onOpenSheet={setSheetSeat}
           onFrameScene={isGm ? () => setGmOpen(true) : undefined}
         />

@@ -59,6 +59,7 @@ export function Board({
   online,
   events,
   mySeat,
+  composingSeat,
   isGm,
   onSetThreatActive,
   onSetSecondaryRevealed,
@@ -72,6 +73,8 @@ export function Board({
   events: GameEvent[];
   /** This device's own character (null for the GM / unseated), floated to the top of the rail. */
   mySeat?: CharId | null;
+  /** Transient: the character whose Turn Composer is open right now (pre-roll), or null (§3A). */
+  composingSeat?: CharId | null;
   /** True for the GM seat: sees staged (not-yet-activated) threats; players never do (issue #12). */
   isGm?: boolean;
   /** GM-only: bring a staged threat into play / hold one off the board, right from the card. */
@@ -174,7 +177,7 @@ export function Board({
         {/* ───────── RIGHT: the board ───────── */}
         <div className="board-main min-w-0 flex flex-col gap-4">
           {turnControls}
-          <BoardHeader state={state} />
+          <BoardHeader state={state} composingSeat={composingSeat ?? null} />
 
           {loc && (
             <div className={`paper scene--s${loc.sector} ${paperCut(loc.id)}`}>
@@ -388,7 +391,7 @@ export function Board({
   );
 }
 
-function BoardHeader({ state }: { state: GameState }) {
+function BoardHeader({ state, composingSeat }: { state: GameState; composingSeat: CharId | null }) {
   return (
     <div className="paper paper-tight flex flex-wrap items-center gap-x-6 gap-y-1">
       <span className="mono text-sm">
@@ -401,6 +404,9 @@ function BoardHeader({ state }: { state: GameState }) {
       <span className="mono text-sm ml-auto">
         {state.activeSeat ? (
           <span className="hl">Now: {seatName(state.activeSeat)}</span>
+        ) : composingSeat ? (
+          // Someone has opened their Composer but hasn't rolled yet (transient §3A signal).
+          <span className="hl">{seatName(composingSeat)} is taking a turn…</span>
         ) : (
           <span className="text-paper-fade">Awaiting the next turn</span>
         )}
