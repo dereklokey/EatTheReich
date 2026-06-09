@@ -168,13 +168,81 @@ describe("processIntent — full §12-A turn driven by intents", () => {
     expect(d.state.currentTurn?.pendingInjury).toMatchObject({ face: 5, outcome: { kind: "downed", category: 2 } });
     expect(d.state.actedThisRound).toEqual([]); // turn hasn't closed
 
-    // Resolving applies the box and closes the turn.
+    // Resolving applies the box, auto-spawns the (unrevealed) rescue Objective, and closes the turn.
     const resolved = d.run({ kind: "resolve_injury" }, sequenceRoller([]), "astrid");
-    expect(resolved.map((e) => e.type)).toEqual(["DOWNED", "ALLOCATION_COMMITTED"]);
+    expect(resolved.map((e) => e.type)).toEqual(["DOWNED", "SECONDARY_OBJECTIVE_ADDED", "ALLOCATION_COMMITTED"]);
     expect(d.state.characters.astrid.downed).toBe(true);
     expect(d.state.characters.astrid.injuries[2]).toBe(2); // all boxes in category 2
+
+    // Issue #16: a rescue Secondary is created automatically, UNREVEALED (the GM sets its rating),
+    // tied to the downed vampire, and its id is stamped on the runtime + the DOWNED event.
+    const rescue = d.state.board.secondaryObjectives.find((o) => o.rescueFor === "astrid");
+    expect(rescue).toBeDefined();
+    expect(rescue).toMatchObject({ rescueFor: "astrid", revealed: false, kind: "secondary" });
+    expect(rescue!.rating).toBeGreaterThanOrEqual(2);
+    expect(rescue!.rating).toBeLessThanOrEqual(4);
+    expect(d.state.characters.astrid.rescueObjectiveId).toBe(rescue!.id);
+    const downedEvt = resolved.find((e) => e.type === "DOWNED")!;
+    expect((downedEvt.payload as { rescueObjectiveId?: string }).rescueObjectiveId).toBe(rescue!.id);
+
     expect(d.state.currentTurn).toBeNull();
     expect(d.state.actedThisRound).toEqual(["astrid"]);
+  });
+});
+
+describe("Downed → rescue → capture lifecycle (issue #16)", () => {
+  // Drive Astrid to Downed against a single objective, then probe the rescue/capture paths.
+  function downAstrid(objectives: Objective[] = [objective]) {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives, threats: [threat] });
+    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL" }, sequenceRoller([]), "astrid");
+    d.run({ kind: "roll", playerPoolDice: 3 }, sequenceRoller([5, 4, 2]), "astrid");
+    d.run({ kind: "roll_gm" }, sequenceRoller([6, 6, 4]), "gm");
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "astrid");
+    d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }, { kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), "astrid");
+    d.run({ kind: "commit" }, sequenceRoller([]), "astrid");
+    d.run({ kind: "roll_injury" }, sequenceRoller([5]), "astrid"); // d6=5 → category 2, 3 leftover → Downed
+    d.run({ kind: "resolve_injury" }, sequenceRoller([]), "astrid");
+    return d;
+  }
+
+  it("completing the rescue Secondary brings the vampire back up (clears Downed + rescue pointer)", () => {
+    const d = downAstrid();
+    const rescueId = d.state.characters.astrid.rescueObjectiveId!;
+    d.run({ kind: "complete_secondary_objective", id: rescueId });
+    expect(d.state.characters.astrid.downed).toBe(false);
+    expect(d.state.characters.astrid.captured).toBe(false);
+    expect(d.state.characters.astrid.rescueObjectiveId).toBeUndefined();
+  });
+
+  it("completing the LAST main Objective while still Downed → captured", () => {
+    const d = downAstrid();
+    expect(d.state.characters.astrid.captured).toBe(false);
+    const captured = d.run({ kind: "complete_objective", id: "obj1" });
+    expect(captured.map((e) => e.type)).toEqual(["OBJECTIVE_COMPLETED", "CHARACTER_CAPTURED"]);
+    expect(d.state.characters.astrid.captured).toBe(true);
+    expect(d.state.characters.astrid.downed).toBe(true); // still out of the fight, just more severely
+    const cap = captured.find((e) => e.type === "CHARACTER_CAPTURED")!;
+    expect((cap.payload as { rescueObjectiveId?: string }).rescueObjectiveId).toBe(d.state.characters.astrid.rescueObjectiveId);
+  });
+
+  it("does NOT capture while another main Objective is still in play", () => {
+    const d = downAstrid([objective, { id: "obj2", name: "Reach the vault", kind: "objective", rating: 4 }]);
+    const events = d.run({ kind: "complete_objective", id: "obj1" });
+    expect(events.map((e) => e.type)).toEqual(["OBJECTIVE_COMPLETED"]); // obj2 still open → no capture
+    expect(d.state.characters.astrid.captured).toBe(false);
+    // Clearing the last one now captures.
+    const last = d.run({ kind: "complete_objective", id: "obj2" });
+    expect(last.map((e) => e.type)).toEqual(["OBJECTIVE_COMPLETED", "CHARACTER_CAPTURED"]);
+    expect(d.state.characters.astrid.captured).toBe(true);
+  });
+
+  it("a rescued vampire is NOT captured when the scene moves on", () => {
+    const d = downAstrid();
+    d.run({ kind: "complete_secondary_objective", id: d.state.characters.astrid.rescueObjectiveId! });
+    const events = d.run({ kind: "complete_objective", id: "obj1" });
+    expect(events.map((e) => e.type)).toEqual(["OBJECTIVE_COMPLETED"]); // no longer downed → no capture
+    expect(d.state.characters.astrid.captured).toBe(false);
   });
 });
 

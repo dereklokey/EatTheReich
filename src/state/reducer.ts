@@ -327,13 +327,22 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
       return updateChar(s, e.payload.seat, (c) => {
         const injuries = [...c.injuries] as CharacterRuntime["injuries"];
         injuries[e.payload.category] = 2;
-        return { ...c, injuries, downed: true };
+        // Stamp the auto-spawned rescue Objective's id (issue #16) so the sheet/board link the two.
+        return { ...c, injuries, downed: true, ...(e.payload.rescueObjectiveId ? { rescueObjectiveId: e.payload.rescueObjectiveId } : {}) };
       });
+    case "CHARACTER_CAPTURED":
+      // Downed and not rescued before the scene moved on (RULES §5, issue #16). Keeps `downed` set
+      // (still out of the fight); `captured` is the more severe display state. Cleared if the rescue
+      // Secondary later completes (rescued in a subsequent scene).
+      return updateChar(s, e.payload.seat, (c) => ({ ...c, captured: true }));
     case "HEALED":
       return updateChar(s, e.payload.seat, (c) => {
         const injuries = [...c.injuries] as CharacterRuntime["injuries"];
         injuries[e.payload.category] = Math.max(0, e.payload.box - 1);
-        return { ...c, injuries, downed: injuries.some((n) => n === 2) ? c.downed : false };
+        const stillDowned = injuries.some((n) => n === 2) ? c.downed : false;
+        // Healing the downing wound brings them back (RULES §5): drop the now-moot rescue pointer
+        // and any captured mark with the Downed state.
+        return { ...c, injuries, downed: stillDowned, ...(stillDowned ? {} : { rescueObjectiveId: undefined, captured: false }) };
       });
     case "DEATH_LAST_STAND": {
       // All 6 boxes marked → open the Last Stand (RULES §5). NOT dead yet: the vampire
@@ -451,13 +460,21 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
         ...s.board,
         secondaryObjectives: s.board.secondaryObjectives.map((o) => (o.id === e.payload.id ? { ...o, ...e.payload.patch } : o)),
       });
-    case "SECONDARY_OBJECTIVE_COMPLETED":
-      return withBoard(s, {
+    case "SECONDARY_OBJECTIVE_COMPLETED": {
+      const completed = s.board.secondaryObjectives.find((o) => o.id === e.payload.id);
+      const board = withBoard(s, {
         ...s.board,
         secondaryObjectives: s.board.secondaryObjectives.map((o) =>
           o.id === e.payload.id ? { ...o, rating: 0, ...(e.payload.rewardChoice ? { rewardChoice: e.payload.rewardChoice } : {}) } : o,
         ),
       });
+      // Completing a rescue Secondary brings the vampire back (RULES §5, issue #16): clear Downed,
+      // captured, and the spent rescue pointer. Re-marking injuries later re-downs them as normal.
+      if (completed?.rescueFor) {
+        return updateChar(board, completed.rescueFor as CharId, (c) => ({ ...c, downed: false, captured: false, rescueObjectiveId: undefined }));
+      }
+      return board;
+    }
     case "SECONDARY_OBJECTIVE_REMOVED":
       return withBoard(s, { ...s.board, secondaryObjectives: s.board.secondaryObjectives.filter((o) => o.id !== e.payload.id) });
     case "SCENE_LOOT_REVEALED": {

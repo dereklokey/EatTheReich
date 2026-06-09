@@ -89,6 +89,18 @@ export interface CharacterRuntime {
   /** Active loot-slot item id (RULES §11 — exactly one active at a time). */
   activeLootSlot?: string;
   downed: boolean;
+  /**
+   * Downed and not rescued before the scene moved on (RULES §5). Set when the GM completes the last
+   * in-play main Objective with this vampire still Downed; cleared if the rescue Secondary is later
+   * completed (rescued in a subsequent scene). A more severe display state than {@link downed}.
+   */
+  captured: boolean;
+  /**
+   * The auto-spawned rescue Secondary Objective for this Downed vampire (RULES §5). Set alongside
+   * {@link downed}; cleared when they're rescued/healed back up. Lets the sheet/board link the
+   * vampire to "Rescue <name>" and lets capture detection skip the board lookup.
+   */
+  rescueObjectiveId?: string;
   dead: boolean;
   /** Reset to false on SESSION_STARTED (RULES §9). */
   flashbackUsedThisSession: boolean;

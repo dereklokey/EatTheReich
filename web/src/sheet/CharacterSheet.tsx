@@ -40,7 +40,7 @@ export function CharacterSheet({
   // The cost & care (§6): diff this render against the last to fire one-shots when an
   // injury is marked/healed or the character goes Downed/Dead. `seq` re-keys the
   // animating element so each transition replays; refs avoid firing on first open/resume.
-  const prevRef = useRef<{ inj: readonly number[]; downed: boolean; dead: boolean } | null>(null);
+  const prevRef = useRef<{ inj: readonly number[]; downed: boolean; captured: boolean; dead: boolean } | null>(null);
   const [injFx, setInjFx] = useState<{ cat: number; kind: "mark" | "heal"; seq: number } | null>(null);
   const [stampSlam, setStampSlam] = useState(0);
   const [shuddering, setShuddering] = useState(false);
@@ -48,9 +48,10 @@ export function CharacterSheet({
 
   const injuries = char?.injuries;
   const downed = char?.downed;
+  const captured = char?.captured;
   const dead = char?.dead;
   useEffect(() => {
-    const cur = { inj: injuries ?? [], downed: !!downed, dead: !!dead };
+    const cur = { inj: injuries ?? [], downed: !!downed, captured: !!captured, dead: !!dead };
     const p = prevRef.current;
     prevRef.current = cur;
     if (!p || reduced) return;
@@ -63,8 +64,8 @@ export function CharacterSheet({
         setInjFx({ cat, kind: "heal", seq: ++fxSeq.current });
       }
     }
-    if ((cur.downed && !p.downed) || (cur.dead && !p.dead)) setStampSlam(++fxSeq.current);
-  }, [injuries, downed, dead, reduced]);
+    if ((cur.downed && !p.downed) || (cur.captured && !p.captured) || (cur.dead && !p.dead)) setStampSlam(++fxSeq.current);
+  }, [injuries, downed, captured, dead, reduced]);
 
   useEffect(() => {
     if (!shuddering) return;
@@ -94,9 +95,9 @@ export function CharacterSheet({
           </div>
           <button className="mono text-sm underline text-paper-fade" onClick={onClose}>close</button>
         </div>
-        {(char.downed || char.dead) && (
+        {(char.downed || char.captured || char.dead) && (
           <div key={`stamp-${stampSlam}`} className={`stamp mt-2 ${stampSlam && !reduced ? "stamp--slam" : ""}`}>
-            {char.dead ? "DEAD" : "DOWNED"}
+            {char.dead ? "DEAD" : char.captured ? "CAPTURED" : "DOWNED"}
           </div>
         )}
 

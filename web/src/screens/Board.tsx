@@ -458,7 +458,7 @@ function CharCard({
         <span className={`dot ${online ? "dot-online" : "dot-away"}`} />
       </div>
       <div className="mono text-[0.65rem] text-paper-fade">
-        {char.dead ? "DEAD" : char.downed ? "DOWNED" : claimed ? "in play" : "unclaimed"}
+        {char.dead ? "DEAD" : char.captured ? "CAPTURED" : char.downed ? "DOWNED" : claimed ? "in play" : "unclaimed"}
       </div>
 
       <div className="mt-2">

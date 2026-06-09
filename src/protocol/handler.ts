@@ -27,7 +27,7 @@ import { CHARACTERS_BY_ID } from "../data/characters.js";
 import { activeMantle } from "../state/stances.js";
 import { flashbackTriggerable, FLASHBACK_BONUS_DICE } from "../data/flashbacks.js";
 import { threatInPlay, anathemaInPlay, rendingClawsInPlay } from "../domain/types.js";
-import type { DieFace, Target } from "../domain/types.js";
+import type { DieFace, Target, SecondaryObjective } from "../domain/types.js";
 import type { Equipment, Power } from "../domain/character.js";
 
 /**
@@ -420,8 +420,25 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       return ok([{ type: "OBJECTIVE_ADDED", payload: { objective: intent.objective } }]);
     case "update_objective":
       return ok([{ type: "OBJECTIVE_UPDATED", payload: { id: intent.id, patch: intent.patch } }]);
-    case "complete_objective":
-      return ok([{ type: "OBJECTIVE_COMPLETED", payload: { id: intent.id, ...(intent.narratedBy ? { narratedBy: intent.narratedBy } : {}) } }]);
+    case "complete_objective": {
+      const events: EventInput[] = [
+        { type: "OBJECTIVE_COMPLETED", payload: { id: intent.id, ...(intent.narratedBy ? { narratedBy: intent.narratedBy } : {}) } },
+      ];
+      // "If not rescued before moving on, the vampire is captured" (RULES §5, issue #16). Completing
+      // the LAST in-play main Objective is the scene moving on: any vampire still Downed (rescue unmet)
+      // is captured. A logged, GM-rewindable default (§0); the rescue Secondary stays on the board for
+      // the GM to clear or carry into a later scene. A Downed PC whose rescue already completed is no
+      // longer `downed`, so only the genuinely unrescued get swept up here.
+      const remainingObjectives = state.board.objectives.filter((o) => o.id !== intent.id && o.rating > 0);
+      if (remainingObjectives.length === 0) {
+        for (const c of Object.values(state.characters)) {
+          if (c.downed && !c.captured && !c.dead) {
+            events.push({ type: "CHARACTER_CAPTURED", payload: { seat: c.id, ...(c.rescueObjectiveId ? { rescueObjectiveId: c.rescueObjectiveId } : {}) } });
+          }
+        }
+      }
+      return ok(events);
+    }
     case "add_threat":
       return ok([{ type: "THREAT_ADDED", payload: { threat: intent.threat } }]);
     case "update_threat":
@@ -713,7 +730,23 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
             events.push({ type: "THREAT_RATING_REDUCED", payload: { threatId: thr.id, threatName: thr.name, amount: corrosive.amount, rating, passiveId: corrosive.id, passiveName: corrosive.name }, actor: turn.seat });
           }
         } else if (o.kind === "downed") {
-          events.push({ type: "DOWNED", payload: { seat: turn.seat, category: o.category }, actor: turn.seat });
+          // Downed (RULES §5): auto-spawn the rescue Secondary Objective so the table never forgets a
+          // dragged-clear vampire (issue #16). It's UNREVEALED — the GM sets its rating (the engine's
+          // 2–4 default rides on the outcome) and reveals it once the fiction offers the rescue
+          // (suggest, don't enforce: §0). The id is minted here and stamped onto DOWNED so the sheet
+          // links the two; it's baked into both events, so replay re-derives the same pairing.
+          const rescueId = `rescue-${turn.seat}-${deps.now}`;
+          const charName = CHARACTERS_BY_ID[turn.seat]?.name ?? turn.seat;
+          const rescue: SecondaryObjective = {
+            id: rescueId,
+            name: `Rescue ${charName}`,
+            kind: "secondary",
+            rating: o.rescueObjectiveRating,
+            rescueFor: turn.seat,
+            revealed: false,
+          };
+          events.push({ type: "DOWNED", payload: { seat: turn.seat, category: o.category, rescueObjectiveId: rescueId }, actor: turn.seat });
+          events.push({ type: "SECONDARY_OBJECTIVE_ADDED", payload: { objective: rescue }, actor: turn.seat });
         } else if (o.kind === "death") {
           // Death opens a Last Stand (RULES §5) — DEATH_LAST_STAND replaces the turn, so we
           // skip ALLOCATION_COMMITTED to avoid retiring the seat before the final 8d6.

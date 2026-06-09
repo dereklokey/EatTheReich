@@ -185,6 +185,37 @@ describe("reducer — injuries, downed, equipment, advances", () => {
     expect(s.characters.chuck.downed).toBe(true);
   });
 
+  it("DOWNED stamps the rescue id; CHARACTER_CAPTURED flips captured; rescue completion clears both (issue #16)", () => {
+    const { ev, all } = log();
+    ev("DOWNED", { seat: "chuck", category: 1, rescueObjectiveId: "rescue-chuck-1" }, "chuck");
+    ev("SECONDARY_OBJECTIVE_ADDED", { objective: { id: "rescue-chuck-1", name: "Rescue Chuck", kind: "secondary", rating: 3, rescueFor: "chuck", revealed: false } });
+    let s = reduce(all);
+    expect(s.characters.chuck.rescueObjectiveId).toBe("rescue-chuck-1");
+
+    s = applyEvent(s, ev("CHARACTER_CAPTURED", { seat: "chuck", rescueObjectiveId: "rescue-chuck-1" }));
+    expect(s.characters.chuck.captured).toBe(true);
+    expect(s.characters.chuck.downed).toBe(true); // capture keeps them out of the fight
+
+    // Completing the rescue Secondary brings them back: Downed, captured, and the pointer all clear.
+    s = applyEvent(s, ev("SECONDARY_OBJECTIVE_COMPLETED", { id: "rescue-chuck-1" }));
+    expect(s.characters.chuck.downed).toBe(false);
+    expect(s.characters.chuck.captured).toBe(false);
+    expect(s.characters.chuck.rescueObjectiveId).toBeUndefined();
+  });
+
+  it("healing the downing wound clears Downed, captured, and the rescue pointer (issue #16)", () => {
+    const { ev, all } = log();
+    ev("DOWNED", { seat: "chuck", category: 1, rescueObjectiveId: "rescue-chuck-1" }, "chuck");
+    ev("CHARACTER_CAPTURED", { seat: "chuck", rescueObjectiveId: "rescue-chuck-1" });
+    // Heal the 2nd box in the downing category → no category sits at 2 → back on their feet.
+    ev("HEALED", { seat: "chuck", category: 1, box: 2 }, "chuck");
+    const s = reduce(all);
+    expect(s.characters.chuck.injuries[1]).toBe(1);
+    expect(s.characters.chuck.downed).toBe(false);
+    expect(s.characters.chuck.captured).toBe(false);
+    expect(s.characters.chuck.rescueObjectiveId).toBeUndefined();
+  });
+
   it("EQUIPMENT_USED decrements a tracked item; ADVANCE_UNLOCKED records an advance", () => {
     const { ev, all } = log();
     // Nicole's panzerfaust starts with 1 use.

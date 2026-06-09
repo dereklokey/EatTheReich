@@ -192,7 +192,16 @@ export interface EventPayloads {
    *  (rulebook p64, issue #24): `box` is 2 and `penalty` fires, but the marker tells the
    *  log/summary the category filled because the table pinned the hit on the Werhund. */
   INJURY_MARKED: { seat: CharId; category: 0 | 1 | 2; box: 1 | 2; penalty?: string; rending?: boolean };
+  /** A vampire is taken out of the fight (RULES §5). The server auto-spawns a rescue Secondary
+   *  Objective (unrevealed, so the GM sets its rating before showing it) and stamps its id here so
+   *  the sheet can point at it; absent only on a GM-built Downed with no rescue (suggest, not enforce). */
   DOWNED: { seat: CharId; category: 0 | 1 | 2; rescueObjectiveId?: string };
+  /**
+   * A Downed vampire wasn't rescued before the scene moved on → captured (RULES §5). Auto-emitted
+   * when the GM completes the last in-play main Objective while this seat is still Downed; `rescueObjectiveId`
+   * carries the (now-moot) rescue Secondary's id for the log. A logged, GM-rewindable default (CLAUDE.md §0).
+   */
+  CHARACTER_CAPTURED: { seat: CharId; rescueObjectiveId?: string };
   /** A marked Injury box was cleared (RULES §5). The sheet's manual heal omits `specialId`; a crit-
    *  SPECIAL heal (Astrid's Nightmare Regeneration, #31) carries `specialId`/`specialName` so the
    *  after-action report folds the clear into that special's "Activated …" line. `box` is the box

@@ -23,6 +23,7 @@ export function initCharacterRuntime(id: CharId): CharacterRuntime {
     unlockedAdvances: [],
     loot: [],
     downed: false,
+    captured: false,
     dead: false,
     flashbackUsedThisSession: false,
   };
