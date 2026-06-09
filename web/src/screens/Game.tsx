@@ -195,7 +195,7 @@ function TopBar({
 
         {isGm && (
           <button className="display text-paper bg-blood px-2 py-0.5 text-sm ml-auto" style={{ borderRadius: 2 }} onClick={onOpenGm}>
-            GM
+            GM Control Panel
           </button>
         )}
         {onOpenSheet && (
