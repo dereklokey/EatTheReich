@@ -137,6 +137,28 @@ describe("reducer — board & blood", () => {
     expect(s.board.revealedLoot ?? []).toEqual([]);
   });
 
+  it("CHALLENGE_REDUCED: a temporary drop (Tethered Phantom, #35) is restored at ROUND_ENDED; a permanent one isn't", () => {
+    const { ev, all } = log();
+    ev("SCENE_FRAMED", {
+      objectives: [{ id: "o1", name: "door", kind: "objective", rating: 6, challenge: 3 }],
+      threats: [{ id: "t1", name: "Squad", kind: "threat", rating: 4, attack: 3, startingAttack: 3, reinforces: true, restoresAtZero: true, challenge: 2 }],
+    });
+    // Tethered Phantom on the Threat (temporary), twice → bank accumulates; permanent Sapper-style cut on the Objective.
+    ev("CHALLENGE_REDUCED", { targetId: "t1", targetName: "Squad", targetKind: "threat", amount: 1, challenge: 1, powerId: "astrid-tethered-phantom", powerName: "Tethered Phantom", temporary: true });
+    ev("CHALLENGE_REDUCED", { targetId: "t1", targetName: "Squad", targetKind: "threat", amount: 1, challenge: 0, powerId: "astrid-tethered-phantom", powerName: "Tethered Phantom", temporary: true });
+    ev("CHALLENGE_REDUCED", { targetId: "o1", targetName: "door", targetKind: "objective", amount: 1, challenge: 2, specialId: "nicole-sapper", specialName: "Sapper" });
+    let s = reduce(all);
+    expect(s.board.threats[0]?.challenge).toBe(0); // 2 − 1 − 1
+    expect(s.board.threats[0]?.tempChallengeReduction).toBe(2); // both cuts banked
+    expect(s.board.objectives[0]?.challenge).toBe(2); // permanent, not banked
+    expect(s.board.objectives[0]?.tempChallengeReduction).toBeUndefined();
+
+    s = applyEvent(s, ev("ROUND_ENDED", {}));
+    expect(s.board.threats[0]?.challenge).toBe(2); // both temporary cuts handed back
+    expect(s.board.threats[0]?.tempChallengeReduction).toBeUndefined(); // marker cleared
+    expect(s.board.objectives[0]?.challenge).toBe(2); // the permanent Sapper cut survives
+  });
+
   it("BLOOD_CHANGED clamps 0–10; BLOOD_SHARED transfers within the cap", () => {
     const { ev, all } = log();
     ev("BLOOD_CHANGED", { seat: "flint", delta: 8 }, "flint");

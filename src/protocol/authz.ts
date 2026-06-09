@@ -68,6 +68,7 @@ function subjectSeat(intent: Intent): SeatId | undefined {
     case "change_blood":
     case "heal":
     case "mark_injury":
+    case "use_power": // a no-die active on your own sheet (Tethered Phantom / Hellish Screech, #35)
     case "use_equipment":
     case "restore_equipment":
     case "loot_activate": // the owner activates their own loot; granting (loot_add) is GM-only

@@ -143,6 +143,18 @@ export interface Power {
    * as its own logged, GM-editable THREAT_RATING_REDUCED (CLAUDE.md §0), not a crit's `ratingDamage`.
    */
   reduceThreatRatingOnInjury?: number;
+  /**
+   * A no-die ACTIVE that lowers a chosen target's Challenge from the sheet, outside the dice pool —
+   * Astrid's Tethered Phantom (an Objective OR Threat, −1, until the end of the round; rulebook p57) and
+   * Flint's Hellish Screech (a Threat, −1, permanent; rulebook p63). Issue #35; both are `addsDie:false`
+   * advances. Unlike Sapper's {@link reduceChallenge} (a crit-allocated SPECIAL folded through ALLOCATE),
+   * this fires from a `use_power` intent: the handler spends `bloodCost`, routes the −`amount` through the
+   * engine's {@link import("../engine/challenge.js").lowerChallenge} chokepoint (so the Werhund's
+   * 'Unlowerable Challenge' #25 holds), and emits a logged, GM-editable CHALLENGE_REDUCED (CLAUDE.md §0).
+   * `scope` limits which board kind the picked target may be; `expiresAtRoundEnd` flags Tethered Phantom's
+   * drop to be handed back at ROUND_ENDED (carried meanwhile as the target's `tempChallengeReduction`).
+   */
+  sheetChallengeReduction?: { amount: number; scope: "threat" | "objective_or_threat"; expiresAtRoundEnd?: boolean };
 }
 
 export interface Equipment {

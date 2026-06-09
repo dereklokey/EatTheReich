@@ -832,6 +832,118 @@ describe("processIntent — Corrosive Fluids −2 Threat rating on Injury (#34)"
   });
 });
 
+describe("processIntent — Tethered Phantom / Hellish Screech −1 Challenge from the sheet (#35)", () => {
+  const guardedThreat: Threat = { ...threat, challenge: 2 };
+  const guardedObjective: Objective = { ...objective, challenge: 2 };
+  const give = (seat: "astrid" | "flint", n: number): EventInput => ({ type: "BLOOD_CHANGED", payload: { seat, delta: n }, actor: seat });
+  const unlock = (seat: "astrid" | "flint", advanceId: string): EventInput => ({ type: "ADVANCE_UNLOCKED", payload: { seat, advanceId }, actor: seat });
+
+  it("Astrid's (unlocked) Tethered Phantom drops a Threat's Challenge by 1, round-scoped, for 1 Blood", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [guardedThreat] });
+    d.seed([unlock("astrid", "astrid-tethered-phantom"), give("astrid", 3)], "astrid");
+    const events = d.run({ kind: "use_power", seat: "astrid", powerId: "astrid-tethered-phantom", targetId: "thr1" }, sequenceRoller([]), "astrid");
+    expect(events.map((e) => e.type)).toEqual(["CHALLENGE_REDUCED", "BLOOD_CHANGED"]);
+    expect(events.find((e) => e.type === "CHALLENGE_REDUCED")?.payload).toMatchObject({
+      targetId: "thr1",
+      targetName: "Nazi Squad",
+      targetKind: "threat",
+      amount: 1,
+      challenge: 1,
+      powerId: "astrid-tethered-phantom",
+      powerName: "Tethered Phantom",
+      temporary: true,
+    });
+    expect(d.state.board.threats[0]?.challenge).toBe(1);
+    expect(d.state.board.threats[0]?.tempChallengeReduction).toBe(1); // banked for the round-end restore
+    expect(d.state.characters.astrid.blood).toBe(2); // 3 − 1
+  });
+
+  it("Tethered Phantom can also aim at an Objective (scope objective_or_threat)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [guardedObjective], threats: [threat] });
+    d.seed([unlock("astrid", "astrid-tethered-phantom"), give("astrid", 3)], "astrid");
+    const events = d.run({ kind: "use_power", seat: "astrid", powerId: "astrid-tethered-phantom", targetId: "obj1" }, sequenceRoller([]), "astrid");
+    expect(events.find((e) => e.type === "CHALLENGE_REDUCED")?.payload).toMatchObject({ targetId: "obj1", targetKind: "objective", challenge: 1, temporary: true });
+    expect(d.state.board.objectives[0]?.challenge).toBe(1);
+    expect(d.state.board.objectives[0]?.tempChallengeReduction).toBe(1);
+  });
+
+  it("Flint's (unlocked) Hellish Screech drops a Threat's Challenge permanently (no temporary), for 2 Blood", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [guardedThreat] });
+    d.seed([unlock("flint", "flint-hellish-screech"), give("flint", 3)], "flint");
+    const events = d.run({ kind: "use_power", seat: "flint", powerId: "flint-hellish-screech", targetId: "thr1" }, sequenceRoller([]), "flint");
+    expect(events.map((e) => e.type)).toEqual(["CHALLENGE_REDUCED", "BLOOD_CHANGED"]);
+    const reduced = events.find((e) => e.type === "CHALLENGE_REDUCED")?.payload;
+    expect(reduced).toMatchObject({ targetKind: "threat", challenge: 1, powerId: "flint-hellish-screech", powerName: "Hellish Screech" });
+    expect((reduced as { temporary?: boolean }).temporary).toBeUndefined(); // permanent — no round-end restore
+    expect(d.state.board.threats[0]?.challenge).toBe(1);
+    expect(d.state.board.threats[0]?.tempChallengeReduction).toBeUndefined();
+    expect(d.state.characters.flint.blood).toBe(1); // 3 − 2
+  });
+
+  it("Hellish Screech is Threat-only — aiming it at an Objective is rejected (scope)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [guardedObjective], threats: [threat] });
+    d.seed([unlock("flint", "flint-hellish-screech"), give("flint", 3)], "flint");
+    const r = d.fail({ kind: "use_power", seat: "flint", powerId: "flint-hellish-screech", targetId: "obj1" }, "flint");
+    expect(r.ok).toBe(false);
+  });
+
+  it("a LOCKED advance can't fire (anti-fudge) and spends no Blood", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [guardedThreat] });
+    d.seed([give("astrid", 3)], "astrid"); // Blood, but the advance is NOT unlocked
+    const r = d.fail({ kind: "use_power", seat: "astrid", powerId: "astrid-tethered-phantom", targetId: "thr1" }, "astrid");
+    expect(r.ok).toBe(false);
+    expect(d.state.board.threats[0]?.challenge).toBe(2); // untouched
+    expect(d.state.characters.astrid.blood).toBe(3); // no Blood spent
+  });
+
+  it("not enough Blood → rejected", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [guardedThreat] });
+    d.seed([unlock("flint", "flint-hellish-screech"), give("flint", 1)], "flint"); // needs 2
+    const r = d.fail({ kind: "use_power", seat: "flint", powerId: "flint-hellish-screech", targetId: "thr1" }, "flint");
+    expect(r.ok).toBe(false);
+  });
+
+  it("honours the Werhund's 'Unlowerable Challenge' (#25): nothing happens, no Blood spent", () => {
+    const dog = { ...werhund(), id: "thr1" } as Threat; // challenge 1, unlowerableChallenge true
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [dog] });
+    d.seed([unlock("flint", "flint-hellish-screech"), give("flint", 3)], "flint");
+    const r = d.fail({ kind: "use_power", seat: "flint", powerId: "flint-hellish-screech", targetId: "thr1" }, "flint");
+    expect(r.ok).toBe(false);
+    expect(d.state.board.threats[0]?.challenge).toBe(1); // the lock held
+    expect(d.state.characters.flint.blood).toBe(3); // no Blood spent on a no-op
+  });
+
+  it("a target with no Challenge left to lower is rejected (no phantom drop)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [{ ...threat, challenge: 0 }] });
+    d.seed([unlock("astrid", "astrid-tethered-phantom"), give("astrid", 3)], "astrid");
+    const r = d.fail({ kind: "use_power", seat: "astrid", powerId: "astrid-tethered-phantom", targetId: "thr1" }, "astrid");
+    expect(r.ok).toBe(false);
+    expect(d.state.characters.astrid.blood).toBe(3);
+  });
+
+  it("Tethered Phantom's drop is handed back at end of round (survives reinforcement)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [guardedThreat] }); // challenge 2, attack 3
+    d.seed([unlock("astrid", "astrid-tethered-phantom"), give("astrid", 3)], "astrid");
+    d.run({ kind: "use_power", seat: "astrid", powerId: "astrid-tethered-phantom", targetId: "thr1" }, sequenceRoller([]), "astrid");
+    expect(d.state.board.threats[0]?.challenge).toBe(1); // dropped this round
+
+    // End of round: the Threat reinforces (Attack +1) but its temp Challenge cut is restored.
+    d.run({ kind: "end_round" }, sequenceRoller([1]));
+    expect(d.state.board.threats[0]?.challenge).toBe(2); // handed back
+    expect(d.state.board.threats[0]?.tempChallengeReduction).toBeUndefined();
+    expect(d.state.board.threats[0]?.attack).toBe(4); // still reinforced (+1) — restore didn't undo that
+  });
+});
+
 describe("processIntent — Last Stand (RULES §5)", () => {
   const allSixMarked = ([0, 1, 2] as const).flatMap((category) =>
     ([1, 2] as const).map((box) => ({ type: "INJURY_MARKED" as const, payload: { seat: "iryna" as const, category, box } })),

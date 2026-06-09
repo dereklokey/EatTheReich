@@ -145,13 +145,25 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
           t.id === e.payload.threatId ? { ...t, rating: e.payload.rating, ...(e.payload.rating === 0 ? { attack: 0 } : {}) } : t,
         ),
       });
-    case "CHALLENGE_REDUCED":
-      // Sapper (#29): a crit-SPECIAL lowered a target's Challenge. The new value is carried resolved
-      // — the handler already routed it through lowerChallenge, so a Werhund's lock never reaches
-      // here (no event is emitted). Set it on the right board list per targetKind.
+    case "CHALLENGE_REDUCED": {
+      // A target's Challenge was lowered — Sapper's crit (#29) or a no-die active (Tethered Phantom /
+      // Hellish Screech, #35). The new value is carried resolved (the handler routed it through
+      // lowerChallenge, so a Werhund's lock never reaches here — no event is emitted). For a `temporary`
+      // drop (Tethered Phantom) we also bank the actual delta against the live value into
+      // `tempChallengeReduction`, so ROUND_ENDED can hand it back; permanent drops don't.
+      const { challenge, temporary } = e.payload;
+      const apply = <T extends { challenge?: number; tempChallengeReduction?: number }>(x: T): T => {
+        const delta = (x.challenge ?? 0) - challenge;
+        return {
+          ...x,
+          challenge,
+          ...(temporary && delta > 0 ? { tempChallengeReduction: (x.tempChallengeReduction ?? 0) + delta } : {}),
+        };
+      };
       return e.payload.targetKind === "threat"
-        ? withBoard(s, { ...s.board, threats: s.board.threats.map((t) => (t.id === e.payload.targetId ? { ...t, challenge: e.payload.challenge } : t)) })
-        : withBoard(s, { ...s.board, objectives: s.board.objectives.map((o) => (o.id === e.payload.targetId ? { ...o, challenge: e.payload.challenge } : o)) });
+        ? withBoard(s, { ...s.board, threats: s.board.threats.map((t) => (t.id === e.payload.targetId ? apply(t) : t)) })
+        : withBoard(s, { ...s.board, objectives: s.board.objectives.map((o) => (o.id === e.payload.targetId ? apply(o) : o)) });
+    }
 
     case "TURN_STARTED":
       return {
@@ -443,8 +455,26 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
 
     case "FLASHBACK_TRIGGERED":
       return updateChar(s, e.payload.seat, (c) => ({ ...c, flashbackUsedThisSession: true }));
-    case "ROUND_ENDED":
-      return { ...s, round: s.round + 1, actedThisRound: [] };
+    case "ROUND_ENDED": {
+      // Round-scoped Challenge reductions (Tethered Phantom, #35) expire now: hand back what each
+      // target banked in `tempChallengeReduction` and clear the marker. Runs over both board lists
+      // AFTER REINFORCEMENTS_APPLIED in the same batch (reinforce preserves the field via spread).
+      const restore = <T extends { challenge?: number; tempChallengeReduction?: number }>(x: T): T => {
+        if (!x.tempChallengeReduction) return x;
+        const { tempChallengeReduction, ...rest } = x;
+        return { ...rest, challenge: (x.challenge ?? 0) + tempChallengeReduction } as T;
+      };
+      return {
+        ...s,
+        round: s.round + 1,
+        actedThisRound: [],
+        board: {
+          ...s.board,
+          objectives: s.board.objectives.map(restore),
+          threats: s.board.threats.map(restore),
+        },
+      };
+    }
     case "REINFORCEMENTS_APPLIED":
       return withBoard(s, { ...s.board, threats: e.payload.threats });
 

@@ -27,7 +27,7 @@ import { CHARACTERS_BY_ID } from "../data/characters.js";
 import { flashbackTriggerable, FLASHBACK_BONUS_DICE } from "../data/flashbacks.js";
 import { threatInPlay, anathemaInPlay, rendingClawsInPlay } from "../domain/types.js";
 import type { DieFace, Target } from "../domain/types.js";
-import type { Equipment } from "../domain/character.js";
+import type { Equipment, Power } from "../domain/character.js";
 
 /**
  * The server-authoritative command handler (CLAUDE.md §3.1). Pure: given the
@@ -175,6 +175,25 @@ function specialChallengeReduction(state: GameState, seat: CharId, specialId: st
     sheet.abilities.find((p) => p.id === specialId) ??
     sheet.advances.find((p) => p.id === specialId && unlocked.includes(p.id));
   return power?.reduceChallenge ? { amount: power.reduceChallenge, name: power.name } : undefined;
+}
+
+/**
+ * A seat's no-die ACTIVE that lowers Challenge from the sheet, by id (Astrid's Tethered Phantom /
+ * Flint's Hellish Screech, issue #35). Same unlock-aware lookup as the SPECIAL helpers — an ability
+ * always, an advance only once unlocked (anti-fudge: a locked advance has no descriptor, so it can't
+ * fire) — for the `sheetChallengeReduction` descriptor (both these powers are advances). Returns the
+ * whole Power so the caller has the descriptor (amount/scope/expiry), `bloodCost`, and the name for the
+ * BLOOD_CHANGED / CHALLENGE_REDUCED log. The drop itself routes through {@link lowerChallenge} (Werhund
+ * lock honoured), exactly like Sapper's crit path.
+ */
+function sheetChallengePower(state: GameState, seat: CharId, powerId: string): Power | undefined {
+  const sheet = CHARACTERS_BY_ID[seat];
+  if (!sheet) return undefined;
+  const unlocked = state.characters[seat]?.unlockedAdvances ?? [];
+  const power =
+    sheet.abilities.find((p) => p.id === powerId) ??
+    sheet.advances.find((p) => p.id === powerId && unlocked.includes(p.id));
+  return power?.sheetChallengeReduction ? power : undefined;
 }
 
 /**
@@ -712,6 +731,38 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       // INJURY_MARKED so a 2nd box still records its penalty for replay/audit.
       const penalty = intent.box === 2 ? penaltyLabel(intent.seat, intent.category) : undefined;
       return ok([{ type: "INJURY_MARKED", payload: { seat: intent.seat, category: intent.category, box: intent.box, ...(penalty ? { penalty } : {}) }, actor: intent.seat }]);
+    }
+    case "use_power": {
+      // No-die active used from the sheet (Tethered Phantom / Hellish Screech, #35): spend the power's
+      // Blood and drop a chosen Objective/Threat's Challenge by the descriptor amount, routed through
+      // lowerChallenge so the Werhund's 'Unlowerable Challenge' (#25) holds. Tethered Phantom's drop is
+      // round-scoped (`temporary`, restored at ROUND_ENDED); Hellish Screech's is permanent. A locked
+      // advance has no descriptor → the lookup fails (anti-fudge), and a no-op drop spends no Blood.
+      const seat = intent.seat;
+      const power = sheetChallengePower(state, seat, intent.powerId);
+      const reduction = power?.sheetChallengeReduction;
+      if (!power || !reduction) return err("no such power available");
+      const cost = power.bloodCost ?? 0;
+      if ((state.characters[seat]?.blood ?? 0) < cost) return err("not enough Blood");
+      const target: Target | undefined =
+        reduction.scope === "threat"
+          ? state.board.threats.find((t) => t.id === intent.targetId)
+          : state.board.objectives.find((o) => o.id === intent.targetId) ?? state.board.threats.find((t) => t.id === intent.targetId);
+      if (!target) return err("pick a valid target");
+      const current = target.challenge ?? 0;
+      const next = lowerChallenge(target, reduction.amount);
+      // No actual drop (already 0, or a Werhund's locked Challenge) → the active does nothing and costs
+      // no Blood. Mirrors Sapper emitting NOTHING through the same gate (no phantom CHALLENGE_REDUCED).
+      if (next >= current) return err("that target's Challenge can't be lowered");
+      const events: EventInput[] = [
+        {
+          type: "CHALLENGE_REDUCED",
+          payload: { targetId: target.id, targetName: target.name, targetKind: target.kind, amount: reduction.amount, challenge: next, powerId: power.id, powerName: power.name, ...(reduction.expiresAtRoundEnd ? { temporary: true } : {}) },
+          actor: seat,
+        },
+      ];
+      if (cost > 0) events.push({ type: "BLOOD_CHANGED", payload: { seat, delta: -cost, reason: power.name }, actor: seat });
+      return ok(events);
     }
     case "use_equipment": {
       const events: EventInput[] = [{ type: "EQUIPMENT_USED", payload: { seat: intent.seat, itemId: intent.itemId }, actor: intent.seat }];

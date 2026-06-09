@@ -412,19 +412,18 @@ export const SPECIAL_HOOKS: SpecialHook[] = [
     status: "implemented",
   },
 
-  // ── No-die actives that mutate the board from the sheet — planned ──────────
+  // ── No-die actives that mutate the board from the sheet — already wired ─────
   {
     id: "active.challenge-reduction",
     name: "Tethered Phantom / Hellish Screech (−1 Challenge)",
     source: { kind: "advance", character: "Astrid, Flint", powerIds: ["astrid-tethered-phantom", "flint-hellish-screech"] },
-    rule: "No-die actives: reduce a target's Challenge by 1 (Tethered Phantom: until end of round).",
+    rule: "No-die actives used from the sheet (a `use_power` intent, not folded into the dice pool): spend Blood, drop a chosen target's Challenge by 1 via the Power.sheetChallengeReduction descriptor, routed through engine lowerChallenge (so the Werhund's 'Unlowerable Challenge' #25 holds) as a logged CHALLENGE_REDUCED. Tethered Phantom hits an Objective OR Threat and expires at end of round (banked as the target's tempChallengeReduction, restored by the ROUND_ENDED reducer); Hellish Screech hits a Threat, permanently.",
     hook: "DECLARE",
     trigger: "the power is used from the sheet",
     resolution: "select",
     actor: "player",
     target: "objective_or_threat",
-    status: "planned",
-    issue: 35,
+    status: "implemented",
   },
 
   // ── Cross-turn stances (pending-buff state) — planned ──────────────────────

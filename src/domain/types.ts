@@ -33,6 +33,13 @@ export interface Objective {
   rating: number;
   /** RULES §6: negates this many allocated units per vampire per turn before rating drops. */
   challenge?: number;
+  /**
+   * Round-scoped Challenge a no-die active knocked off and will hand back at end of round (Astrid's
+   * Tethered Phantom, issue #35). The active lowers `challenge` live AND records the cut here; the
+   * ROUND_ENDED reducer adds it back (`challenge += tempChallengeReduction`) and clears it. Absent for
+   * permanent reductions (Sapper, Hellish Screech). Accumulates if applied more than once a round.
+   */
+  tempChallengeReduction?: number;
 }
 
 /** An enemy. `rating` and `attack` are INDEPENDENT (RULES §3). */
@@ -48,6 +55,9 @@ export interface Threat {
   startingAttack: number;
   /** RULES §6: soaks allocated units before rating drops. */
   challenge?: number;
+  /** Round-scoped Challenge a no-die active will restore at end of round (Tethered Phantom, #35);
+   *  see {@link Objective.tempChallengeReduction}. Absent for permanent reductions. */
+  tempChallengeReduction?: number;
   /** Werhund etc.: challenge cannot be lowered. */
   unlowerableChallenge?: boolean;
   /**

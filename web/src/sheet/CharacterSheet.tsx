@@ -3,7 +3,8 @@ import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
 import type { CharId } from "@shared/events/types.js";
 import { CHAR_IDS } from "@shared/events/types.js";
-import { STATS } from "@shared/domain/types.js";
+import { STATS, threatInPlay, isChallengeUnlowerable } from "@shared/domain/types.js";
+import type { BoardSnapshot } from "@shared/state/types.js";
 import type { Power } from "@shared/domain/character.js";
 import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
 import { useEffects } from "@/effects/EffectsContext";
@@ -132,8 +133,8 @@ export function CharacterSheet({
           })}
         </Section>
 
-        <PowerSection title="Abilities" powers={sheet.abilities} seat={seat} char={char} canEdit={canEdit} send={send} />
-        <PowerSection title="Advances" powers={sheet.advances} seat={seat} char={char} canEdit={canEdit} send={send} advances />
+        <PowerSection title="Abilities" powers={sheet.abilities} seat={seat} char={char} canEdit={canEdit} send={send} board={state.board} />
+        <PowerSection title="Advances" powers={sheet.advances} seat={seat} char={char} canEdit={canEdit} send={send} board={state.board} advances />
 
         <Section title="Injuries">
           {sheet.injuries.map((cat, ci) => {
@@ -426,6 +427,7 @@ function PowerSection({
   char,
   canEdit,
   send,
+  board,
   advances,
 }: {
   title: string;
@@ -434,6 +436,7 @@ function PowerSection({
   char: GameState["characters"][CharId];
   canEdit: boolean;
   send: (i: Intent) => void;
+  board: BoardSnapshot;
   advances?: boolean;
 }) {
   if (powers.length === 0) return null;
@@ -446,6 +449,10 @@ function PowerSection({
       )}
       {powers.map((p) => {
         const locked = advances ? !char.unlockedAdvances.includes(p.id) : false;
+        // A no-die active that drops Challenge from the sheet (Tethered Phantom / Hellish Screech, #35)
+        // gets its own target-picker control instead of the generic "spend" button — the intent spends
+        // the Blood server-side, so we don't also fire change_blood here.
+        const challengeActive = p.mechanic === "active" && p.sheetChallengeReduction;
         return (
           <div key={p.id} className={`mb-2 border-b border-paper-shadow/40 pb-2 ${locked ? "opacity-50" : ""}`}>
             <div className="flex items-center gap-2">
@@ -456,7 +463,7 @@ function PowerSection({
                   unlock
                 </button>
               )}
-              {!locked && canEdit && p.mechanic === "active" && p.bloodCost && char.blood >= p.bloodCost && (
+              {!locked && canEdit && p.mechanic === "active" && !challengeActive && p.bloodCost && char.blood >= p.bloodCost && (
                 <button className="mono text-xs underline text-blood" onClick={() => send({ kind: "change_blood", seat, delta: -(p.bloodCost ?? 0), reason: p.name })}>
                   spend {p.bloodCost}
                 </button>
@@ -464,10 +471,71 @@ function PowerSection({
             </div>
             <div className="mono text-[0.7rem] text-paper-fade">{p.text}</div>
             {p.bonus && <div className="mono text-[0.65rem] text-paper-fade">+{p.bonus.plus} when “{p.bonus.tag}”</div>}
+            {!locked && canEdit && challengeActive && (
+              <ChallengeReductionControl power={p} seat={seat} blood={char.blood} board={board} send={send} />
+            )}
           </div>
         );
       })}
     </Section>
+  );
+}
+
+/**
+ * The −1-Challenge no-die active control (Tethered Phantom / Hellish Screech, #35): pick a lowerable
+ * target on the board, then `use_power` — the server spends the Blood and drops the Challenge through
+ * the lowerChallenge gate. Only targets that can actually drop are offered: Objectives (Tethered Phantom
+ * only) and in-play Threats with Challenge left that aren't a Werhund's locked Challenge (#25).
+ */
+function ChallengeReductionControl({
+  power,
+  seat,
+  blood,
+  board,
+  send,
+}: {
+  power: Power;
+  seat: CharId;
+  blood: number;
+  board: BoardSnapshot;
+  send: (i: Intent) => void;
+}) {
+  const reduction = power.sheetChallengeReduction!;
+  const cost = power.bloodCost ?? 0;
+  const [targetId, setTargetId] = useState("");
+  const objectives = reduction.scope === "objective_or_threat" ? board.objectives.filter((o) => (o.challenge ?? 0) > 0) : [];
+  const threats = board.threats.filter((t) => threatInPlay(t) && (t.challenge ?? 0) > 0 && !isChallengeUnlowerable(t));
+  const targets = [...objectives, ...threats];
+
+  if (targets.length === 0) {
+    return <div className="mono text-[0.62rem] text-paper-fade italic mt-1">No lowerable Challenge in play.</div>;
+  }
+  return (
+    <div className="mt-1.5 flex items-center gap-1.5">
+      <select
+        className="mono text-xs px-1 py-0.5 bg-paper-shadow/40 flex-1 min-w-0"
+        value={targetId}
+        onChange={(e) => setTargetId(e.target.value)}
+        aria-label="Challenge target"
+      >
+        <option value="">−1 Challenge to…</option>
+        {targets.map((t) => (
+          <option key={t.id} value={t.id}>{t.name} (Challenge {t.challenge})</option>
+        ))}
+      </select>
+      <button
+        className="mono text-xs underline text-blood disabled:opacity-40 shrink-0"
+        disabled={!targetId || blood < cost}
+        title={blood < cost ? `Needs ${cost} Blood` : undefined}
+        onClick={() => {
+          if (!targetId) return;
+          send({ kind: "use_power", seat, powerId: power.id, targetId });
+          setTargetId("");
+        }}
+      >
+        use{cost ? ` (${cost})` : ""}
+      </button>
+    </div>
   );
 }
 

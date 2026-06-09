@@ -124,16 +124,21 @@ export interface EventPayloads {
    */
   THREAT_RATING_REDUCED: { threatId: string; threatName: string; amount: number; rating: number; passiveId: string; passiveName: string };
   /**
-   * A crit-SPECIAL lowered an Objective- or Threat's Challenge (Nicole's Sapper, −1; rulebook p59,
-   * "when you use explosives"). Fired from the ALLOCATE branch when a crit is spent on a
-   * `reduceChallenge` SPECIAL that carries a target — the Objective/Threat counterpart of
-   * THREAT_ATTACK_REDUCED. `challenge` is the resolved new value, already routed through engine
-   * `lowerChallenge`, so the Werhund's 'Unlowerable Challenge' (#25) is respected: the event is
-   * ONLY emitted when the value actually dropped. `targetKind` says which board list holds the
-   * target; `specialId`/`specialName` let the after-action report fold the cut into the "Activated …"
-   * line. A logged, GM-overridable default (CLAUDE.md §0).
+   * An Objective- or Threat's Challenge was lowered. Two sources, both routed through engine
+   * `lowerChallenge` so the Werhund's 'Unlowerable Challenge' (#25) is respected — the event is ONLY
+   * emitted when the value actually dropped:
+   *  - a crit-SPECIAL (Nicole's Sapper, −1; rulebook p59, "when you use explosives") fired from the
+   *    ALLOCATE branch with a target — carries `specialId`/`specialName` so the after-action report
+   *    folds the cut into that special's "Activated …" line (the Objective/Threat counterpart of
+   *    THREAT_ATTACK_REDUCED);
+   *  - a no-die ACTIVE used from the sheet (Astrid's Tethered Phantom / Flint's Hellish Screech, −1;
+   *    issue #35) via the `use_power` intent — carries `powerId`/`powerName`, and `temporary` for
+   *    Tethered Phantom, whose drop is round-scoped (the reducer records it as the target's
+   *    `tempChallengeReduction` and hands it back at ROUND_ENDED).
+   * `challenge` is the resolved new value; `targetKind` says which board list holds the target. A
+   * logged, GM-overridable default (CLAUDE.md §0).
    */
-  CHALLENGE_REDUCED: { targetId: string; targetName: string; targetKind: "objective" | "threat"; amount: number; challenge: number; specialId: string; specialName: string };
+  CHALLENGE_REDUCED: { targetId: string; targetName: string; targetKind: "objective" | "threat"; amount: number; challenge: number; specialId?: string; specialName?: string; powerId?: string; powerName?: string; temporary?: boolean };
   /**
    * Mid-allocation bonus dice (RULES §4 — the pool is NOT frozen at roll time). A newly
    * narrated advantage adds `count` dice now; the server rolls and discards them, and the

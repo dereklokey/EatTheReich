@@ -207,7 +207,7 @@ export const ASTRID: CharacterSheet = {
   advances: [
     { id: "astrid-nightmare-regeneration", name: "Nightmare Regeneration", text: "Clear a marked Injury.", mechanic: "special", trigger: { type: "crit" }, clearsInjury: true },
     { id: "astrid-spirit-storm", name: "Spirit Storm", text: "Hurl items like a poltergeist.", mechanic: "active", bloodCost: 1, bonus: { tag: "something sharp AND heavy", plus: 2 } },
-    { id: "astrid-tethered-phantom", name: "Tethered Phantom", text: "Reduce an Objective or Threat's Challenge by 1 until the end of the round.", mechanic: "active", bloodCost: 1, addsDie: false },
+    { id: "astrid-tethered-phantom", name: "Tethered Phantom", text: "Reduce an Objective or Threat's Challenge by 1 until the end of the round.", mechanic: "active", bloodCost: 1, addsDie: false, sheetChallengeReduction: { amount: 1, scope: "objective_or_threat", expiresAtRoundEnd: true } },
   ],
   injuries: injuries(
     ["Can't trigger Specials", ["Spirits Cowed", "Spirits Cast Out"]],
@@ -238,7 +238,7 @@ export const FLINT: CharacterSheet = {
     { id: "flint-wings", name: "Wings", text: "You can fly.", mechanic: "active", bloodCost: 1, bonus: { tag: "aerial combat", plus: 1 } },
   ],
   advances: [
-    { id: "flint-hellish-screech", name: "Hellish Screech", text: "Reduce a Threat's Challenge by 1.", mechanic: "active", bloodCost: 2, addsDie: false },
+    { id: "flint-hellish-screech", name: "Hellish Screech", text: "Reduce a Threat's Challenge by 1.", mechanic: "active", bloodCost: 2, addsDie: false, sheetChallengeReduction: { amount: 1, scope: "threat" } },
     { id: "bone-armour", name: "Bone Armour", text: "After you roll your dice pool, before you discard dice, reduce the GM's successful Attack dice by 1 for each 1 you rolled.", mechanic: "passive" },
     { id: "flint-ooze-form", name: "Ooze Form", text: "Squeeze through gaps, glop around, etc.", mechanic: "active", bloodCost: 1, bonus: { tag: "it's in the walls!", plus: 1 } },
   ],

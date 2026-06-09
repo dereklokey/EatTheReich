@@ -187,9 +187,15 @@ export function summarizeCommittedTurn(
         break;
       }
       case "CHALLENGE_REDUCED": {
-        const list = challengeCuts.get(e.payload.specialId) ?? [];
-        list.push({ targetName: e.payload.targetName, amount: e.payload.amount, challenge: e.payload.challenge });
-        challengeCuts.set(e.payload.specialId, list);
+        // Only a crit-SPECIAL cut (Sapper, #29) carries a specialId and folds into a special's line; a
+        // no-die active (Tethered Phantom / Hellish Screech, #35) is a sheet move, not part of the
+        // turn's allocation story (and is used outside a turn anyway), so it's skipped here — like the
+        // manual-vs-special HEALED split below.
+        if (e.payload.specialId) {
+          const list = challengeCuts.get(e.payload.specialId) ?? [];
+          list.push({ targetName: e.payload.targetName, amount: e.payload.amount, challenge: e.payload.challenge });
+          challengeCuts.set(e.payload.specialId, list);
+        }
         break;
       }
       case "HEALED": {

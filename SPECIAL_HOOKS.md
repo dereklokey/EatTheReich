@@ -97,7 +97,7 @@ feel).
 | Bone Armour | Flint | `ROLL_RESULTS` | auto / system | ✅ |
 | Feed on Fear (+3 on reduce-to-0) | Nicole | `TURN_END` | auto / system | ✅ |
 | Corrosive Fluids (−2 on Injury) | Chuck | `INJURY` | select / player | ✅ |
-| Tethered Phantom / Hellish Screech (−1 Challenge) | Astrid, Flint | `DECLARE` | select / player | ⬜ #35 |
+| Tethered Phantom / Hellish Screech (−1 Challenge) | Astrid, Flint | `DECLARE` | select / player | ✅ |
 
 ### Cross-turn stances & objectives
 | Rule | Who | Hook | Resolution | Status |
