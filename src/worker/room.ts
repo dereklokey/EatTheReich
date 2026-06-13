@@ -193,7 +193,11 @@ export class GameRoom implements DurableObject {
         if (this.composingActor === conn) this.setComposing(null, null);
         return;
       }
-      const valid = CHAR_IDS.includes(msg.seat) && (conn === "gm" || conn === msg.seat);
+      // A seat that already took its turn this round (or is dead) can't be "about to take a
+      // turn" — RULES §1 is one turn per character per round. Ignore such a (stale) arm so a
+      // late announce can't strand the banner and block the table after a completed turn (#46).
+      const acted = this.state?.actedThisRound.includes(msg.seat) || this.state?.characters[msg.seat]?.dead;
+      const valid = CHAR_IDS.includes(msg.seat) && (conn === "gm" || conn === msg.seat) && !acted;
       if (valid) this.setComposing(msg.seat, conn);
       return;
     }
@@ -283,10 +287,13 @@ export class GameRoom implements DurableObject {
     this.state = next;
     await this.touch(); // game activity — refresh the auto-expiry deadline (§3A)
 
-    // Once a turn is actually in progress the pre-roll "taking a turn" pointer is moot
-    // (every client already hides its start controls on currentTurn). Drop it so a lost
-    // client-side clear can't leave the signal stuck after the roll.
-    if (this.composingSeat && next.currentTurn) this.setComposing(null, null);
+    // The pre-roll "taking a turn" pointer (§3A) only means anything in the gap before a turn
+    // exists. Drop it whenever a turn is now in progress (the roll landed — a lost client-side
+    // clear mustn't strand it) OR a turn just ended (commit/cancel/death/last-stand). Without
+    // the turn-END clear, a `composing` announce that races the turn-ending intent stays armed
+    // with no recovery path and hides every client's start controls, blocking the next turn (#46).
+    const turnEnded = !!state.currentTurn && !next.currentTurn;
+    if (this.composingSeat && (next.currentTurn || turnEnded)) this.setComposing(null, null);
 
     // A successful claim binds this socket to the seat and returns the raw token so
     // the client can persist it for next week's reclaim.

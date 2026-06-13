@@ -38,16 +38,20 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
     setTheaterMin(false);
   }, [turnSeat]);
 
-  // The composer is the active player's private prep (DECLARE + BUILD_PLAYER_POOL). It
-  // fires start_turn → roll back-to-back, so it stays mounted across the brief gap until
-  // the dice land (playerDice set), then the shared theater takes over. Drop it if the
-  // turn ends some other way (cancel, or the GM starting a different seat's turn).
+  // The composer is the active player's private prep (DECLARE + BUILD_PLAYER_POOL). It fires
+  // start_turn → roll back-to-back, so it stays mounted across the brief gap until the dice
+  // land (playerDice set), then the shared theater takes over. Drop it once the dice land, or
+  // a different seat's turn goes live, or — crucially — this seat has already acted this round:
+  // that last guard means the transient "taking a turn" signal announced below can never linger
+  // for a seat whose turn is over and strand the next turn (#46).
   const turnHasDice = !!game.state?.currentTurn?.playerDice;
-  const composing = composeSeat != null && !turnHasDice;
+  const seatActed = composeSeat != null && (game.state?.actedThisRound.includes(composeSeat) ?? false);
+  const composing = composeSeat != null && !turnHasDice && !seatActed;
   useEffect(() => {
-    if (turnHasDice) setComposeSeat(null);
-    else if (composeSeat != null && turnSeat != null && turnSeat !== composeSeat) setComposeSeat(null);
-  }, [turnHasDice, turnSeat, composeSeat]);
+    if (composeSeat != null && (turnHasDice || seatActed || (turnSeat != null && turnSeat !== composeSeat))) {
+      setComposeSeat(null);
+    }
+  }, [turnHasDice, turnSeat, composeSeat, seatActed]);
 
   // Tell the room while this device has the Composer open, so everyone else sees "X is
   // taking a turn" and their start controls drop during the pre-roll gap (the server
