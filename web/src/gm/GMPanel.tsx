@@ -73,7 +73,7 @@ function FreeformRollSection({ state, send }: { state: GameState; send: (i: Inte
         kind="gm"
         canEdit
         busy={!!state.currentTurn}
-        lastRoll={state.freeformRolls.gm}
+        lastRoll={state.freeformRolls?.gm}
         send={send}
         tone="night"
       />

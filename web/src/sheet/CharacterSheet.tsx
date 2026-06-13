@@ -107,7 +107,7 @@ export function CharacterSheet({
           kind="player"
           canEdit={canEdit}
           busy={!!state.currentTurn}
-          lastRoll={state.freeformRolls[seat]}
+          lastRoll={state.freeformRolls?.[seat]}
           send={send}
           tone="paper"
         />
