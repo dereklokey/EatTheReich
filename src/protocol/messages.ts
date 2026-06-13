@@ -11,6 +11,13 @@ import type { GameState } from "../state/types.js";
  * mutate state directly — this is the anti-fudge boundary.
  */
 
+/**
+ * Most dice a single freeform out-of-turn throw may roll (issue #17). Comfortably above any real
+ * vampire pool, and what the arena renders cleanly. The client caps the counter at this; the server
+ * clamps to it too (defence in depth). Shared so the two never drift.
+ */
+export const FREEFORM_MAX_DICE = 10;
+
 /** A client's request to change the game. The server decides what events result. */
 export type Intent =
   | { kind: "create_game" }
@@ -40,6 +47,12 @@ export type Intent =
   | { kind: "remove_secondary_objective"; id: string }
   /** GM reveals / re-hides one scene loot item (by name) for players (issue #15). */
   | { kind: "set_loot_revealed"; name: string; revealed: boolean }
+  /** Freeform out-of-turn roll (issue #17): pick N dice and throw them in the shared arena, OUTSIDE the
+   *  normal turn pipeline — no discard/allocation, just the faces. `seat` owns the result and picks the
+   *  die colour (a CharId → vampire dice; "gm" → the Reich's dice). Self-scoped (a player rolls only their
+   *  own seat; the GM any/the Reich) and refused while a turn is occupying the arena. The server rolls
+   *  (anti-fudge) and clamps `count` to [1, FREEFORM_MAX_DICE]. */
+  | { kind: "freeform_roll"; seat: SeatId; count: number }
   | { kind: "start_turn"; seat: CharId; stat: Stat; tags?: string[] }
   | { kind: "cancel_turn" }
   | { kind: "roll"; playerPoolDice: number; sources?: PoolSource[] }

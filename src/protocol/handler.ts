@@ -7,6 +7,7 @@ import type {
 } from "../events/types.js";
 import type { DiceRoller } from "../domain/dice.js";
 import type { Intent } from "./messages.js";
+import { FREEFORM_MAX_DICE } from "./messages.js";
 import {
   buildGmPool,
   whiffAnchor,
@@ -564,6 +565,18 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
         events.push({ type: "DICE_ROLLED", payload: { who: "gm", results: [] } });
       }
       return ok(events);
+    }
+
+    case "freeform_roll": {
+      // Out-of-turn spectacle (issue #17): refuse while a turn owns the arena, so two dice
+      // animations never collide on the one shared surface (the UI also disables the control then).
+      if (state.currentTurn) return err("finish the turn before a freeform roll");
+      const n = Number.isFinite(intent.count) ? Math.floor(intent.count) : 0;
+      const count = Math.max(1, Math.min(FREEFORM_MAX_DICE, n));
+      const faces = deps.roller.roll(count);
+      // The seat picks the die colour: the GM throws the Reich's bone dice, everyone else vampire dice.
+      const kind = intent.seat === "gm" ? "gm" : "player";
+      return ok([{ type: "FREEFORM_ROLLED", payload: { seat: intent.seat, kind, faces }, actor: intent.seat }]);
     }
 
     case "roll_gm": {

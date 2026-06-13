@@ -24,6 +24,7 @@ describe("authorizeIntent — GM", () => {
       { kind: "release_seat", seat: "nicole" },
       { kind: "start_turn", seat: "flint", stat: "SHOOT" },
       { kind: "delete_game" },
+      { kind: "freeform_roll", seat: "gm", count: 4 }, // the Reich's freeform dice (issue #17)
     ];
     for (const i of intents) expect(authorizeIntent(s, "gm", i).ok).toBe(true);
   });
@@ -66,6 +67,11 @@ describe("authorizeIntent — a seated player", () => {
     // A no-die active is a move on your own sheet (Tethered Phantom / Hellish Screech, #35).
     expect(authorizeIntent(s, "iryna", { kind: "use_power", seat: "iryna", powerId: "p", targetId: "t" }).ok).toBe(true);
     expect(authorizeIntent(s, "iryna", { kind: "use_power", seat: "nicole", powerId: "p", targetId: "t" }).ok).toBe(false);
+    // A freeform roll is self-scoped, not turn-gated (issue #17): your own seat yes, another's no,
+    // and the Reich's dice ("gm") are the GM's alone.
+    expect(authorizeIntent(s, "iryna", { kind: "freeform_roll", seat: "iryna", count: 2 }).ok).toBe(true);
+    expect(authorizeIntent(s, "iryna", { kind: "freeform_roll", seat: "nicole", count: 2 }).ok).toBe(false);
+    expect(authorizeIntent(s, "iryna", { kind: "freeform_roll", seat: "gm", count: 2 }).ok).toBe(false);
     expect(authorizeIntent(s, "iryna", { kind: "share_blood", from: "iryna", to: "nicole", amount: 1 }).ok).toBe(true);
 
     expect(authorizeIntent(s, "iryna", { kind: "change_blood", seat: "nicole", delta: 1 }).ok).toBe(false);

@@ -213,6 +213,10 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
           : { ...s.currentTurn, gmDice: e.payload.results, phase: "ROLL" as const };
       return withTurn(s, turn);
     }
+    case "FREEFORM_ROLLED":
+      // Out-of-turn roll (issue #17): park the result on the rolling seat for the sheet/panel readout,
+      // replacing any prior throw. The arena animation is driven off the event feed, not this state.
+      return { ...s, freeformRolls: { ...s.freeformRolls, [e.payload.seat]: { kind: e.payload.kind, faces: e.payload.faces } } };
     case "PASSIVE_APPLIED": {
       // Blood gains (e.g. Corpse Eater) apply to the active character; GM-success
       // reductions are reflected by the server in the subsequent DICE_DISCARDED.

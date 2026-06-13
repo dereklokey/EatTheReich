@@ -65,6 +65,7 @@ const TURN_INTENTS = new Set<Intent["kind"]>([
 function subjectSeat(intent: Intent): SeatId | undefined {
   switch (intent.kind) {
     case "start_turn":
+    case "freeform_roll": // out-of-turn roll on your own sheet (issue #17); GM rolls the Reich's via seat "gm"
     case "change_blood":
     case "heal":
     case "mark_injury":

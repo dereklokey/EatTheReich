@@ -38,6 +38,22 @@ export interface GameState {
   activeSeat: CharId | null;
   /** Characters who have completed a turn this round (RULES §1). */
   actedThisRound: CharId[];
+
+  /**
+   * Freeform out-of-turn rolls (issue #17): the last dice each seat threw outside a turn, kept for the
+   * sheet's / GM panel's "dice bar" readout. Replaced on each fresh throw; persists across reloads since
+   * it's reduced from the log. The arena *animation* is fired off the FREEFORM_ROLLED event in the feed,
+   * NOT from here, so resuming a game shows the last value on the sheet without re-throwing the dice.
+   * Keyed by seat ("gm" or a CharId); a missing entry = that seat has never freeform-rolled.
+   */
+  freeformRolls: Partial<Record<SeatId, FreeformRoll>>;
+}
+
+/** The result of one freeform roll (issue #17), parked per seat for the sheet/panel readout. */
+export interface FreeformRoll {
+  /** Die colour — vampire ("player") or the Reich's bone dice ("gm"); set from the rolling seat. */
+  kind: "player" | "gm";
+  faces: DieFace[];
 }
 
 export interface SafetyState {

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { processIntent } from "../handler.js";
 import type { EventInput } from "../handler.js";
 import type { Intent } from "../messages.js";
+import { FREEFORM_MAX_DICE } from "../messages.js";
 import { initialState } from "../../state/init.js";
 import { applyEvent } from "../../state/reducer.js";
 import { makeEvent } from "../../events/types.js";
@@ -1907,5 +1908,49 @@ describe("processIntent — flashback reroll (RULES §9)", () => {
     expect(d.state.board.objectives[0]?.rating).toBe(3);
     expect(d.state.currentTurn).toBeNull();
     expect(d.state.actedThisRound).toEqual(["iryna"]);
+  });
+});
+
+describe("processIntent — freeform out-of-turn roll (issue #17)", () => {
+  it("a player throws vampire dice; the server rolls them and parks the result on their seat", () => {
+    const d = makeDriver();
+    const events = d.run({ kind: "freeform_roll", seat: "iryna", count: 3 }, sequenceRoller([6, 4, 2]), "iryna");
+    expect(events.map((e) => ({ type: e.type, payload: e.payload }))).toEqual([
+      { type: "FREEFORM_ROLLED", payload: { seat: "iryna", kind: "player", faces: [6, 4, 2] } },
+    ]);
+    expect(d.state.freeformRolls.iryna).toEqual({ kind: "player", faces: [6, 4, 2] });
+  });
+
+  it("the GM throws the Reich's bone dice (kind 'gm'), parked on the 'gm' seat", () => {
+    const d = makeDriver();
+    d.run({ kind: "freeform_roll", seat: "gm", count: 2 }, sequenceRoller([5, 1]), "gm");
+    expect(d.state.freeformRolls.gm).toEqual({ kind: "gm", faces: [5, 1] });
+  });
+
+  it("a fresh throw replaces the seat's prior result", () => {
+    const d = makeDriver();
+    d.run({ kind: "freeform_roll", seat: "nicole", count: 1 }, sequenceRoller([3]), "nicole");
+    d.run({ kind: "freeform_roll", seat: "nicole", count: 2 }, sequenceRoller([6, 6]), "nicole");
+    expect(d.state.freeformRolls.nicole).toEqual({ kind: "player", faces: [6, 6] });
+  });
+
+  it("clamps the count to [1, FREEFORM_MAX_DICE] (anti-grief)", () => {
+    const tooMany = makeDriver();
+    // Ask for 99 → only 10 dice are rolled; the roller must supply exactly that many.
+    tooMany.run({ kind: "freeform_roll", seat: "chuck", count: 99 }, sequenceRoller([1, 2, 3, 4, 5, 6, 1, 2, 3, 4]), "chuck");
+    expect(tooMany.state.freeformRolls.chuck?.faces).toHaveLength(FREEFORM_MAX_DICE);
+
+    const tooFew = makeDriver();
+    tooFew.run({ kind: "freeform_roll", seat: "chuck", count: 0 }, sequenceRoller([5]), "chuck");
+    expect(tooFew.state.freeformRolls.chuck?.faces).toEqual([5]); // floored up to 1
+  });
+
+  it("is refused while a turn is occupying the arena", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    const r = d.fail({ kind: "freeform_roll", seat: "iryna", count: 2 }, "iryna");
+    expect(r.ok).toBe(false);
+    expect(d.state.freeformRolls.iryna).toBeUndefined();
   });
 });

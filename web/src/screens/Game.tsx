@@ -7,6 +7,7 @@ import { SafetyBar, XCardOverlay } from "./SafetyBar";
 import { TurnSummaryReport } from "./TurnSummaryReport";
 import { RustCurseAnnouncement } from "./RustCurseAnnouncement";
 import { Theater } from "@/theater/Theater";
+import { FreeformArena } from "@/theater/FreeformArena";
 import { TurnComposer } from "@/theater/TurnComposer";
 import { LastStand } from "@/theater/LastStand";
 import { TurnControls } from "@/theater/TurnControls";
@@ -145,6 +146,8 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
       {game.state && <XCardOverlay state={game.state} send={game.send} />}
       <TurnSummaryReport events={game.events} state={game.state} />
       <RustCurseAnnouncement events={game.events} />
+      {/* Freeform out-of-turn rolls (issue #17) throw over the live board, like the turn arena. */}
+      <FreeformArena events={game.events} />
 
       {game.error && (
         <button

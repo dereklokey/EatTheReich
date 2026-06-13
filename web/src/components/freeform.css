@@ -1,0 +1,103 @@
+/* Freeform out-of-turn roll bar (issue #17). A compact strip used in two palettes: on the light
+   character sheet (--paper) above the blood meter, and on the dark GM panel (--night) up top. */
+.freeform {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  margin: 0.5rem 0 0.25rem;
+  border: 1px solid var(--paper-shadow);
+  border-radius: 3px;
+}
+.freeform--night {
+  border-color: rgba(232, 220, 192, 0.22);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.freeform__build {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.freeform__spacer { flex: 1 1 auto; }
+
+/* The "add a die" control: a small die with a + tucked at its corner. */
+.freeform__add {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 4px;
+  border: 1px dashed var(--paper-shadow);
+  background: transparent;
+  cursor: pointer;
+  transition: transform 90ms ease, border-color 120ms ease;
+}
+.freeform--night .freeform__add { border-color: rgba(232, 220, 192, 0.28); }
+.freeform__add:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--blood); }
+.freeform__add:active:not(:disabled) { transform: translateY(1px); }
+.freeform__add:disabled { opacity: 0.4; cursor: default; }
+.freeform__plus {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 14px;
+  height: 14px;
+  line-height: 13px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #fff;
+  background: var(--blood);
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* The handful you're building — dimmed so it never reads as a settled result. */
+.freeform__pending { display: inline-flex; gap: 3px; align-items: center; flex-wrap: wrap; opacity: 0.5; }
+.freeform__prompt { font-size: 0.66rem; color: var(--paper-fade); }
+.freeform--night .freeform__prompt { color: var(--paper-fade); }
+
+.freeform__sub {
+  min-width: 1.4rem;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0.15rem 0.35rem;
+  border-radius: 3px;
+  border: 1px solid var(--paper-shadow);
+  background: transparent;
+  color: var(--paper-ink);
+  cursor: pointer;
+}
+.freeform--night .freeform__sub { color: var(--paper); border-color: rgba(232, 220, 192, 0.3); }
+
+/* A compact echo of the .detonator — rolling still feels like setting off a (small) bomb. */
+.freeform__roll {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.85rem;
+  color: #fff;
+  background: radial-gradient(120% 120% at 50% 0%, var(--blood-bright), var(--blood) 60%, #7d0d1f);
+  border: 1.5px solid #7d0d1f;
+  border-radius: 4px;
+  padding: 0.3rem 0.85rem;
+  box-shadow: 0 3px 0 #5e0a18, 0 5px 12px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+.freeform__roll:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 0 0 #5e0a18, 0 2px 6px rgba(0, 0, 0, 0.4); }
+.freeform__roll:disabled { filter: grayscale(0.6) brightness(0.7); cursor: default; box-shadow: none; }
+
+.freeform__hint { font-size: 0.62rem; color: var(--paper-fade); }
+
+.freeform__result { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.freeform__result-label {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--paper-fade);
+}
+.freeform__dice { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }

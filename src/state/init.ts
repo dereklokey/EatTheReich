@@ -53,5 +53,6 @@ export function initialState(gameId: string): GameState {
     currentTurn: null,
     activeSeat: null,
     actedThisRound: [],
+    freeformRolls: {},
   };
 }

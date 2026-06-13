@@ -10,6 +10,7 @@ import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
 import { activeMantle, effectiveStats, itemsBlockedByMantle } from "@shared/state/stances.js";
 import { useEffects } from "@/effects/EffectsContext";
 import { seatName } from "@/game/seats";
+import { FreeformRollBar } from "@/components/FreeformRollBar";
 import "./sheet.css";
 
 /**
@@ -100,6 +101,16 @@ export function CharacterSheet({
             {char.dead ? "DEAD" : char.captured ? "CAPTURED" : "DOWNED"}
           </div>
         )}
+
+        <FreeformRollBar
+          seat={seat}
+          kind="player"
+          canEdit={canEdit}
+          busy={!!state.currentTurn}
+          lastRoll={state.freeformRolls[seat]}
+          send={send}
+          tone="paper"
+        />
 
         <BloodSection seat={seat} char={char} canEdit={canEdit} state={state} send={send} />
 

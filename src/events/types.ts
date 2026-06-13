@@ -296,6 +296,17 @@ export interface EventPayloads {
     objectiveId?: string;
     objectiveName?: string;
   };
+  /**
+   * A freeform, out-of-turn roll (issue #17). A player (or the GM) picked N dice and threw them in
+   * the shared arena, OUTSIDE the normal turn pipeline — no discard, no resolution, just the faces for
+   * the table to read and narrate (the "suggest, don't enforce" path for groups who resolve the Havoc
+   * math by voice). The server rolls them (anti-fudge) and bakes `faces` in so replay is deterministic.
+   * `seat` owns the result and picks the die colour: a CharId → vampire dice; "gm" → the Reich's dice.
+   * The reducer parks the result per seat for the sheet / GM-panel readout (replaced on each new throw);
+   * the arena *animation* is fired separately off this event arriving in the feed (like the Rust Curse
+   * announcement), so a resume/reconnect replays the value onto the sheet without re-throwing history.
+   */
+  FREEFORM_ROLLED: { seat: SeatId; kind: "player" | "gm"; faces: DieFace[] };
   /** The flashback scene is narrated out loud, not typed — the event just records who spent it. */
   FLASHBACK_TRIGGERED: { seat: CharId };
   ROUND_ENDED: Record<string, never>;

@@ -9,6 +9,7 @@ import { LOCATIONS_BY_SECTOR, LOCATIONS_BY_ID, type Sector, type LootRef } from 
 import { SECONDARY_OBJECTIVE_REWARDS } from "@shared/data/rewards.js";
 import { seatName } from "@/game/seats";
 import { Die } from "@/components/dice/Die";
+import { FreeformRollBar } from "@/components/FreeformRollBar";
 import { THREAT_CATALOG, LOOT_CATALOG, loadLocation, newObjective, newLoot, newRewardGear, newSecondaryObjective, rescueObjective } from "./catalog";
 
 /**
@@ -43,6 +44,7 @@ export function GMPanel({
           <button className="mono text-sm underline text-paper-fade" onClick={onClose}>close</button>
         </div>
 
+        <FreeformRollSection state={state} send={send} />
         <SessionSection state={state} send={send} events={events} />
         <LocationSection state={state} send={send} hasBoard={state.board.objectives.length + state.board.threats.length > 0} />
         <ObjectivesSection state={state} send={send} />
@@ -55,6 +57,27 @@ export function GMPanel({
         <DangerSection onDelete={onDelete} />
       </div>
     </div>
+  );
+}
+
+/**
+ * Reich dice (issue #17): the GM's freeform out-of-turn roll, the twin of the bar above each player's
+ * blood meter. Throws the Reich's bone dice in the shared arena for any roll outside the normal turn
+ * (a quick contest, an initiative check, a "does it notice you"); disabled while a turn owns the arena.
+ */
+function FreeformRollSection({ state, send }: { state: GameState; send: (i: Intent) => void }) {
+  return (
+    <Section title="Reich dice">
+      <FreeformRollBar
+        seat="gm"
+        kind="gm"
+        canEdit
+        busy={!!state.currentTurn}
+        lastRoll={state.freeformRolls.gm}
+        send={send}
+        tone="night"
+      />
+    </Section>
   );
 }
 
