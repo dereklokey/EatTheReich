@@ -23,7 +23,7 @@ interface Live {
  * event instead of off currentTurn," and the lighter beat (throw → hold → fade, no GM-pool contest).
  * Each throw keys a fresh DiceArena so successive rolls never share stale bodies.
  */
-export function FreeformArena({ events }: { events: GameEvent[] }) {
+export function FreeformArena({ events, seq }: { events: GameEvent[]; seq: number }) {
   const { reduced } = useEffects();
   const { play } = useSound();
   const seen = useRef(0); // highest event seq we've accounted for
@@ -32,26 +32,31 @@ export function FreeformArena({ events }: { events: GameEvent[] }) {
   const [phase, setPhase] = useState<Phase>("throw");
 
   useEffect(() => {
-    if (events.length === 0) return; // nothing to seed from yet (pre-sync) — wait for the first feed
+    if (seq <= 0) return; // no real state synced yet
+    if (!seeded.current) {
+      // First real sync. The connect sync carries NO event history (room.ts sends events:[]), so we
+      // can't take the high-water mark from the feed — seed it from the authoritative head (state.seq)
+      // instead. This is what lets the FIRST post-connect roll animate (the old feed-based seed mistook
+      // that first roll for history and skipped it); a resume/refresh still never re-throws the log,
+      // since every event already in the game sits at or below this seq.
+      seen.current = seq;
+      seeded.current = true;
+      return;
+    }
     let latest: GameEvent | undefined;
     let maxSeq = seen.current;
     for (const e of events) {
       if (e.seq > maxSeq) maxSeq = e.seq;
       if (e.type === "FREEFORM_ROLLED" && e.seq > seen.current) latest = e;
     }
-    // The first POPULATED feed is the connect/resume history: take the high-water mark and don't throw
-    // anything already in it (mirrors RollSequence's shownThrows). Only rolls that arrive afterwards play.
-    const firstSight = !seeded.current;
-    seeded.current = true;
     seen.current = maxSeq; // advance past everything seen → each roll fires at most once
-    if (firstSight) return;
     if (!latest || latest.type !== "FREEFORM_ROLLED") return;
     if (reduced || latest.payload.faces.length === 0) return; // no spectacle in calm mode / empty throw
     setLive({ id: `ff-${latest.seq}`, kind: latest.payload.kind, faces: latest.payload.faces });
     setPhase("throw");
     play("concussion");
     play("clatter");
-  }, [events, reduced, play]);
+  }, [events, seq, reduced, play]);
 
   const onSettled = useCallback(() => {
     const faces = live?.faces ?? [];

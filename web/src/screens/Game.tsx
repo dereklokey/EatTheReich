@@ -146,8 +146,9 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
       {game.state && <XCardOverlay state={game.state} send={game.send} />}
       <TurnSummaryReport events={game.events} state={game.state} />
       <RustCurseAnnouncement events={game.events} />
-      {/* Freeform out-of-turn rolls (issue #17) throw over the live board, like the turn arena. */}
-      <FreeformArena events={game.events} />
+      {/* Freeform out-of-turn rolls (issue #17) throw over the live board, like the turn arena.
+          `seq` seeds the high-water mark off the synced head (connect syncs carry no event history). */}
+      <FreeformArena events={game.events} seq={game.state?.seq ?? 0} />
 
       {game.error && (
         <button
