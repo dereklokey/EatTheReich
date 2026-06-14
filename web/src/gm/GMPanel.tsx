@@ -165,6 +165,11 @@ function SessionSection({ state, send, events }: { state: GameState; send: (i: I
                 <span className="flex-1 truncate">{l.name}</span>
                 {l.removed ? (
                   <span className="text-paper-fade italic">removed</span>
+                ) : l.attackAfter === l.attackBefore && l.restoreRoll === undefined ? (
+                  // Nothing visible happened (Solo / staged) — spell out WHY inline rather than
+                  // leave a bare unchanged ATK that reads like a no-op, since the hover reason
+                  // (native title) is easy to miss.
+                  <span className="text-paper-fade italic truncate">{l.reason}</span>
                 ) : (
                   <span className="text-blood">
                     ATK {l.attackBefore}
