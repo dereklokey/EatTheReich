@@ -7,6 +7,7 @@ import type { DieFace } from "@shared/domain/types.js";
 import { threatInPlay, isChallengeUnlowerable, sceneComplete } from "@shared/domain/types.js";
 import { LOCATIONS_BY_SECTOR, LOCATIONS_BY_ID, type Sector, type LootRef } from "@shared/data/locations.js";
 import { SECONDARY_OBJECTIVE_REWARDS } from "@shared/data/rewards.js";
+import { CHARACTERS_BY_ID } from "@shared/data/characters.js";
 import { seatName } from "@/game/seats";
 import { Die } from "@/components/dice/Die";
 import { FreeformRollBar } from "@/components/FreeformRollBar";
@@ -51,6 +52,7 @@ export function GMPanel({
         <SecondaryObjectivesSection state={state} send={send} />
         <ThreatsSection state={state} send={send} />
         <RescueSection state={state} send={send} />
+        <UbermenschBloodSection state={state} send={send} />
         <GrantLootSection state={state} send={send} />
         <RewindSection state={state} events={events} onRewind={onRewind} />
         <SeatsSection state={state} send={send} />
@@ -610,6 +612,57 @@ function RescueSection({ state, send }: { state: GameState; send: (i: Intent) =>
           Add rescue objective for {seatName(id)}
         </button>
       ))}
+    </Section>
+  );
+}
+
+/**
+ * Übermensch blood (issue #49, rulebook p52): drinking a mini-boss's blood lets a vampire "choose one
+ * of the advances on their sheet and activate it." A player can self-unlock from their own sheet, but a
+ * table running off the shared screen — sheets + board, no per-player turn composer — needs the GM to
+ * do it for them. So this mirrors the sheet's unlock as a GM control: pick a player, grant the blood to
+ * unlock a locked Advance. Reuses the existing `unlock_advance` intent (the GM may act on any seat,
+ * §3.6) and the reducer dedups, so a double grant is a no-op. Re-lock on a misclick is the GM's Rewind.
+ */
+function UbermenschBloodSection({ state, send }: { state: GameState; send: (i: Intent) => void }) {
+  const firstClaimed = CHAR_IDS.find((id) => state.seats[id]?.claimed) ?? CHAR_IDS[0]!;
+  const [seat, setSeat] = useState<CharId>(firstClaimed);
+  const sheet = CHARACTERS_BY_ID[seat];
+  const unlocked = state.characters[seat]?.unlockedAdvances ?? [];
+  if (!sheet) return null;
+  return (
+    <Section title="Übermensch blood">
+      <p className="mono text-[0.65rem] text-paper-fade mb-2">
+        Drinking a mini-boss’s blood unlocks one Advance (rulebook p52). Grant it for a player when the
+        table isn’t driving turns in the app.
+      </p>
+      <select className="mono w-full min-w-0 px-2 py-1 bg-paper text-paper-ink mb-2" value={seat} onChange={(e) => setSeat(e.target.value as CharId)} title="whose advance to unlock">
+        {CHAR_IDS.map((id) => (
+          <option key={id} value={id}>{seatName(id)}{state.seats[id]?.claimed ? "" : " (unclaimed)"}</option>
+        ))}
+      </select>
+      <div className="flex flex-col gap-1.5">
+        {sheet.advances.map((a) => {
+          const isUnlocked = unlocked.includes(a.id);
+          return (
+            <div key={a.id} className="paper paper-tight flex items-center gap-2 mono text-sm">
+              <span className={`flex-1 ${isUnlocked ? "" : "text-paper-fade"}`}>{a.name}</span>
+              {isUnlocked ? (
+                <span className="mono text-[0.65rem] text-hazard-ink font-bold">✓ unlocked</span>
+              ) : (
+                <button
+                  className="shrink-0 display bg-blood text-paper px-2 py-0.5 text-xs"
+                  style={{ borderRadius: 2 }}
+                  onClick={() => send({ kind: "unlock_advance", seat, advanceId: a.id })}
+                  title="Drank Übermensch blood — activate this Advance"
+                >
+                  Grant
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </Section>
   );
 }
