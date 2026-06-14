@@ -1,8 +1,9 @@
 import { useState } from "react";
 import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
-import type { TrafficColor } from "@shared/events/types.js";
+import type { TrafficColor, GameEvent } from "@shared/events/types.js";
 import { SafetySetup } from "@/safety/SafetySetup";
+import { LogPanel } from "./LogPanel";
 import { useSound } from "@/effects/SoundContext";
 
 /**
@@ -16,10 +17,11 @@ const TRAFFIC: { color: TrafficColor; label: string; css: string }[] = [
   { color: "green", label: "Green", css: "#3fbf6a" },
 ];
 
-export function SafetyBar({ state, send }: { state: GameState; send: (i: Intent) => void }) {
+export function SafetyBar({ state, send, events }: { state: GameState; send: (i: Intent) => void; events: GameEvent[] }) {
   const { traffic, lines, veils } = state.safety;
   const { enabled: soundOn, toggle: toggleSound } = useSound();
   const [setupOpen, setSetupOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
   const noted = lines.length + veils.length;
 
   return (
@@ -31,6 +33,15 @@ export function SafetyBar({ state, send }: { state: GameState; send: (i: Intent)
           onClick={() => send({ kind: "raise_xcard", anonymous: true })}
         >
           ✕ X-Card
+        </button>
+
+        {/* Lines & Veils sits beside the X-Card — the two "talk to the table" tools together. */}
+        <button
+          className="font-mono text-sm px-3 py-1.5 bg-night-top text-paper border border-paper-shadow/40"
+          style={{ borderRadius: 3 }}
+          onClick={() => setSetupOpen(true)}
+        >
+          Lines &amp; Veils{noted > 0 ? ` (${noted})` : ""}
         </button>
 
         <div className="flex items-center gap-1.5">
@@ -58,17 +69,33 @@ export function SafetyBar({ state, send }: { state: GameState; send: (i: Intent)
         >
           {soundOn ? "🔊" : "🔇"}
         </button>
+        {/* Event log (issue #18): a squarish chat-bubble glyph — the universal "transcript /
+            conversation" affordance — opens the readable log on the right. */}
         <button
-          className="font-mono text-sm px-3 py-1.5 bg-night-top text-paper border border-paper-shadow/40"
+          className="font-mono px-2 py-1.5 bg-night-top text-paper border border-paper-shadow/40 grid place-items-center"
           style={{ borderRadius: 3 }}
-          onClick={() => setSetupOpen(true)}
+          aria-label="event log"
+          title="Event log"
+          onClick={() => setLogOpen(true)}
         >
-          Lines &amp; Veils{noted > 0 ? ` (${noted})` : ""}
+          <LogGlyph />
         </button>
       </div>
 
       {setupOpen && <SafetySetup state={state} send={send} onClose={() => setSetupOpen(false)} />}
+      {logOpen && <LogPanel state={state} events={events} onClose={() => setLogOpen(false)} />}
     </div>
+  );
+}
+
+/** A squarish chat bubble with two transcript lines — reads as "conversation / log". */
+function LogGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      <line x1="7" y1="9" x2="15" y2="9" />
+      <line x1="7" y1="12.5" x2="12" y2="12.5" />
+    </svg>
   );
 }
 

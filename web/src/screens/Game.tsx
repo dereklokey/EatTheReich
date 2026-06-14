@@ -142,7 +142,7 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
           onClose={() => setSheetSeat(null)}
         />
       )}
-      {game.state && <SafetyBar state={game.state} send={game.send} />}
+      {game.state && <SafetyBar state={game.state} send={game.send} events={game.events} />}
       {game.state && <XCardOverlay state={game.state} send={game.send} />}
       <TurnSummaryReport events={game.events} state={game.state} />
       <RustCurseAnnouncement events={game.events} />
