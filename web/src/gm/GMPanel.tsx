@@ -4,7 +4,7 @@ import type { Intent } from "@shared/protocol/messages.js";
 import type { Objective, Threat, SecondaryObjective, RewardItem } from "@shared/domain/types.js";
 import { CHAR_IDS, type CharId, type SeatId, type GameEvent } from "@shared/events/types.js";
 import type { DieFace } from "@shared/domain/types.js";
-import { threatInPlay, isChallengeUnlowerable } from "@shared/domain/types.js";
+import { threatInPlay, isChallengeUnlowerable, sceneComplete } from "@shared/domain/types.js";
 import { LOCATIONS_BY_SECTOR, LOCATIONS_BY_ID, type Sector, type LootRef } from "@shared/data/locations.js";
 import { SECONDARY_OBJECTIVE_REWARDS } from "@shared/data/rewards.js";
 import { seatName } from "@/game/seats";
@@ -129,6 +129,10 @@ function Stepper({ value, onChange, min = 0, max = 20 }: { value: number; onChan
 function SessionSection({ state, send, events }: { state: GameState; send: (i: Intent) => void; events: GameEvent[] }) {
   const lastReinforce = [...events].reverse().find((e) => e.type === "REINFORCEMENTS_APPLIED");
   const log = lastReinforce?.type === "REINFORCEMENTS_APPLIED" ? lastReinforce.payload.log : undefined;
+  // Scene over (issue #48): the primary objective is complete, so the scene has ended (rulebook p38)
+  // and rolling reinforcements no longer makes sense. Soft-gate per §0 — disable by default but keep a
+  // "run anyway" override, since the GM stays the final authority on bending the flow.
+  const sceneOver = sceneComplete(state.board.objectives);
   return (
     <Section title="Session & round">
       <div className="paper paper-tight flex flex-wrap items-center gap-2 mono text-sm">
@@ -143,13 +147,24 @@ function SessionSection({ state, send, events }: { state: GameState; send: (i: I
         </div>
       </div>
       <button
-        className="mt-2 w-full display bg-blood text-paper py-2"
+        className="mt-2 w-full display bg-blood text-paper py-2 disabled:opacity-40 disabled:cursor-not-allowed"
         style={{ borderRadius: 2 }}
+        disabled={sceneOver}
         onClick={() => send({ kind: "end_round" })}
-        title="Roll reinforcements (escalate Attack, restore zeroed threats) and advance the round"
+        title={sceneOver
+          ? "Primary objective complete — the scene is over. Frame a new objective to continue."
+          : "Roll reinforcements (escalate Attack, restore zeroed threats) and advance the round"}
       >
         End round → reinforcements
       </button>
+      {sceneOver && (
+        <div className="mt-1 mono text-[0.65rem] text-paper-fade flex flex-wrap items-center gap-x-1.5">
+          <span>⚠ Primary objective complete — the scene is over. Frame a new objective to continue.</span>
+          <button className="underline text-blood" onClick={() => send({ kind: "end_round" })} title="Roll reinforcements anyway (GM override, §0)">
+            run anyway ›
+          </button>
+        </div>
+      )}
 
       {log && log.length > 0 && (
         <div className="mt-2 paper paper-tight">

@@ -1,6 +1,7 @@
 import type { GameState } from "@shared/state/types.js";
 import type { CharId, SeatId } from "@shared/events/types.js";
 import { CHAR_IDS } from "@shared/events/types.js";
+import { sceneComplete } from "@shared/domain/types.js";
 import { seatName } from "@/game/seats";
 
 /**
@@ -65,6 +66,19 @@ export function TurnControls({
       : CHAR_IDS.includes(mySeat as CharId) && playable(mySeat as CharId)
         ? [mySeat as CharId]
         : [];
+
+  // Scene over (issue #48): once the primary objective is complete the scene ends (rulebook p38),
+  // so no one takes another turn. Hard-gate the start buttons and say why — the GM reopens play by
+  // framing a new objective. (The GM's own escape hatch is the reinforcements override, §0.)
+  if (sceneComplete(state.board.objectives)) {
+    if (startable.length === 0) return null;
+    return (
+      <div className="paper paper-tight mono text-xs text-paper-fade">
+        Primary objective complete — the scene is over.
+        {mySeat === "gm" ? " Frame a new objective to continue." : ""}
+      </div>
+    );
+  }
 
   if (startable.length === 0) return null;
 

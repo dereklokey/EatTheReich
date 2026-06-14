@@ -135,6 +135,19 @@ export function threatInPlay(t: Threat): boolean {
 }
 
 /**
+ * The scene is over (issue #48). The rulebook (p38, "SCENES") is explicit: "once an Objective is
+ * completed, the scene is over (unless you've got multiple Objectives)." So a scene is complete when
+ * one was actually framed (at least one primary Objective ever existed) AND every primary Objective
+ * now sits at rating 0. Secondary Objectives (rescues, side-goals) are NOT primary and never keep the
+ * scene alive — they're explicitly "useful things… that aren't crucial to their overall success" (p38).
+ * An empty board (no Objectives framed yet) is NOT complete — the scene hasn't begun. Drives the
+ * client gates on "End round → reinforcements" and "Take a turn"; per §0 the GM can still override.
+ */
+export function sceneComplete(objectives: readonly Objective[]): boolean {
+  return objectives.length > 0 && objectives.every((o) => o.rating <= 0);
+}
+
+/**
  * Einherjar 'Bloodless' (rulebook p55, issue #20): a PC cannot spend dice to regain Blood
  * while engaged ONLY with the Einherjar. This app has no per-PC engagement model — the Reich
  * pool is a board property (issue #8) — so "engaged only with it" reads as: every Threat in

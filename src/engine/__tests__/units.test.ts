@@ -23,7 +23,7 @@ import {
 } from "../index.js";
 import { markInjury, emptyInjuryTrack, defaultCategoryFromD6, rendInjury, resolveInjury } from "../injury.js";
 import { naziSquad, infantrySquad, armouredInfantrySquad, policePatrol, einherjar, paratrooperSquad, motorcycleSquad, werhund, tank } from "../../data/threats.js";
-import { feedBlockedByBloodless, rendingClawsInPlay, isChallengeUnlowerable } from "../../domain/types.js";
+import { feedBlockedByBloodless, rendingClawsInPlay, isChallengeUnlowerable, sceneComplete } from "../../domain/types.js";
 import type { Objective } from "../../domain/types.js";
 
 describe("buildPlayerPool", () => {
@@ -134,6 +134,24 @@ describe("feedBlockedByBloodless — Einherjar 'Bloodless' (rulebook p55, issue 
 
   it("does not block for ordinary Threats", () => {
     expect(feedBlockedByBloodless([naziSquad(), policePatrol()])).toBe(false);
+  });
+});
+
+describe("sceneComplete — scene ends with the primary objective (rulebook p38, issue #48)", () => {
+  const obj = (rating: number, id = "o"): Objective => ({ id, name: "Get inside", kind: "objective", rating });
+
+  it("is true once every primary objective sits at rating 0", () => {
+    expect(sceneComplete([obj(0)])).toBe(true);
+    expect(sceneComplete([obj(0, "a"), obj(0, "b")])).toBe(true);
+  });
+
+  it("is false while any primary objective still has rating", () => {
+    expect(sceneComplete([obj(2)])).toBe(false);
+    expect(sceneComplete([obj(0, "a"), obj(3, "b")])).toBe(false);
+  });
+
+  it("is false on an unframed board — the scene hasn't begun", () => {
+    expect(sceneComplete([])).toBe(false);
   });
 });
 
