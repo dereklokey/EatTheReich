@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameState } from "@shared/state/types.js";
-import type { Intent } from "@shared/protocol/messages.js";
+import type { Intent, ComposerSelection } from "@shared/protocol/messages.js";
 import type { Allocation } from "@shared/engine/allocate.js";
 import type { SeatId, CharId, GameEvent } from "@shared/events/types.js";
 import { GameConnection, type ConnStatus } from "./connection.js";
@@ -27,6 +27,9 @@ export interface GameView {
   /** Transient: the active player's in-progress dice placements (survivor-indexed), or null when
    *  nobody is allocating (issue #44). Watchers mirror this to see the spectacle land live. */
   allocPreview: (Allocation | null)[] | null;
+  /** Transient: the active player's in-progress Turn Composer picks, or null when nobody is
+   *  composing (issue #47). Opted-in watchers mirror this to follow the pre-roll selection. */
+  composePreview: ComposerSelection | null;
   mySeat: SeatId | null;
   error: string | null;
   /** Recent events accumulated this session, for the GM rewind feed (§3.2). */
@@ -41,6 +44,8 @@ export interface GameView {
   setComposing: (seat: CharId | null) => void;
   /** Broadcast this device's in-progress dice placements while driving allocation (issue #44). */
   sendAllocPreview: (allocations: (Allocation | null)[]) => void;
+  /** Broadcast this device's in-progress Turn Composer picks while driving the prep (issue #47). */
+  sendComposePreview: (selection: ComposerSelection) => void;
   send: (intent: Intent) => void;
   clearError: () => void;
 }
@@ -75,6 +80,7 @@ export function useGame(code: string | null): GameView {
   const [online, setOnline] = useState<SeatId[]>([]);
   const [composingSeat, setComposingSeat] = useState<CharId | null>(null);
   const [allocPreview, setAllocPreview] = useState<(Allocation | null)[] | null>(null);
+  const [composePreview, setComposePreview] = useState<ComposerSelection | null>(null);
   const [mySeat, setMySeat] = useState<SeatId | null>(code ? (loadSeat(code)?.seat ?? null) : null);
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<GameEvent[]>([]);
@@ -87,6 +93,7 @@ export function useGame(code: string | null): GameView {
     setEvents([]);
     setComposingSeat(null);
     setAllocPreview(null);
+    setComposePreview(null);
     setDeleted(false);
 
     const conn = new GameConnection(
@@ -122,6 +129,11 @@ export function useGame(code: string | null): GameView {
               // A non-empty array is the driver's live placements; an empty array is the
               // server's clear signal (turn ended / driver dropped) — collapse to null (#44).
               setAllocPreview(m.allocations.length ? m.allocations : null);
+              break;
+            case "compose_preview":
+              // The driver's live Turn Composer picks (issue #47), or null when the server
+              // clears it as composing ends (roll/cancel/drop). Opted-in watchers mirror it.
+              setComposePreview(m.selection);
               break;
             case "seat_granted":
               saveSeat(code, m.seat, m.seatToken);
@@ -159,7 +171,8 @@ export function useGame(code: string | null): GameView {
   const deleteGame = useCallback(() => send({ kind: "delete_game" }), [send]);
   const setComposing = useCallback((seat: CharId | null) => connRef.current?.send({ t: "composing", seat }), []);
   const sendAllocPreview = useCallback((allocations: (Allocation | null)[]) => connRef.current?.send({ t: "alloc_preview", allocations }), []);
+  const sendComposePreview = useCallback((selection: ComposerSelection) => connRef.current?.send({ t: "compose_preview", selection }), []);
   const clearError = useCallback(() => setError(null), []);
 
-  return { status, state, online, composingSeat, allocPreview, mySeat, error, events, deleted, claimSeat, releaseSeat, rewind, deleteGame, setComposing, sendAllocPreview, send, clearError };
+  return { status, state, online, composingSeat, allocPreview, composePreview, mySeat, error, events, deleted, claimSeat, releaseSeat, rewind, deleteGame, setComposing, sendAllocPreview, sendComposePreview, send, clearError };
 }

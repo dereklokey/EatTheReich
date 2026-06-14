@@ -31,6 +31,9 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
   const [sheetSeat, setSheetSeat] = useState<CharId | null>(null);
   const [theaterMin, setTheaterMin] = useState(false);
   const [composeSeat, setComposeSeat] = useState<CharId | null>(null);
+  // Whether this device (a watcher, not the driver) has opted in to watch the active player's
+  // pre-roll Turn Composer live (issue #47). Reset when composing ends so the next prep is opt-in.
+  const [viewComposer, setViewComposer] = useState(false);
 
   // Always re-open the theater when a (new) turn starts; "peek" is only a local
   // collapse within the current turn.
@@ -61,6 +64,13 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
   useEffect(() => {
     announceComposing(composing ? composeSeat : null);
   }, [composing, composeSeat, announceComposing]);
+
+  // Once the active player rolls or cancels, the server clears `composingSeat`; drop any opted-in
+  // watch so the next prep must be opted into afresh (and the watch composer unmounts) (#47).
+  const watchedSeat = game.composingSeat;
+  useEffect(() => {
+    if (watchedSeat == null) setViewComposer(false);
+  }, [watchedSeat]);
 
   if (game.deleted) return <GameEnded onExit={onExit} />;
 
@@ -102,7 +112,17 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
           onSetThreatActive={isGm ? (id, active) => game.send({ kind: "update_threat", id, patch: { active } }) : undefined}
           onSetSecondaryRevealed={isGm ? (id, revealed) => game.send({ kind: "update_secondary_objective", id, patch: { revealed } }) : undefined}
           onSetLootRevealed={isGm ? (name, revealed) => game.send({ kind: "set_loot_revealed", name, revealed }) : undefined}
-          turnControls={<TurnControls state={game.state} mySeat={game.mySeat} composingSeat={game.composingSeat} onCompose={setComposeSeat} />}
+          turnControls={
+            <TurnControls
+              state={game.state}
+              mySeat={game.mySeat}
+              composingSeat={game.composingSeat}
+              onCompose={setComposeSeat}
+              // Offer "View" only to a non-driver: when this device owns the open Composer
+              // (composeSeat set) the banner is covered by it anyway, so there's nothing to watch (#47).
+              onView={composeSeat == null ? () => setViewComposer(true) : undefined}
+            />
+          }
           onOpenSheet={setSheetSeat}
           onFrameScene={isGm ? () => setGmOpen(true) : undefined}
         />
@@ -135,6 +155,21 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
           send={game.send}
           mySeat={game.mySeat}
           onCancel={() => setComposeSeat(null)}
+          onPreview={game.sendComposePreview}
+        />
+      )}
+      {/* Watcher's read-only view of the active player's pre-roll selection (issue #47): mounts only
+          when this device opted in (View) and isn't itself the driver (composeSeat null). Mirrors the
+          driver's broadcast picks; unmounts automatically when composing ends (composingSeat clears). */}
+      {game.state && game.composingSeat && composeSeat == null && viewComposer && (
+        <TurnComposer
+          seat={game.composingSeat}
+          state={game.state}
+          send={game.send}
+          mySeat={game.mySeat}
+          watch
+          preview={game.composePreview}
+          onCancel={() => setViewComposer(false)}
         />
       )}
       {game.state && isGm && gmOpen && (

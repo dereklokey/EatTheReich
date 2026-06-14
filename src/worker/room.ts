@@ -9,7 +9,7 @@ import { processIntent } from "../protocol/handler.js";
 import { authorizeIntent } from "../protocol/authz.js";
 import { mintSeatToken, hashSeatToken, verifySeatToken } from "../protocol/seat.js";
 import { normalizeJoinCode } from "../protocol/codes.js";
-import type { ClientMessage, ServerMessage } from "../protocol/messages.js";
+import type { ClientMessage, ComposerSelection, ServerMessage } from "../protocol/messages.js";
 import type { Allocation } from "../engine/allocate.js";
 import type { CharId, GameEvent, SeatId } from "../events/types.js";
 import { CHAR_IDS } from "../events/types.js";
@@ -76,6 +76,15 @@ export class GameRoom implements DurableObject {
   private composingSeat: CharId | null = null;
   private composingActor: SeatId | null = null;
   /**
+   * Transient live composer preview (issue #47): the active player's in-progress Turn Composer
+   * picks (stat / gear / abilities / bonus claims / dice override), streamed so opted-in watchers
+   * follow the pre-roll selection live. In-memory only, never logged — purely cosmetic, like
+   * `composingSeat`. It rides alongside composing: only the `composingActor` may push it, and it's
+   * cleared whenever composing ends (the roll lands, the driver cancels, or the driver drops), so
+   * `composePreview !== null` always implies someone is composing.
+   */
+  private composePreview: ComposerSelection | null = null;
+  /**
    * Transient live allocation preview (issue #44): the active player's in-progress dice
    * placements (survivor-indexed, nulls for still-in-tray), with the authenticated seat
    * that announced them so a disconnect can clear it. In-memory only, never logged — the
@@ -131,6 +140,7 @@ export class GameRoom implements DurableObject {
     this.sendTo(server, { t: "presence", online: this.onlineSeats() });
     this.sendTo(server, { t: "composing", seat: this.composingSeat });
     if (this.previewAlloc) this.sendTo(server, { t: "alloc_preview", allocations: this.previewAlloc });
+    if (this.composePreview) this.sendTo(server, { t: "compose_preview", selection: this.composePreview });
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -225,6 +235,16 @@ export class GameRoom implements DurableObject {
       return;
     }
 
+    // Live composer preview (issue #47) — transient, never logged. The active player's in-progress
+    // Turn Composer picks, streamed so opted-in watchers follow the pre-roll selection. Anti-fudge:
+    // only the device that announced `composing` (composingActor) may push it, so a non-driver can't
+    // spoof someone else's pool. Cleared with composing (setComposing), so it never outlives the prep.
+    if (msg.t === "compose_preview") {
+      const conn = this.seatOf(ws);
+      if (conn && conn === this.composingActor) this.setComposePreview(msg.selection);
+      return;
+    }
+
     // Reclaim handshake (§3.6/§3A): a returning client proves seat ownership with the
     // raw token it stored. Verify against the stored hash before binding the socket —
     // the seat in the message body is never trusted on its own.
@@ -237,6 +257,7 @@ export class GameRoom implements DurableObject {
       this.sendTo(ws, { t: "sync", state, events: [] });
       this.sendTo(ws, { t: "composing", seat: this.composingSeat });
       if (this.previewAlloc) this.sendTo(ws, { t: "alloc_preview", allocations: this.previewAlloc });
+      if (this.composePreview) this.sendTo(ws, { t: "compose_preview", selection: this.composePreview });
       this.broadcastPresence();
       return;
     }
@@ -388,6 +409,15 @@ export class GameRoom implements DurableObject {
     this.composingSeat = seat;
     this.composingActor = actor;
     this.broadcast({ t: "composing", seat });
+    // The composer preview (#47) lives only while someone is composing — drop it when prep ends,
+    // so a watcher can't be left staring at a frozen pre-roll loadout after the turn rolls/cancels.
+    if (seat === null && this.composePreview !== null) this.setComposePreview(null);
+  }
+
+  /** Set (or clear, with null) the transient live composer preview (#47) and fan it out. */
+  private setComposePreview(selection: ComposerSelection | null): void {
+    this.composePreview = selection;
+    this.broadcast({ t: "compose_preview", selection });
   }
 
   /**

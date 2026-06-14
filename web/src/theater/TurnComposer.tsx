@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { GameState } from "@shared/state/types.js";
-import type { Intent } from "@shared/protocol/messages.js";
+import type { Intent, ComposerSelection } from "@shared/protocol/messages.js";
 import type { CharId, SeatId } from "@shared/events/types.js";
 import type { Equipment } from "@shared/domain/character.js";
 import { STATS, threatInPlay, type Stat } from "@shared/domain/types.js";
@@ -43,16 +43,27 @@ export function TurnComposer({
   send,
   mySeat,
   onCancel,
+  watch = false,
+  preview = null,
+  onPreview,
 }: {
   seat: CharId;
   state: GameState;
   send: (i: Intent) => void;
   mySeat: SeatId | null;
   onCancel: () => void;
+  /** Watch mode (issue #47): render read-only, mirroring the driver's broadcast `preview`. The
+   *  GM is forced read-only here too — viewing is never co-driving (issues #42/#43). */
+  watch?: boolean;
+  /** The driver's live picks to mirror while watching (issue #47); null until the first arrives. */
+  preview?: ComposerSelection | null;
+  /** Broadcast this device's in-progress picks while driving, so opted-in watchers follow (#47). */
+  onPreview?: (selection: ComposerSelection) => void;
 }) {
   const sheet = CHARACTERS_BY_ID[seat];
   const char = state.characters[seat];
-  const canDrive = mySeat === seat || mySeat === "gm";
+  // Watching is read-only even for the GM — opting to view a turn is never co-driving (#42/#43/#47).
+  const canDrive = !watch && (mySeat === seat || mySeat === "gm");
 
   // Mantle of the Fell Beast (#36): a persistent stance that reshapes the stat line (BRAWL/TERRIFY → 4,
   // all else → 1) and locks items, until its bound Objective is done. Read derived (activeMantle) — the
@@ -91,6 +102,26 @@ export function TurnComposer({
   const [claimed, setClaimed] = useState<string[]>([]);
   const [override, setOverride] = useState<number | null>(null);
   const [launched, setLaunched] = useState(false);
+
+  // Watch mode (issue #47): mirror the driver's broadcast picks into local state so a watcher
+  // sees the same loadout assemble live. Read-only here (canDrive is false), so there's no echo
+  // back to the server — the driver streams, watchers only reflect. Mirrors the #44 alloc watcher.
+  useEffect(() => {
+    if (!watch || !preview) return;
+    setStat(preview.stat);
+    setUsed(preview.used);
+    setPowers(preview.powers);
+    setClaimed(preview.claimed);
+    setOverride(preview.override);
+  }, [watch, preview]);
+
+  // Drive mode (issue #47): fan out the in-progress picks so opted-in watchers follow the pre-roll
+  // selection live (transient, never logged — the authoritative pool is the `roll` intent). Gated to
+  // the driver; the driver ignores its own echo (mirror above is watch-only), so there's no loop.
+  useEffect(() => {
+    if (!canDrive || !onPreview) return;
+    onPreview({ stat, used, powers, claimed, override });
+  }, [canDrive, onPreview, stat, used, powers, claimed, override]);
 
   // Selectable gear = printed pool weapons + the single active loot item (RULES §11) +
   // any slot-free reward gear (rulebook p39 — doesn't use the active slot, always available).
@@ -167,13 +198,18 @@ export function TurnComposer({
     <div className="composer">
       <div className="composer__bar">
         <h2 className="display text-2xl text-paper flex-1">
-          {seatName(seat)} — load the action
+          {watch ? `Watching ${seatName(seat)}` : `${seatName(seat)} — load the action`}
         </h2>
-        {canDrive && (
+        {watch && <span className="mono text-xs text-paper-fade">read-only</span>}
+        {canDrive ? (
           <button className="mono text-xs underline text-paper-fade" onClick={cancel} title="Back out — this won't count as your turn">
             cancel
           </button>
-        )}
+        ) : watch ? (
+          <button className="mono text-xs underline text-paper-fade" onClick={onCancel} title="Stop watching — the turn carries on without you">
+            ✕ close
+          </button>
+        ) : null}
       </div>
 
       <div className="composer__grid">
@@ -310,7 +346,7 @@ export function TurnComposer({
             ) : (
               <b className="display text-4xl text-paper">{finalDice}</b>
             )}
-            {override !== null && override !== suggested.total && (
+            {canDrive && override !== null && override !== suggested.total && (
               <button className="mono text-[0.65rem] underline text-paper-fade" onClick={() => setOverride(null)}>
                 reset to {suggested.total}
               </button>

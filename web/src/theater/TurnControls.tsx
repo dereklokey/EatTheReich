@@ -16,6 +16,7 @@ export function TurnControls({
   mySeat,
   composingSeat,
   onCompose,
+  onView,
 }: {
   state: GameState;
   mySeat: SeatId | null;
@@ -23,6 +24,9 @@ export function TurnControls({
   composingSeat: CharId | null;
   /** Open the composer for this character (the player's own seat, or any seat for the GM). */
   onCompose: (seat: CharId) => void;
+  /** Opt in to watch the active player's pre-roll selection live (issue #47). Provided only to
+   *  non-drivers — Game passes it as undefined for the device that owns the open Composer. */
+  onView?: () => void;
 }) {
   if (state.currentTurn || !mySeat) return null;
 
@@ -33,9 +37,21 @@ export function TurnControls({
     return (
       <div className="paper paper-tight flex items-center gap-2">
         <span className="dot dot-online" />
-        <span className="mono text-sm">
+        <span className="mono text-sm flex-1">
           <b className="hl">{seatName(composingSeat)}</b> is taking a turn…
         </span>
+        {/* "View" opts this watcher into the active player's pre-roll selection (issue #47); the
+            roll itself stays auto-visible to all whether or not they watched the prep. */}
+        {onView && (
+          <button
+            className="display text-paper bg-dusk-mauve px-3 py-1 text-sm"
+            style={{ borderRadius: 2 }}
+            onClick={onView}
+            title="Watch the pre-roll selection live"
+          >
+            View
+          </button>
+        )}
       </div>
     );
   }

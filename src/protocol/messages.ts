@@ -18,6 +18,25 @@ import type { GameState } from "../state/types.js";
  */
 export const FREEFORM_MAX_DICE = 10;
 
+/**
+ * The active player's in-progress Turn Composer picks (issue #47), broadcast transiently so
+ * opted-in watchers can follow the pre-roll selection phase live (the same non-logged pattern
+ * as `composing`/`alloc_preview`). Everything else the watcher needs (sheet, threats, the Reich
+ * pool) is derived from the shared GameState — this is just the driver's local choices:
+ *   - `stat`     the chosen stat (the pool's base)
+ *   - `used`     gear ids folded into the pool
+ *   - `powers`   ability ids activated (each spends Blood at the roll)
+ *   - `claimed`  bonus-tag ids the driver has ticked as true
+ *   - `override` a hand-edited dice total, or null to take the suggestion
+ */
+export interface ComposerSelection {
+  stat: Stat;
+  used: string[];
+  powers: string[];
+  claimed: string[];
+  override: number | null;
+}
+
 /** A client's request to change the game. The server decides what events result. */
 export type Intent =
   | { kind: "create_game" }
@@ -143,6 +162,14 @@ export type ClientMessage =
    * cosmetic and rebuilt on reconnect like `composing`/`presence` (§3.2/§3A).
    */
   | { t: "alloc_preview"; allocations: (Allocation | null)[] }
+  /**
+   * Transient "live composer preview" (issue #47) — the active player's in-progress Turn
+   * Composer picks, streamed as they pick a stat / toggle gear / claim a bonus so opted-in
+   * watchers see the pre-roll selection land before the dice are cast. Sent only by the device
+   * that announced `composing`; never logged or reduced (it's cosmetic, rebuilt on reconnect
+   * like `composing`/`presence`). The server clears it when composing ends (roll/cancel/drop).
+   */
+  | { t: "compose_preview"; selection: ComposerSelection }
   | { t: "intent"; intent: Intent; actor?: Actor };
 
 /**
@@ -163,6 +190,10 @@ export type ServerMessage =
    *  placements as they assign them. Never reduced from events; rebuilt on reconnect like
    *  `composing`/`presence` (§3A). See the ClientMessage counterpart. */
   | { t: "alloc_preview"; allocations: (Allocation | null)[] }
+  /** Transient live composer preview (issue #47): the active player's in-progress Turn Composer
+   *  picks, or null when nobody is composing. Never reduced from events; rebuilt on reconnect like
+   *  `composing`/`presence` (§3A). See the ClientMessage counterpart. */
+  | { t: "compose_preview"; selection: ComposerSelection | null }
   /** The GM finished & deleted the game (§3A); clients clear their seat and return to start. */
   | { t: "deleted" }
   | { t: "error"; message: string };
