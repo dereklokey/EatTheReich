@@ -134,6 +134,15 @@ export type ClientMessage =
    * the character being prepped (the GM may prep any; a player only their own — see room).
    */
   | { t: "composing"; seat: CharId | null }
+  /**
+   * Transient "live allocation preview" (issue #44) — the active player's in-progress
+   * dice placements, broadcast as they assign/unassign so every watcher (GM + other
+   * players) sees the spectacle land before commit. Survivor-indexed (`allocations[i]`
+   * is the placement of `turn.survivors[i]`, or null if still in the tray). Never logged
+   * or reduced — the authoritative placement is the `allocate` intent at commit; this is
+   * cosmetic and rebuilt on reconnect like `composing`/`presence` (§3.2/§3A).
+   */
+  | { t: "alloc_preview"; allocations: (Allocation | null)[] }
   | { t: "intent"; intent: Intent; actor?: Actor };
 
 /**
@@ -150,6 +159,10 @@ export type ServerMessage =
   /** Transient "who is prepping a turn right now" (the seat whose Composer is open), or null
    *  when nobody is. Never reduced from events; rebuilt on reconnect like `presence` (§3A). */
   | { t: "composing"; seat: CharId | null }
+  /** Transient live allocation preview (issue #44): the active player's survivor-indexed dice
+   *  placements as they assign them. Never reduced from events; rebuilt on reconnect like
+   *  `composing`/`presence` (§3A). See the ClientMessage counterpart. */
+  | { t: "alloc_preview"; allocations: (Allocation | null)[] }
   /** The GM finished & deleted the game (§3A); clients clear their seat and return to start. */
   | { t: "deleted" }
   | { t: "error"; message: string };

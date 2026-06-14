@@ -36,6 +36,8 @@ export function AllocationTray({
   state,
   char,
   canDrive,
+  allocPreview,
+  onPreview,
   onLockIn,
   onAddDice,
   onScavenge,
@@ -44,6 +46,10 @@ export function AllocationTray({
   state: GameState;
   char: CharacterRuntime;
   canDrive: boolean;
+  /** The driver's live, survivor-indexed placements (issue #44). Watchers mirror it; the driver ignores it. */
+  allocPreview: (Allocation | null)[] | null;
+  /** Broadcast this device's placements as they change, so watchers see the spectacle land live (#44). */
+  onPreview: (allocations: (Allocation | null)[]) => void;
   onLockIn: (allocations: Allocation[]) => void;
   onAddDice: (count: number, label?: string) => void;
   /** Nicole's Scavenger (#32): throw the salvage d6 in the arena (the `scavenge` intent). */
@@ -61,6 +67,19 @@ export function AllocationTray({
   if (assign.length !== survivors.length) {
     setAssign((cur) => survivors.map((_, i) => cur[i] ?? null));
   }
+
+  // Issue #44 — allocation as a shared spectacle. The active player (canDrive) is the source of
+  // truth: broadcast `assign` whenever it changes so the server fans it out. Every watcher (the GM
+  // and the other players) MIRRORS that broadcast into its own `assign`, so dice land on cards — and
+  // the live preview numbers tick, GM dice get knocked off — in real time, before commit. Transient,
+  // never logged (§3.2): the authoritative placement is still the `allocate` intent at Lock-in.
+  useEffect(() => {
+    if (canDrive) onPreview(assign);
+  }, [canDrive, assign, onPreview]);
+  useEffect(() => {
+    if (!canDrive && allocPreview) setAssign(survivors.map((_, i) => allocPreview[i] ?? null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canDrive, allocPreview, survivors.length]);
 
   // Flag freshly-added dice so they drop in (and clatter) for one beat.
   const seenLen = useRef(survivors.length);
@@ -167,7 +186,11 @@ export function AllocationTray({
     }
   };
 
-  const unassign = (i: number) => setAssign((cur) => cur.map((a, idx) => (idx === i ? null : a)));
+  // Watchers mirror the driver's placements (#44) and can't edit them — only the driver takes a die back.
+  const unassign = (i: number) => {
+    if (!canDrive) return;
+    setAssign((cur) => cur.map((a, idx) => (idx === i ? null : a)));
+  };
 
   // The dice that have landed on a given target — they live ON the card now (issue #11),
   // tap to take one back. Pairs the die with its survivor index so unassign can free it.
@@ -188,6 +211,22 @@ export function AllocationTray({
   // Einherjar 'Bloodless' (#20): no Feed while it's the only Threat in play. Computed off the
   // live board (the same shared predicate the engine uses) — greys the Feed target with the reason.
   const feedBlocked = feedBlockedByBloodless(state.board.threats);
+  // #45 — block over-allocation to a maxed target. The engine already clamps (rating ≥ 0, Blood ≤ 10);
+  // this keeps the UI honest, stops a wasted placement, and makes the "no valid home left" condition
+  // below computable. Read off the live preview so a die that completes a target greys it at once (and
+  // a take-back un-greys it): Feed shuts once Blood hits 10, Defend once nothing's incoming.
+  const bloodMaxed = char.blood + preview.bloodGained >= 10;
+  const feedDisabled = feedBlocked || bloodMaxed;
+  const defendDisabled = preview.gmDiceRemaining === 0;
+  // Lock-in gating (#45): the driver may commit once every surviving die is placed OR there's
+  // genuinely nowhere left to put the leftovers — never trap a die with no valid home (§0 "suggest,
+  // don't enforce"). A valid home is an incomplete Objective, a live Threat, Feed, or Defend.
+  const hasValidTarget =
+    objLive.some((o) => o.rating > 0) ||
+    thrLive.some((t) => t.rating > 0) ||
+    !feedDisabled ||
+    !defendDisabled;
+  const lockReady = unplaced === 0 || !hasValidTarget;
   // Vampirjäger 'Anathema' (#21): the Reich's 6s scored 2 successes each — the inflated incoming
   // count below is correct, so flag WHY so the table isn't surprised more dice got through.
   const anathemaSixes = anathemaInPlay(state.board.threats) ? (turn.gmDice ?? []).filter((f) => f === 6).length : 0;
@@ -196,7 +235,9 @@ export function AllocationTray({
   const boardSpecials = boardGrantedSpecials(state.board.threats);
 
   return (
-    <div>
+    // Watchers mirror the driver's placements (#44) — `alloc-watch` makes their on-card dice
+    // non-interactive so the take-back affordance only works for the active player.
+    <div className={canDrive ? undefined : "alloc-watch"}>
       <div className="theater__phase text-sm">Allocate your dice</div>
 
       {/* Surviving dice — tap one to pick it up, then tap a target. Placed dice leave the
@@ -264,64 +305,76 @@ export function AllocationTray({
 
       {/* Targets */}
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {objLive.map((o) => (
-          <TargetCard
-            key={o.id}
-            fx={cardFx[o.id]}
-            armed={picked !== null}
-            label={o.name}
-            sub={`Objective · rating ${o.rating}${o.challenge ? ` · challenge ${o.challenge}` : ""}`}
-            onClick={() => place({ kind: "advance", targetId: o.id })}
-            placed={placedOn((a) => a.kind === "advance" && a.targetId === o.id)}
-            onUnplace={unassign}
-          />
-        ))}
+        {objLive.map((o) => {
+          // #45: a completed Objective (rating 0) can't take another die — grey it and refuse the drop.
+          const done = o.rating === 0;
+          return (
+            <TargetCard
+              key={o.id}
+              fx={cardFx[o.id]}
+              armed={picked !== null && !done}
+              blocked={done}
+              label={o.name}
+              sub={`Objective · rating ${o.rating}${o.challenge ? ` · challenge ${o.challenge}` : ""}${done ? " · complete" : ""}`}
+              onClick={() => !done && place({ kind: "advance", targetId: o.id })}
+              placed={placedOn((a) => a.kind === "advance" && a.targetId === o.id)}
+              onUnplace={unassign}
+            />
+          );
+        })}
         {thrLive.map((t) => {
           // 'Painless' (#19) raises the effective Challenge for this action — show the inflated
           // soak (with a marker) so the player isn't surprised when dice vanish into it.
           const bump = challengeBump?.[t.id] ?? 0;
           const effChallenge = (t.challenge ?? 0) + bump;
+          // #45: a Threat reduced to rating 0 is dead (Attack 0) — no more dice land on it.
+          const dead = t.rating === 0;
           return (
             <TargetCard
               key={t.id}
               threat
               fx={cardFx[t.id]}
-              armed={picked !== null}
+              armed={picked !== null && !dead}
+              blocked={dead}
               label={t.name}
               sub={
                 <>
                   {`Threat · rating ${t.rating} · ATK ${t.attack}`}
                   {effChallenge ? ` · challenge ${effChallenge}` : ""}
                   {bump ? <span className="text-blood font-bold"> ⚠ Painless</span> : null}
+                  {dead ? " · dead" : ""}
                 </>
               }
-              onClick={() => place({ kind: "eliminate", targetId: t.id })}
+              onClick={() => !dead && place({ kind: "eliminate", targetId: t.id })}
               placed={placedOn((a) => a.kind === "eliminate" && a.targetId === t.id)}
               onUnplace={unassign}
             />
           );
         })}
         <TargetCard
-          armed={picked !== null}
+          armed={picked !== null && !defendDisabled}
+          blocked={defendDisabled}
           label="Defend"
-          sub={`Knock off GM Attack dice · ${preview.gmDiceRemaining} incoming`}
-          onClick={() => place({ kind: "defend" })}
+          sub={defendDisabled ? "Nothing incoming — all Attacks defended" : `Knock off GM Attack dice · ${preview.gmDiceRemaining} incoming`}
+          onClick={() => !defendDisabled && place({ kind: "defend" })}
           placed={placedOn((a) => a.kind === "defend")}
           onUnplace={unassign}
         />
         <TargetCard
-          armed={picked !== null && !feedBlocked}
-          blocked={feedBlocked}
+          armed={picked !== null && !feedDisabled}
+          blocked={feedDisabled}
           label="Feed"
           sub={
             feedBlocked ? (
               <span className="text-blood font-bold">⚠ Bloodless — no Feed (engaged only with the Einherjar)</span>
+            ) : bloodMaxed ? (
+              <span className="text-blood font-bold">Blood at 10 — already glutted</span>
             ) : (
               `Drink deep · +${preview.bloodGained} Blood (now ${Math.min(10, char.blood + preview.bloodGained)})`
             )
           }
           hint={feedBlocked ? "Einherjar 'Bloodless' (rulebook p55): can't spend dice to regain Blood while it's the only Threat in play." : undefined}
-          onClick={() => !feedBlocked && place({ kind: "feed" })}
+          onClick={() => !feedDisabled && place({ kind: "feed" })}
           placed={placedOn((a) => a.kind === "feed")}
           onUnplace={unassign}
         />
@@ -523,13 +576,16 @@ export function AllocationTray({
       {canDrive && (
         <div className="mt-5 flex items-center gap-3">
           <span className="mono text-xs text-paper-fade">
-            {unplaced > 0 ? `${unplaced} die${unplaced === 1 ? "" : "s"} unplaced` : "all dice placed"} ·{" "}
-            {preview.gmDiceRemaining} GM dice will strike
+            {unplaced > 0
+              ? `${unplaced} die${unplaced === 1 ? "" : "s"} unplaced${lockReady ? " · nowhere left to place them" : ""}`
+              : "all dice placed"}{" "}
+            · {preview.gmDiceRemaining} GM dice will strike
           </span>
           <button
             className="detonator ml-auto"
-            onClick={() => onLockIn(allocations)}
-            title="Apply allocations, then run the injury check"
+            disabled={!lockReady}
+            onClick={() => lockReady && onLockIn(allocations)}
+            title={lockReady ? "Apply allocations, then run the injury check" : "Place the rest of your dice first — Lock in frees up when every die is down (or there's nowhere left to put them)"}
           >
             Lock in
           </button>

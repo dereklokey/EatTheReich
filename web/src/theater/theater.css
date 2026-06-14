@@ -115,6 +115,9 @@
 .target__dice { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.55rem; }
 .placed-die { display: inline-block; line-height: 0; cursor: pointer; transition: transform var(--motion-fast), filter var(--motion-fast); animation: placed-drop 320ms var(--ease-impact) both; }
 .placed-die:hover { transform: translateY(-3px) scale(1.08); filter: drop-shadow(0 0 6px var(--hazard)); }
+/* Watchers mirror the driver's placements (#44) but can't take a die back — the dice still
+   show on the cards, just inert (no hover lift, no tap, no take-back affordance). */
+.alloc-watch .placed-die { pointer-events: none; cursor: default; }
 /* The die lands on the card with a short drop (auto-zeroed under reduce-effects). */
 @keyframes placed-drop {
   0% { opacity: 0; transform: translateY(-14px) scale(0.6) rotate(-8deg); }

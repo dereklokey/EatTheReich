@@ -112,7 +112,14 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
         // The Last Stand is its own full-screen moment — never minimizable (RULES §5).
         <LastStand state={game.state} send={game.send} mySeat={game.mySeat} />
       ) : game.state?.currentTurn && !theaterMin ? (
-        <Theater state={game.state} send={game.send} mySeat={game.mySeat} onMinimize={() => setTheaterMin(true)} />
+        <Theater
+          state={game.state}
+          send={game.send}
+          mySeat={game.mySeat}
+          allocPreview={game.allocPreview}
+          onAllocPreview={game.sendAllocPreview}
+          onMinimize={() => setTheaterMin(true)}
+        />
       ) : game.state?.currentTurn && theaterMin ? (
         <button
           className="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 detonator text-base"

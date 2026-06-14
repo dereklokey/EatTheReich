@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
+import type { Allocation } from "@shared/engine/allocate.js";
 import type { SeatId, CharId, GameEvent } from "@shared/events/types.js";
 import { GameConnection, type ConnStatus } from "./connection.js";
 
@@ -23,6 +24,9 @@ export interface GameView {
   online: SeatId[];
   /** Transient: the character whose Turn Composer is currently open (pre-roll), or null (§3A). */
   composingSeat: CharId | null;
+  /** Transient: the active player's in-progress dice placements (survivor-indexed), or null when
+   *  nobody is allocating (issue #44). Watchers mirror this to see the spectacle land live. */
+  allocPreview: (Allocation | null)[] | null;
   mySeat: SeatId | null;
   error: string | null;
   /** Recent events accumulated this session, for the GM rewind feed (§3.2). */
@@ -35,6 +39,8 @@ export interface GameView {
   deleteGame: () => void;
   /** Announce (or clear, with null) that this device has the Composer open for `seat` (§3A). */
   setComposing: (seat: CharId | null) => void;
+  /** Broadcast this device's in-progress dice placements while driving allocation (issue #44). */
+  sendAllocPreview: (allocations: (Allocation | null)[]) => void;
   send: (intent: Intent) => void;
   clearError: () => void;
 }
@@ -68,6 +74,7 @@ export function useGame(code: string | null): GameView {
   const [state, setState] = useState<GameState | null>(null);
   const [online, setOnline] = useState<SeatId[]>([]);
   const [composingSeat, setComposingSeat] = useState<CharId | null>(null);
+  const [allocPreview, setAllocPreview] = useState<(Allocation | null)[] | null>(null);
   const [mySeat, setMySeat] = useState<SeatId | null>(code ? (loadSeat(code)?.seat ?? null) : null);
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<GameEvent[]>([]);
@@ -79,6 +86,7 @@ export function useGame(code: string | null): GameView {
     setMySeat(loadSeat(code)?.seat ?? null);
     setEvents([]);
     setComposingSeat(null);
+    setAllocPreview(null);
     setDeleted(false);
 
     const conn = new GameConnection(
@@ -109,6 +117,11 @@ export function useGame(code: string | null): GameView {
               break;
             case "composing":
               setComposingSeat(m.seat);
+              break;
+            case "alloc_preview":
+              // A non-empty array is the driver's live placements; an empty array is the
+              // server's clear signal (turn ended / driver dropped) — collapse to null (#44).
+              setAllocPreview(m.allocations.length ? m.allocations : null);
               break;
             case "seat_granted":
               saveSeat(code, m.seat, m.seatToken);
@@ -145,7 +158,8 @@ export function useGame(code: string | null): GameView {
   const rewind = useCallback((toSeq: number) => send({ kind: "rewind", toSeq }), [send]);
   const deleteGame = useCallback(() => send({ kind: "delete_game" }), [send]);
   const setComposing = useCallback((seat: CharId | null) => connRef.current?.send({ t: "composing", seat }), []);
+  const sendAllocPreview = useCallback((allocations: (Allocation | null)[]) => connRef.current?.send({ t: "alloc_preview", allocations }), []);
   const clearError = useCallback(() => setError(null), []);
 
-  return { status, state, online, composingSeat, mySeat, error, events, deleted, claimSeat, releaseSeat, rewind, deleteGame, setComposing, send, clearError };
+  return { status, state, online, composingSeat, allocPreview, mySeat, error, events, deleted, claimSeat, releaseSeat, rewind, deleteGame, setComposing, sendAllocPreview, send, clearError };
 }

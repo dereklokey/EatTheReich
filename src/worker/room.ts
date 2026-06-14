@@ -10,6 +10,7 @@ import { authorizeIntent } from "../protocol/authz.js";
 import { mintSeatToken, hashSeatToken, verifySeatToken } from "../protocol/seat.js";
 import { normalizeJoinCode } from "../protocol/codes.js";
 import type { ClientMessage, ServerMessage } from "../protocol/messages.js";
+import type { Allocation } from "../engine/allocate.js";
 import type { CharId, GameEvent, SeatId } from "../events/types.js";
 import { CHAR_IDS } from "../events/types.js";
 
@@ -74,6 +75,15 @@ export class GameRoom implements DurableObject {
    */
   private composingSeat: CharId | null = null;
   private composingActor: SeatId | null = null;
+  /**
+   * Transient live allocation preview (issue #44): the active player's in-progress dice
+   * placements (survivor-indexed, nulls for still-in-tray), with the authenticated seat
+   * that announced them so a disconnect can clear it. In-memory only, never logged — the
+   * authoritative placement is the `allocate` intent at commit (§3.2). Pushed to clients
+   * on connect and cleared when the turn ends or the driver drops, like `composingSeat`.
+   */
+  private previewAlloc: (Allocation | null)[] | null = null;
+  private previewActor: SeatId | null = null;
   /** Serializes webSocket message handling (see webSocketMessage). */
   private tail: Promise<void> = Promise.resolve();
 
@@ -120,6 +130,7 @@ export class GameRoom implements DurableObject {
     this.sendTo(server, { t: "sync", state, events: [] });
     this.sendTo(server, { t: "presence", online: this.onlineSeats() });
     this.sendTo(server, { t: "composing", seat: this.composingSeat });
+    if (this.previewAlloc) this.sendTo(server, { t: "alloc_preview", allocations: this.previewAlloc });
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -202,6 +213,18 @@ export class GameRoom implements DurableObject {
       return;
     }
 
+    // Live allocation preview (issue #44) — transient, never logged. The active player's
+    // in-progress placements, fanned out so every watcher sees the dice land before commit.
+    // Anti-fudge: only the seat whose turn it is (or the GM) may drive the preview, and it's
+    // never reduced into state — the authoritative placement is the `allocate` intent at commit.
+    if (msg.t === "alloc_preview") {
+      const conn = this.seatOf(ws);
+      const turn = this.state?.currentTurn;
+      if (!conn || !turn || (conn !== turn.seat && conn !== "gm")) return;
+      this.setPreview(msg.allocations, conn);
+      return;
+    }
+
     // Reclaim handshake (§3.6/§3A): a returning client proves seat ownership with the
     // raw token it stored. Verify against the stored hash before binding the socket —
     // the seat in the message body is never trusted on its own.
@@ -213,6 +236,7 @@ export class GameRoom implements DurableObject {
       }
       this.sendTo(ws, { t: "sync", state, events: [] });
       this.sendTo(ws, { t: "composing", seat: this.composingSeat });
+      if (this.previewAlloc) this.sendTo(ws, { t: "alloc_preview", allocations: this.previewAlloc });
       this.broadcastPresence();
       return;
     }
@@ -294,6 +318,10 @@ export class GameRoom implements DurableObject {
     // with no recovery path and hides every client's start controls, blocking the next turn (#46).
     const turnEnded = !!state.currentTurn && !next.currentTurn;
     if (this.composingSeat && (next.currentTurn || turnEnded)) this.setComposing(null, null);
+    // The live allocation preview (#44) only means anything during the open turn's ALLOCATE.
+    // Drop it when the turn ends (commit/cancel/death) so the next turn starts with a clean
+    // tray and a mid-allocation reconnect can't inherit a stale overlay.
+    if (this.previewAlloc && turnEnded) this.setPreview(null, null);
 
     // A successful claim binds this socket to the seat and returns the raw token so
     // the client can persist it for next week's reclaim.
@@ -313,6 +341,11 @@ export class GameRoom implements DurableObject {
     // the table isn't left waiting on a composer that's gone (§3A — transient, no log).
     if (this.composingActor && this.seatOf(ws) === this.composingActor) {
       this.setComposing(null, null);
+    }
+    // Likewise drop the live allocation preview (#44) if the driver that was placing dice
+    // drops, so watchers aren't left staring at a frozen half-allocation (§3A — transient).
+    if (this.previewActor && this.seatOf(ws) === this.previewActor) {
+      this.setPreview(null, null);
     }
     try {
       ws.close(code, "closing");
@@ -355,6 +388,16 @@ export class GameRoom implements DurableObject {
     this.composingSeat = seat;
     this.composingActor = actor;
     this.broadcast({ t: "composing", seat });
+  }
+
+  /**
+   * Set (or clear, with null) the transient live allocation preview (#44) and fan it out.
+   * On clear we broadcast an empty array so watchers' trays reset to all-in-the-pool.
+   */
+  private setPreview(allocations: (Allocation | null)[] | null, actor: SeatId | null): void {
+    this.previewAlloc = allocations;
+    this.previewActor = actor;
+    this.broadcast({ t: "alloc_preview", allocations: allocations ?? [] });
   }
 
   private sendTo(ws: WebSocket, msg: ServerMessage): void {

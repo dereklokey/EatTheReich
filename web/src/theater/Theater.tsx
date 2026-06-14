@@ -26,11 +26,17 @@ export function Theater({
   state,
   send,
   mySeat,
+  allocPreview,
+  onAllocPreview,
   onMinimize,
 }: {
   state: GameState;
   send: (i: Intent) => void;
   mySeat: SeatId | null;
+  /** The active player's live, survivor-indexed placements (issue #44) — watchers mirror it. */
+  allocPreview: (Allocation | null)[] | null;
+  /** Broadcast this device's in-progress placements while it drives allocation (issue #44). */
+  onAllocPreview: (allocations: (Allocation | null)[]) => void;
   /** Collapse the theater locally to peek at the board/sheets (the turn stays live). */
   onMinimize: () => void;
 }) {
@@ -101,7 +107,17 @@ export function Theater({
           </p>
         </div>
       ) : (
-        <AllocationTray turn={turn} state={state} char={char} canDrive={isDriver} onLockIn={onLockIn} onAddDice={onAddDice} onScavenge={onScavenge} />
+        <AllocationTray
+          turn={turn}
+          state={state}
+          char={char}
+          canDrive={isDriver}
+          allocPreview={allocPreview}
+          onPreview={onAllocPreview}
+          onLockIn={onLockIn}
+          onAddDice={onAddDice}
+          onScavenge={onScavenge}
+        />
       )}
     </TheaterShell>
   );
