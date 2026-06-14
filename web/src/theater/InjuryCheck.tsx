@@ -44,13 +44,17 @@ export function InjuryCheck({
   turn,
   state,
   canDrive,
+  canCancel,
   send,
   onMinimize,
   onCancel,
 }: {
   turn: TurnState;
   state: GameState;
+  /** The wounded player — drives the wound throw, reactions, and "take the hit". */
   canDrive: boolean;
+  /** The active player or the GM may abort the turn (issues #42/#43). */
+  canCancel: boolean;
   send: (i: Intent) => void;
   onMinimize: () => void;
   onCancel: () => void;
@@ -158,7 +162,7 @@ export function InjuryCheck({
   // AWAITING THE THROW — the blow is coming; the driver casts the category die.
   if (stage === "await" || !pending || !outcome || outcome.kind === "none") {
     return (
-      <TheaterShell turn={turn} canDrive={canDrive} onMinimize={onMinimize} onCancel={onCancel}>
+      <TheaterShell turn={turn} canDrive={canDrive} canCancel={canCancel} onMinimize={onMinimize} onCancel={onCancel}>
         <div className="injury-check">
           <div className="theater__phase text-sm">Injury check</div>
           {intro}
@@ -235,7 +239,7 @@ export function InjuryCheck({
   };
 
   return (
-    <TheaterShell turn={turn} canDrive={canDrive} onMinimize={onMinimize} onCancel={onCancel}>
+    <TheaterShell turn={turn} canDrive={canDrive} canCancel={canCancel} onMinimize={onMinimize} onCancel={onCancel}>
       <div className={`injury-check injury-check--${verdict.tone}`}>
         <div className="theater__phase text-sm">Injury check</div>
         {intro}

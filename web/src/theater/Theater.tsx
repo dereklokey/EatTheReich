@@ -37,7 +37,14 @@ export function Theater({
   const turn = state.currentTurn;
   if (!turn) return null;
   const char = state.characters[turn.seat];
-  const canDrive = mySeat === turn.seat || mySeat === "gm";
+  // Split the old player-or-GM `canDrive` into two roles (issues #42/#43): only the
+  // active player DRIVES the resolution — discard & resolve, allocation, lock in, the
+  // injury check. The GM no longer co-drives the player's dice; they watch. What stays
+  // GM-side is the Reich roll (gated by `isGm`, see RollSequence/RollReveal) and a
+  // one-click `cancel turn` as the override escape hatch (GM rewind is the heavier one).
+  const isDriver = mySeat === turn.seat;
+  const isGm = mySeat === "gm";
+  const canCancel = isDriver || isGm;
   const cancel = () => send({ kind: "cancel_turn" });
 
   // The roll — player throw → Reich throw → results — is its own staged sequence. It plays
@@ -48,7 +55,7 @@ export function Theater({
     // when their own roll came up weak (≤2 successes) and it's still in hand this session.
     // The server re-validates; this just gates the affordance (issue #9).
     const canFlashback =
-      mySeat === turn.seat &&
+      isDriver &&
       state.session.active &&
       !char.flashbackUsedThisSession &&
       flashbackTriggerable(turn.playerDice);
@@ -56,8 +63,9 @@ export function Theater({
       <RollSequence
         turn={turn}
         state={state}
-        canDrive={canDrive}
-        isGm={mySeat === "gm"}
+        canDrive={isDriver}
+        canCancel={canCancel}
+        isGm={isGm}
         canFlashback={canFlashback}
         onFlashback={() => send({ kind: "trigger_flashback", seat: turn.seat })}
         onRollGm={() => send({ kind: "roll_gm" })}
@@ -72,7 +80,7 @@ export function Theater({
   // board (the arena), then it raises its own dark panel for the verdict — so it sits beside
   // the roll sequence, not nested in the shell here.
   if (turn.phase === "INJURY_CHECK") {
-    return <InjuryCheck turn={turn} state={state} canDrive={canDrive} send={send} onMinimize={onMinimize} onCancel={cancel} />;
+    return <InjuryCheck turn={turn} state={state} canDrive={isDriver} canCancel={canCancel} send={send} onMinimize={onMinimize} onCancel={cancel} />;
   }
 
   const onLockIn = (allocations: Allocation[]) => {
@@ -84,7 +92,7 @@ export function Theater({
   const onScavenge = () => send({ kind: "scavenge" });
 
   return (
-    <TheaterShell turn={turn} canDrive={canDrive} onMinimize={onMinimize} onCancel={cancel}>
+    <TheaterShell turn={turn} canDrive={isDriver} canCancel={canCancel} onMinimize={onMinimize} onCancel={cancel}>
       {!turn.playerDice ? (
         <div className="mt-6 text-center">
           <div className="theater__phase text-sm">Loading the action</div>
@@ -93,7 +101,7 @@ export function Theater({
           </p>
         </div>
       ) : (
-        <AllocationTray turn={turn} state={state} char={char} canDrive={canDrive} onLockIn={onLockIn} onAddDice={onAddDice} onScavenge={onScavenge} />
+        <AllocationTray turn={turn} state={state} char={char} canDrive={isDriver} onLockIn={onLockIn} onAddDice={onAddDice} onScavenge={onScavenge} />
       )}
     </TheaterShell>
   );
@@ -107,12 +115,16 @@ export function Theater({
 export function TheaterShell({
   turn,
   canDrive,
+  canCancel = canDrive,
   onMinimize,
   onCancel,
   children,
 }: {
   turn: TurnState;
+  /** The active player — drives the resolution. Gates the "Watching…" footer. */
   canDrive: boolean;
+  /** May abort the turn: the active player or the GM (override). Defaults to canDrive. */
+  canCancel?: boolean;
   onMinimize: () => void;
   onCancel: () => void;
   children: ReactNode;
@@ -129,7 +141,7 @@ export function TheaterShell({
                 (turn.gmPoolSize > 0 ? ` · Reich rolls ${turn.gmPoolSize}` : " · uncontested")}
             </span>
           </h2>
-          {canDrive && (
+          {canCancel && (
             <button
               className="mono text-xs underline text-paper-fade"
               title="Abort this turn — it won't count as your action"
@@ -152,7 +164,7 @@ export function TheaterShell({
 
         {!canDrive && (
           <p className="mono text-xs text-paper-fade mt-6 text-center">
-            Watching {seatName(turn.seat)} — the active player and GM drive this turn.
+            Watching {seatName(turn.seat)} — only the active player drives this turn.
           </p>
         )}
       </div>

@@ -35,7 +35,10 @@ export function LastStand({
   const seat = turn?.seat;
   const sheet = seat ? CHARACTERS_BY_ID[seat] : undefined;
   const survivors = turn?.survivors ?? [];
-  const canDrive = mySeat === seat || mySeat === "gm";
+  // The Last Stand is the dying vampire's own moment (RULES §5) — only they roll the
+  // final 8d6 and place the blows. The GM watches, same as the resolution theater
+  // (issues #42/#43); Rewind is the GM's escape hatch (there's no cancel here).
+  const canDrive = mySeat === seat;
 
   const [assign, setAssign] = useState<Assignment[]>([]);
   const [picked, setPicked] = useState<number | null>(null);
