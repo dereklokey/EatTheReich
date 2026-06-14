@@ -153,7 +153,13 @@ function SessionSection({ state, send, events }: { state: GameState; send: (i: I
 
       {log && log.length > 0 && (
         <div className="mt-2 paper paper-tight">
-          <div className="mono text-[0.65rem] text-paper-fade mb-1.5">Last reinforcements — the dice it rolled</div>
+          <div className="mono text-[0.65rem] text-paper-fade mb-0.5">Last reinforcements — Attack escalation + restore rolls</div>
+          {/* The two glyphs each row can show (RULES §8): a die only when a zeroed Threat restores,
+              else a dot for the flat Attack +1 — so the table knows the dice are the exception. */}
+          <div className="mono text-[0.6rem] text-paper-fade mb-1.5 leading-snug">
+            <span className="text-paper">die</span> = 1d6 rating restored (a Threat zeroed this round; Attack resets to half) ·{" "}
+            <span className="text-paper">·</span> = no roll, just Attack +1 (still in play, closing in)
+          </div>
           <div className="flex flex-col gap-1.5">
             {log.map((l) => (
               <div key={l.threatId} className="flex items-center gap-2 mono text-xs" title={l.reason}>
