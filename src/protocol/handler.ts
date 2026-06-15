@@ -543,6 +543,10 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
     case "cancel_turn": {
       const turn = state.currentTurn;
       if (!turn) return err("no turn in progress");
+      // Once the dice are cast both sides are committed and the turn must be seen through
+      // (issue #6). Backing out pre-roll (still loading the action) is fine; after the roll the
+      // GM's Rewind is the only way back, so it's logged rather than silently dropped.
+      if (turn.playerDice) return err("the dice are cast — see the turn through (GM rewind to undo)");
       return ok([{ type: "TURN_CANCELLED", payload: { seat: turn.seat }, actor: turn.seat }]);
     }
 

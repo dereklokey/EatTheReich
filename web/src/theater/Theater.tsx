@@ -46,11 +46,15 @@ export function Theater({
   // Split the old player-or-GM `canDrive` into two roles (issues #42/#43): only the
   // active player DRIVES the resolution — discard & resolve, allocation, lock in, the
   // injury check. The GM no longer co-drives the player's dice; they watch. What stays
-  // GM-side is the Reich roll (gated by `isGm`, see RollSequence/RollReveal) and a
-  // one-click `cancel turn` as the override escape hatch (GM rewind is the heavier one).
+  // GM-side is the Reich roll (gated by `isGm`, see RollSequence/RollReveal) and a pre-roll
+  // `cancel turn` escape hatch (once the dice are cast, GM Rewind is the only way back).
   const isDriver = mySeat === turn.seat;
   const isGm = mySeat === "gm";
-  const canCancel = isDriver || isGm;
+  // Cancel disappears once the dice are cast (issue #6): from the roll on, both sides are
+  // committed and the turn is seen to completion — only the brief pre-roll "loading the
+  // action" beat (no playerDice yet) can still be aborted. After that, GM Rewind is the way
+  // back. The server enforces the same gate, so a stale button can't sneak a cancel through.
+  const canCancel = (isDriver || isGm) && !turn.playerDice;
   const cancel = () => send({ kind: "cancel_turn" });
 
   // The roll — player throw → Reich throw → results — is its own staged sequence. It plays

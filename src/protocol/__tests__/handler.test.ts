@@ -1738,6 +1738,16 @@ describe("processIntent — cancelling a turn", () => {
     const d = makeDriver();
     expect(d.fail({ kind: "cancel_turn" }).ok).toBe(false);
   });
+
+  it("rejects cancelling once the dice are cast — the turn must be seen through (issue #6)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 4]), "iryna");
+
+    expect(d.fail({ kind: "cancel_turn" }).ok).toBe(false);
+    expect(d.state.currentTurn).not.toBeNull(); // turn still live, not aborted
+  });
 });
 
 describe("processIntent — claiming seats", () => {
