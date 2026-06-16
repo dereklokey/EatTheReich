@@ -12,6 +12,7 @@ import { TurnComposer } from "@/theater/TurnComposer";
 import { LastStand } from "@/theater/LastStand";
 import { TurnControls } from "@/theater/TurnControls";
 import { GMPanel } from "@/gm/GMPanel";
+import { GoDiceIndicator } from "@/godice/GoDiceIndicator";
 import { CharacterSheet } from "@/sheet/CharacterSheet";
 import { seatName } from "@/game/seats";
 import { CHAR_IDS, type CharId } from "@shared/events/types.js";
@@ -251,8 +252,10 @@ function TopBar({
         <span className={`dot ${status === "open" ? "dot-online" : "dot-away"}`} title={status} />
         {seatLabel && <span className="mono text-xs text-paper-fade">· you: {seatLabel}</span>}
 
+        {/* GoDice connection lamps (issue #50) — GM-only; anchors the right-hand control cluster. */}
+        {isGm && <GoDiceIndicator className="ml-auto" />}
         {isGm && (
-          <button className="display text-paper bg-blood px-2 py-0.5 text-sm ml-auto" style={{ borderRadius: 2 }} onClick={onOpenGm}>
+          <button className="display text-paper bg-blood px-2 py-0.5 text-sm" style={{ borderRadius: 2 }} onClick={onOpenGm}>
             GM Control Panel
           </button>
         )}

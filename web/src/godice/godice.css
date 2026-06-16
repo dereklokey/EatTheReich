@@ -2,6 +2,57 @@
    Lives on the dark theater ground (the live-throw overlay and the static results panel), so it
    reads in paper tones over night. All motion stays inside the reduce-effects guardrail. */
 
+/* ── Header status strip (GM-only): die lamps that light when connected, with a click-out
+      popover carrying the connect controls. ── */
+.godice-ind { position: relative; display: flex; align-items: center; }
+.godice-ind__strip {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: box-shadow var(--motion-fast), background var(--motion-fast);
+}
+.godice-ind__strip:hover { background: rgba(255, 255, 255, 0.06); }
+.godice-ind__strip--pulse { box-shadow: 0 0 0 1px var(--hazard), 0 0 10px 1px var(--hazard); }
+/* Each lamp is a tiny die face: bright bone when its die is connected, dim when not. */
+.godice-ind__pip {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  flex: none;
+  transition: opacity var(--motion-fast), box-shadow var(--motion-fast);
+}
+.godice-ind__pip.is-on {
+  background:
+    radial-gradient(60% 55% at 35% 30%, #fff8ea 0%, transparent 60%),
+    var(--die-gm);
+  box-shadow: 0 0 5px rgba(232, 220, 188, 0.8), inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+}
+.godice-ind__pip.is-off {
+  background: var(--die-gm);
+  opacity: 0.22;
+}
+
+.godice-ind__pop {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 80;
+  width: min(22rem, 86vw);
+  padding: 0.7rem 0.85rem 0.85rem;
+  background: rgba(10, 8, 22, 0.97);
+  border: 1px solid var(--paper-shadow);
+  border-radius: 6px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.godice-ind__pop-head { display: flex; align-items: center; justify-content: space-between; }
+.godice-ind__disconnect { align-self: flex-start; }
+
 .reichroll {
   display: flex;
   flex-direction: column;
