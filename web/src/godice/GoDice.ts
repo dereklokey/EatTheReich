@@ -71,11 +71,32 @@ interface WBRequestOptions {
 }
 interface WebBluetooth {
   requestDevice(options: WBRequestOptions): Promise<WBDevice>;
+  /** Chromium-only: previously-granted devices, so we can reconnect without re-prompting. */
+  getDevices?(): Promise<WBDevice[]>;
 }
 
 function getBluetooth(): WebBluetooth | null {
   const nav = navigator as unknown as { bluetooth?: WebBluetooth };
   return nav.bluetooth ?? null;
+}
+
+/** A previously-granted die may be asleep / out of range; cap each silent reconnect attempt so
+ *  one missing die can't hang the whole batch (gatt.connect has no spec timeout). */
+const RECONNECT_TIMEOUT_MS = 8000;
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("timed out")), ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
 }
 
 interface DieEntry {
@@ -116,6 +137,46 @@ export class GoDiceManager {
       filters: [{ namePrefix: GODICE_NAME_PREFIX }],
       optionalServices: [GODICE_SERVICE],
     });
+    return this.attachDevice(device);
+  }
+
+  /** The browser can recall already-granted dice (Chromium's getDevices()) — gates the
+   *  one-click "reconnect my dice" path. */
+  canReconnect(): boolean {
+    const bt = getBluetooth();
+    return typeof bt?.getDevices === "function";
+  }
+
+  /**
+   * Reconnect every previously-granted GoDice with no chooser prompts (issue #50) — the
+   * return-visit path, so a 6-die owner pairs each die once *ever*, not once a session. Each die
+   * must be awake / in range; out-of-range dice are skipped (a per-die timeout stops one missing
+   * die from hanging the batch), and dice we already hold a live link to are left alone. Returns
+   * how many dice are connected as a result.
+   */
+  async reconnectKnown(): Promise<number> {
+    const bt = getBluetooth();
+    if (typeof bt?.getDevices !== "function") return 0;
+    const devices = await bt.getDevices();
+    let count = 0;
+    for (const device of devices) {
+      if (this.entries.get(device.id)?.info.connected) {
+        count++;
+        continue;
+      }
+      try {
+        await withTimeout(this.attachDevice(device), RECONNECT_TIMEOUT_MS);
+        count++;
+      } catch {
+        // Asleep / out of range / not actually a GoDice — leave it; the GM can wobble + retry.
+      }
+    }
+    return count;
+  }
+
+  /** Connect a device's GATT, wire up notifications, and register it. Shared by the pairing
+   *  flow (connect) and the silent reconnect (reconnectKnown). */
+  private async attachDevice(device: WBDevice): Promise<GoDieInfo> {
     const server = device.gatt;
     if (!server) throw new Error("this device exposes no GATT server");
 

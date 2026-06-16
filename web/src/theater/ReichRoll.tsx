@@ -193,12 +193,24 @@ function ConnectRow() {
       {goDice.connecting ? "pairing…" : connectedCount === 0 ? "Connect a die" : "+ add die"}
     </button>
   );
+  // One click brings back every die granted in a past session — no re-picking each one.
+  const reconnectBtn = goDice.supported && goDice.canReconnect && (
+    <button className="reichroll__link" disabled={goDice.connecting} onClick={() => void goDice.reconnect()}>
+      {goDice.connecting ? "reconnecting…" : "⟳ reconnect my dice"}
+    </button>
+  );
 
   return (
     <div className="reichroll__connect">
       {goDice.dice.length === 0 ? (
         goDice.supported ? (
-          connectBtn
+          <>
+            {connectBtn}
+            {reconnectBtn}
+            {goDice.canReconnect && (
+              <span className="reichroll__hint">Paired before? “Reconnect my dice” skips re-picking each one.</span>
+            )}
+          </>
         ) : (
           <span className="reichroll__hint">No Web Bluetooth here — use “throw test dice” or tap to set.</span>
         )
@@ -217,6 +229,7 @@ function ConnectRow() {
               </span>
             ))}
             {connectBtn}
+            {reconnectBtn}
           </div>
           <span className="reichroll__hint">
             {connectedCount > 0

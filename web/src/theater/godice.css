@@ -62,7 +62,7 @@
   cursor: pointer;
 }
 .reichroll__btn:disabled { filter: grayscale(0.5) brightness(0.85); cursor: default; }
-.reichroll__hint { font-family: var(--font-mono); font-size: 0.66rem; color: var(--paper-fade); font-style: italic; }
+.reichroll__hint { width: 100%; font-family: var(--font-mono); font-size: 0.66rem; color: var(--paper-fade); font-style: italic; }
 .reichroll__dice-list { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
 .reichroll__die-chip {
   display: inline-flex;

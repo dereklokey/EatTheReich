@@ -27,6 +27,10 @@ interface GoDiceState {
   error: string | null;
   /** Open the pairing chooser (must be from a click). Adds a die on success. */
   connect: () => Promise<void>;
+  /** Chromium can recall already-granted dice — gates the one-click reconnect. */
+  canReconnect: boolean;
+  /** Reconnect previously-granted dice with no chooser prompts (return-visit path). */
+  reconnect: () => Promise<void>;
   disconnectAll: () => void;
   /** Subscribe to physical (or simulated) rolls; returns an unsubscribe. */
   subscribeRolls: (cb: (roll: GoDiceRoll) => void) => () => void;
@@ -65,6 +69,19 @@ export function GoDiceProvider({ children }: { children: ReactNode }) {
     }
   }, [manager]);
 
+  const reconnect = useCallback(async () => {
+    setError(null);
+    setConnecting(true);
+    try {
+      const n = await manager.reconnectKnown();
+      if (n === 0) setError("No paired dice in range — wobble them awake and retry.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "couldn't reconnect");
+    } finally {
+      setConnecting(false);
+    }
+  }, [manager]);
+
   const disconnectAll = useCallback(() => manager.disconnectAll(), [manager]);
   const subscribeRolls = useCallback(
     (cb: (roll: GoDiceRoll) => void) => manager.subscribe({ onRoll: cb }),
@@ -83,12 +100,14 @@ export function GoDiceProvider({ children }: { children: ReactNode }) {
       connecting,
       error,
       connect,
+      canReconnect: manager.canReconnect(),
+      reconnect,
       disconnectAll,
       subscribeRolls,
       subscribeActivity,
       simulateRoll,
     }),
-    [manager, dice, connecting, error, connect, disconnectAll, subscribeRolls, subscribeActivity, simulateRoll],
+    [manager, dice, connecting, error, connect, reconnect, disconnectAll, subscribeRolls, subscribeActivity, simulateRoll],
   );
 
   return <GoDiceCtx.Provider value={value}>{children}</GoDiceCtx.Provider>;
