@@ -1,4 +1,4 @@
-import type { Objective, Threat, SecondaryObjective, Stat } from "../domain/types.js";
+import type { Objective, Threat, SecondaryObjective, Stat, DieFace } from "../domain/types.js";
 import type { Equipment } from "../domain/character.js";
 import type { Allocation } from "../engine/allocate.js";
 import type { PoolSource } from "../engine/playerPool.js";
@@ -76,8 +76,13 @@ export type Intent =
   | { kind: "cancel_turn" }
   | { kind: "roll"; playerPoolDice: number; sources?: PoolSource[] }
   /** GM rolls the Reich's pool, after the player has rolled (RULES §4 — the two pools
-   *  resolve as a two-beat handoff, not one button). GM-only; see authz. */
-  | { kind: "roll_gm" }
+   *  resolve as a two-beat handoff, not one button). GM-only; see authz.
+   *  `results` (issue #50): physical-dice faces the GM read off GoDice (or typed by hand)
+   *  to use as the Reich's roll instead of the server's RNG — accepted as the truth, then
+   *  shown by the same animation. Validated server-side (each face 1-6, length === the pool
+   *  size already built by `roll`); omitted → the server rolls as before. Fits §0
+   *  "suggest, don't enforce": the GM owns the Reich's dice. */
+  | { kind: "roll_gm"; results?: DieFace[] }
   | { kind: "resolve_discard" }
   | { kind: "allocate"; allocations: Allocation[] }
   | { kind: "commit" }

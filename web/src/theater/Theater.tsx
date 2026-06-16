@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { GameState, TurnState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
 import type { Allocation } from "@shared/engine/allocate.js";
+import type { DieFace } from "@shared/domain/types.js";
 import type { SeatId } from "@shared/events/types.js";
 import { flashbackTriggerable } from "@shared/data/flashbacks.js";
 import { seatName } from "@/game/seats";
@@ -78,7 +79,8 @@ export function Theater({
         isGm={isGm}
         canFlashback={canFlashback}
         onFlashback={() => send({ kind: "trigger_flashback", seat: turn.seat })}
-        onRollGm={() => send({ kind: "roll_gm" })}
+        // results present → GoDice/hand-read faces taken as the Reich's roll (issue #50); absent → server RNG.
+        onRollGm={(results?: DieFace[]) => send({ kind: "roll_gm", ...(results && results.length ? { results } : {}) })}
         onResolve={() => send({ kind: "resolve_discard" })}
         onMinimize={onMinimize}
         onCancel={cancel}

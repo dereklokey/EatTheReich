@@ -4,6 +4,7 @@ import type { DieFace } from "@shared/domain/types.js";
 import { Die, tiltFor, type DieVisualState } from "@/components/dice/Die";
 import { useSound } from "@/effects/SoundContext";
 import { FlashbackPrompt } from "./FlashbackPrompt";
+import { ReichRollControls } from "./ReichRoll";
 
 /**
  * The results readout (RULES §4) — the calm, static panel the table lands on after the dice
@@ -39,7 +40,8 @@ export function RollReveal({
   /** Active player, weak roll, flashback still in hand this session (RULES §9, issue #9). */
   canFlashback: boolean;
   onFlashback: () => void;
-  onRollGm: () => void;
+  /** results present → GoDice/hand-read faces as the Reich's roll (issue #50); absent → server RNG. */
+  onRollGm: (results?: DieFace[]) => void;
   onResolve: () => void;
 }) {
   const { play } = useSound();
@@ -136,7 +138,7 @@ export function RollReveal({
  * The Reich is poised but hasn't thrown yet (RULES §4 BUILD_GM_POOL → ROLL). The pool size
  * is already known, so the table sees how many bone dice are coming; the GM holds the trigger.
  */
-function ReichPending({ pool, isGm, onRollGm }: { pool: number; isGm: boolean; onRollGm: () => void }) {
+function ReichPending({ pool, isGm, onRollGm }: { pool: number; isGm: boolean; onRollGm: (results?: DieFace[]) => void }) {
   return (
     <div>
       <div className="mono text-xs text-paper-fade mb-1">
@@ -149,9 +151,7 @@ function ReichPending({ pool, isGm, onRollGm }: { pool: number; isGm: boolean; o
       </div>
       <div className="mt-4">
         {isGm ? (
-          <button className="detonator" onClick={onRollGm} title="Throw the Reich’s dice">
-            Roll the Reich
-          </button>
+          <ReichRollControls pool={pool} onRoll={onRollGm} />
         ) : (
           <p className="mono text-sm text-paper-fade">The GM is rolling the Reich’s dice…</p>
         )}

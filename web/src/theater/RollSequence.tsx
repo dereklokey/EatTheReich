@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GameState, TurnState } from "@shared/state/types.js";
+import type { DieFace } from "@shared/domain/types.js";
 import { anathemaInPlay } from "@shared/domain/types.js";
 import { seatName } from "@/game/seats";
 import { TheaterShell } from "./Theater";
 import { RollReveal } from "./RollReveal";
+import { ReichRollControls } from "./ReichRoll";
 import { DiceArena, type ThrowSpec } from "./DiceArena";
 import { useEffects } from "@/effects/EffectsContext";
 import { useSound } from "@/effects/SoundContext";
@@ -30,7 +32,7 @@ export function RollSequence(props: {
   isGm: boolean;
   canFlashback: boolean;
   onFlashback: () => void;
-  onRollGm: () => void;
+  onRollGm: (results?: DieFace[]) => void;
   onResolve: () => void;
   onMinimize: () => void;
   onCancel: () => void;
@@ -88,7 +90,7 @@ function FullSequence({
   isGm: boolean;
   canFlashback: boolean;
   onFlashback: () => void;
-  onRollGm: () => void;
+  onRollGm: (results?: DieFace[]) => void;
   onResolve: () => void;
   onMinimize: () => void;
   onCancel: () => void;
@@ -196,9 +198,7 @@ function FullSequence({
       {phase === "await-reich" && (
         <div className="roll-stage__control">
           {isGm ? (
-            <button className="detonator" onClick={onRollGm} title="Throw the Reich’s dice">
-              Roll the Reich · {gmPool}
-            </button>
+            <ReichRollControls pool={gmPool} onRoll={onRollGm} />
           ) : (
             <p className="mono text-sm text-paper">The GM rolls the Reich’s {gmPool} {gmPool === 1 ? "die" : "dice"}…</p>
           )}

@@ -588,8 +588,19 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
       if (!turn) return err("no turn in progress");
       if (!turn.playerDice) return err("the player hasn't rolled yet");
       if (turn.gmDice) return err("the Reich has already rolled");
-      // Roll the pool size already built and shown by `roll` (POOL_BUILT gm).
-      const gmResults = deps.roller.roll(turn.gmPoolSize ?? 0);
+      const poolSize = turn.gmPoolSize ?? 0;
+      // GoDice / hand-read faces (issue #50): the GM may supply the Reich's faces — physical
+      // dice they threw — and they're taken as the truth instead of the server RNG (§0). Still
+      // validated: each face a real d6 value, and exactly the pool size already built by `roll`
+      // (POOL_BUILT gm) so the spectacle throws the right number of dice and the tally is honest.
+      if (intent.results !== undefined) {
+        const faces = intent.results;
+        if (faces.length !== poolSize) return err(`GoDice roll needs ${poolSize} ${poolSize === 1 ? "die" : "dice"}, got ${faces.length}`);
+        if (!faces.every((f) => Number.isInteger(f) && f >= 1 && f <= 6)) return err("GoDice faces must each be 1-6");
+        return ok([{ type: "DICE_ROLLED", payload: { who: "gm", results: faces as DieFace[] } }]);
+      }
+      // Otherwise roll the pool size already built and shown by `roll` (POOL_BUILT gm).
+      const gmResults = deps.roller.roll(poolSize);
       return ok([{ type: "DICE_ROLLED", payload: { who: "gm", results: gmResults } }]);
     }
 

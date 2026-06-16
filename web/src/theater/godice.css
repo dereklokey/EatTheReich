@@ -1,0 +1,120 @@
+/* GoDice "Roll the Reich" controls (issue #50) — a quiet opt-in under the standard detonator.
+   Lives on the dark theater ground (the live-throw overlay and the static results panel), so it
+   reads in paper tones over night. All motion stays inside the reduce-effects guardrail. */
+
+.reichroll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* The disclosure that opens the GoDice panel — deliberately understated next to the detonator. */
+.reichroll__toggle {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  color: var(--paper-fade);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.reichroll__toggle:hover { color: var(--paper); }
+
+.reichroll__godice {
+  width: min(22rem, 90vw);
+  margin-top: 0.25rem;
+  padding: 0.75rem 0.85rem 0.85rem;
+  background: rgba(10, 8, 22, 0.72);
+  border: 1px solid var(--paper-shadow);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.reichroll__head { display: flex; align-items: center; justify-content: space-between; }
+.reichroll__title {
+  font-family: var(--font-display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  color: var(--die-gm);
+}
+.reichroll__close {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--paper-fade);
+  cursor: pointer;
+  line-height: 1;
+}
+.reichroll__close:hover { color: var(--paper); }
+
+/* Connect strip. */
+.reichroll__connect { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.reichroll__btn {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: #2a2113;
+  background: var(--die-gm);
+  border-radius: 3px;
+  padding: 0.28rem 0.7rem;
+  cursor: pointer;
+}
+.reichroll__btn:disabled { filter: grayscale(0.5) brightness(0.85); cursor: default; }
+.reichroll__hint { font-family: var(--font-mono); font-size: 0.66rem; color: var(--paper-fade); font-style: italic; }
+.reichroll__dice-list { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.reichroll__die-chip {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--paper-ink);
+  background: var(--die-gm);
+  border-radius: 999px;
+  padding: 0.12rem 0.5rem;
+}
+.reichroll__err { font-family: var(--font-mono); font-size: 0.66rem; color: var(--blood-bright); width: 100%; }
+
+/* The capture tray — one slot per pooled die. */
+.reichroll__tray { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; }
+.reichroll__slot {
+  width: 2.4rem;
+  height: 2.4rem;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+  transition: transform var(--motion-fast) var(--ease-impact);
+}
+.reichroll__slot:hover { transform: translateY(-2px); }
+.reichroll__slot--empty {
+  border: 1px dashed var(--paper-shadow);
+  background: rgba(255, 255, 255, 0.03);
+}
+.reichroll__slot-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--paper-shadow);
+}
+
+.reichroll__cap-note {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--paper-fade);
+  text-align: center;
+}
+
+.reichroll__actions { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; }
+.reichroll__commit { font-size: 1rem; padding: 0.5rem 1.3rem; }
+.reichroll__minor { display: flex; gap: 0.9rem; }
+.reichroll__link {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--paper-fade);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.reichroll__link:hover { color: var(--paper); }
+.reichroll__link:disabled { opacity: 0.5; cursor: default; text-decoration: none; }

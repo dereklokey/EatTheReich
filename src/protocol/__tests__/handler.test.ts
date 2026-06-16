@@ -83,6 +83,31 @@ describe("processIntent — server rolls the dice (anti-fudge)", () => {
     expect(d.state.currentTurn?.gmDice).toEqual([6, 4, 1]);
   });
 
+  it("roll_gm takes GM-supplied GoDice faces as the truth instead of rolling (issue #50)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: 6 }, sequenceRoller([6, 5, 4, 2, 2, 1]), "iryna"); // builds a 3-die Reich pool
+
+    // The roller hands back [1,1,1] — but the GM read [5,2,6] off their physical dice, and that wins.
+    const gmEvents = d.run({ kind: "roll_gm", results: [5, 2, 6] }, sequenceRoller([1, 1, 1]), "gm");
+    expect(gmEvents.map((e) => e.type)).toEqual(["DICE_ROLLED"]);
+    expect(gmEvents[0]?.payload).toEqual({ who: "gm", results: [5, 2, 6] });
+    expect(d.state.currentTurn?.gmDice).toEqual([5, 2, 6]);
+  });
+
+  it("rejects GoDice faces of the wrong count or out of the 1-6 range (issue #50)", () => {
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: 6 }, sequenceRoller([6, 5, 4, 2, 2, 1]), "iryna"); // 3-die Reich pool
+
+    expect(d.fail({ kind: "roll_gm", results: [5, 2] }).ok).toBe(false); // too few
+    expect(d.fail({ kind: "roll_gm", results: [5, 2, 6, 1] }).ok).toBe(false); // too many
+    expect(d.fail({ kind: "roll_gm", results: [5, 2, 7] as never }).ok).toBe(false); // 7 is not a face
+    expect(d.fail({ kind: "roll_gm", results: [5, 2, 0] as never }).ok).toBe(false); // 0 is not a face
+  });
+
   it("an uncontested action (no Threat in play) resolves the empty Reich pool with the player roll", () => {
     const d = makeDriver();
     // No Threats on the board → the Reich has nothing to roll (RULES §4 BUILD_GM_POOL).
