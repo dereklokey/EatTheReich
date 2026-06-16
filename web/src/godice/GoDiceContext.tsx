@@ -30,6 +30,9 @@ interface GoDiceState {
   disconnectAll: () => void;
   /** Subscribe to physical (or simulated) rolls; returns an unsubscribe. */
   subscribeRolls: (cb: (roll: GoDiceRoll) => void) => () => void;
+  /** Subscribe to any live traffic from a die (movement/rest/battery) — the "it's talking now"
+   *  cue used to flash a die's tag when you wobble it. Returns an unsubscribe. */
+  subscribeActivity: (cb: (deviceId: string) => void) => () => void;
   /** Inject a synthetic roll for testing without hardware. */
   simulateRoll: (value?: DieFace) => void;
 }
@@ -67,6 +70,10 @@ export function GoDiceProvider({ children }: { children: ReactNode }) {
     (cb: (roll: GoDiceRoll) => void) => manager.subscribe({ onRoll: cb }),
     [manager],
   );
+  const subscribeActivity = useCallback(
+    (cb: (deviceId: string) => void) => manager.subscribe({ onActivity: cb }),
+    [manager],
+  );
   const simulateRoll = useCallback((value?: DieFace) => manager.simulateRoll(value), [manager]);
 
   const value = useMemo<GoDiceState>(
@@ -78,9 +85,10 @@ export function GoDiceProvider({ children }: { children: ReactNode }) {
       connect,
       disconnectAll,
       subscribeRolls,
+      subscribeActivity,
       simulateRoll,
     }),
-    [manager, dice, connecting, error, connect, disconnectAll, subscribeRolls, simulateRoll],
+    [manager, dice, connecting, error, connect, disconnectAll, subscribeRolls, subscribeActivity, simulateRoll],
   );
 
   return <GoDiceCtx.Provider value={value}>{children}</GoDiceCtx.Provider>;

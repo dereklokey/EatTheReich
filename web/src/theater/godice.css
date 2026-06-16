@@ -65,13 +65,24 @@
 .reichroll__hint { font-family: var(--font-mono); font-size: 0.66rem; color: var(--paper-fade); font-style: italic; }
 .reichroll__dice-list { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
 .reichroll__die-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   font-family: var(--font-mono);
   font-size: 0.66rem;
   color: var(--paper-ink);
   background: var(--die-gm);
   border-radius: 999px;
   padding: 0.12rem 0.5rem;
+  transition: box-shadow var(--motion-fast), transform var(--motion-fast) var(--ease-impact);
 }
+/* A live frame just arrived from this die — flash it so a wobble visibly proves the link. */
+.reichroll__die-chip--live { box-shadow: 0 0 0 2px #fff, 0 0 12px 2px var(--hazard); transform: translateY(-1px); }
+.reichroll__die-chip--dropped { opacity: 0.55; filter: grayscale(0.7); }
+/* Steady connection lamp: green when the GATT link is up, grey once it drops. */
+.reichroll__chip-dot { width: 0.45rem; height: 0.45rem; border-radius: 999px; flex: none; }
+.reichroll__chip-dot.is-on { background: #3fbf6a; box-shadow: 0 0 5px #3fbf6a; }
+.reichroll__chip-dot.is-off { background: var(--paper-shadow); }
 .reichroll__err { font-family: var(--font-mono); font-size: 0.66rem; color: var(--blood-bright); width: 100%; }
 
 /* The capture tray — one slot per pooled die. */

@@ -40,6 +40,9 @@ export interface GoDiceListener {
   onRoll?: (roll: GoDiceRoll) => void;
   /** The connected-dice list or a connection status changed (re-render cue). */
   onChange?: () => void;
+  /** ANY traffic from a connected die (movement, rest, battery) — proof it's live right now.
+   *  Lets the UI flash a die's tag the instant you wobble it, so "is it connected?" is testable. */
+  onActivity?: (deviceId: string) => void;
 }
 
 // --- Minimal Web Bluetooth surface (no @types/web-bluetooth dependency) ---------------------
@@ -169,6 +172,9 @@ export class GoDiceManager {
   private handleNotification(deviceId: string, data: DataView): void {
     const entry = this.entries.get(deviceId);
     if (!entry) return;
+    // Any frame at all is proof the die is talking to us right now — surface it for the live
+    // "wobble to confirm" cue, regardless of what the frame turns out to be.
+    this.emitActivity(deviceId);
     const msg = parseNotification(data);
     if (msg.kind === "roll-start") {
       entry.armed = true;
@@ -184,6 +190,10 @@ export class GoDiceManager {
 
   private emitRoll(roll: GoDiceRoll): void {
     for (const l of this.listeners) l.onRoll?.(roll);
+  }
+
+  private emitActivity(deviceId: string): void {
+    for (const l of this.listeners) l.onActivity?.(deviceId);
   }
 
   private emitChange(): void {
