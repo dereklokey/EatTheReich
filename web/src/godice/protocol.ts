@@ -53,6 +53,27 @@ export function dieValueFromXyz(xyz: readonly [number, number, number]): DieFace
   return best;
 }
 
+/** One resting read carried by a stable frame: the face plus whether it was a clean flat 'S' rest. */
+export interface PendingRead {
+  value: DieFace;
+  flat: boolean;
+}
+
+/**
+ * Pick the face a throw should settle on as stable frames stream in during the settle window (issue
+ * #50). A flat 'S' rest is high-confidence; a tilt/move rest ('TS'/'MS') is ambiguous on an edge —
+ * `dieValueFromXyz` snaps it to whichever of two adjacent faces is marginally nearer, a near-coin-
+ * flip. So a flat read always wins and locks the value, and a tilt/move read only fills in when no
+ * flat read has landed this throw. This stops a die that lands flat (correct) then rocks onto an edge
+ * (tilt frame → adjacent wrong face) from emitting the wrong number — the in-play "showed the wrong
+ * face" bug. Pure so it unit-tests without hardware; the live manager calls it per stable frame.
+ */
+export function preferFlatPending(current: PendingRead | null, incoming: PendingRead): PendingRead {
+  if (incoming.flat) return incoming; // a clean flat read always wins
+  if (current?.flat) return current; // never let a tilt/move read clobber a trusted flat read
+  return incoming; // best-effort: tilt/move stands in until (or unless) a flat read arrives
+}
+
 /**
  * A decoded notification. We care about throws plus a catch-all:
  *   - `roll-start`  the die was picked up / is tumbling (first byte 'R' = 82). Arms a capture.

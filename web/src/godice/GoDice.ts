@@ -4,7 +4,9 @@ import {
   GODICE_NOTIFY,
   GODICE_SERVICE,
   parseNotification,
+  preferFlatPending,
   type GoDiceMessage,
+  type PendingRead,
 } from "./protocol.js";
 
 /**
@@ -145,8 +147,9 @@ interface DieEntry {
   info: GoDieInfo;
   /** Has the die been thrown (roll-start) since its last emitted value? */
   armed: boolean;
-  /** The face from the most recent stable frame, awaiting the settle debounce before it emits. */
-  pending: DieFace | null;
+  /** The resting read awaiting the settle debounce before it emits — a flat 'S' read here is locked
+   *  in and a later tilt/move read won't overwrite it (see `preferFlatPending`). Null between throws. */
+  pending: PendingRead | null;
   /** Fires SETTLE_MS after the last stable frame → emits `pending` as the throw result. */
   settleTimer: ReturnType<typeof setTimeout> | null;
   /** The pending auto-reconnect attempt, if the link has dropped. */
@@ -375,9 +378,11 @@ export class GoDiceManager {
     const faceChanged = entry.info.lastValue !== null && msg.value !== entry.info.lastValue;
     if (!entry.armed && !faceChanged) return;
 
-    // Debounce: a die rocks/bounces before truly settling, sending several stable frames. Keep the
-    // LAST face within a quiet window so we report where it came to rest, not a mid-bounce read.
-    entry.pending = msg.value;
+    // Debounce: a die rocks/bounces before truly settling, sending several stable frames. Resolve the
+    // pending face with `preferFlatPending` so a clean flat 'S' rest locks the value and a later, edge-
+    // ambiguous tilt/move read can't clobber it — then report it once the die has been quiet for
+    // SETTLE_MS. Every frame extends the quiet window, so a rocking die keeps waiting until truly still.
+    entry.pending = preferFlatPending(entry.pending, { value: msg.value, flat: msg.flat });
     if (entry.settleTimer) clearTimeout(entry.settleTimer);
     entry.settleTimer = setTimeout(() => this.settleRoll(deviceId), SETTLE_MS);
   }
@@ -386,7 +391,7 @@ export class GoDiceManager {
   private settleRoll(deviceId: string): void {
     const entry = this.entries.get(deviceId);
     if (!entry || entry.pending == null) return;
-    const value = entry.pending;
+    const value = entry.pending.value;
     entry.pending = null;
     entry.settleTimer = null;
     entry.armed = false;

@@ -206,26 +206,57 @@
 .godice-diag__latest b { color: var(--hazard); }
 .godice-diag__dim { color: var(--paper-fade); font-weight: normal; }
 
+.godice-diag__waiting { font-style: italic; }
+
+/* Pending-throw card: the app's settled read + the "which face is actually up?" face picker. */
+.godice-diag__pending {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border: 1px solid var(--hazard);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.godice-diag__pending-read { font-family: var(--font-mono); font-size: 0.74rem; color: var(--paper); }
+.godice-diag__pending-read b { color: var(--hazard); font-size: 0.95rem; }
+.godice-diag__pending-ask { font-family: var(--font-mono); font-size: 0.7rem; color: var(--paper-fade); }
+
 .godice-diag__faces { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.3rem; }
 .godice-diag__face {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.1rem;
-  padding: 0.3rem 0;
+  padding: 0.4rem 0;
   font-family: var(--font-mono);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--paper-shadow);
   border-radius: 4px;
   color: var(--paper);
   cursor: pointer;
-  transition: border-color var(--motion-fast), background var(--motion-fast);
+  transition: border-color var(--motion-fast), background var(--motion-fast), transform var(--motion-fast) var(--ease-impact);
 }
+.godice-diag__face:hover { transform: translateY(-1px); background: rgba(255, 255, 255, 0.12); }
 .godice-diag__face:disabled { opacity: 0.45; cursor: default; }
+/* Hint at the value the app read, so confirming a correct throw is the easy default tap. */
 .godice-diag__face.is-next { border-color: var(--hazard); }
-.godice-diag__face.is-captured { background: rgba(63, 191, 106, 0.16); border-color: #3fbf6a; }
 .godice-diag__face-n { font-size: 0.95rem; font-weight: 700; }
-.godice-diag__face-read { font-size: 0.58rem; color: var(--paper-fade); }
+
+/* Running tally of logged throws — physical→app chips, green when they agree, red on a misread. */
+.godice-diag__tally { display: flex; flex-direction: column; gap: 0.3rem; }
+.godice-diag__tally-row { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.godice-diag__chip {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  padding: 0.08rem 0.32rem;
+  border-radius: 999px;
+  border: 1px solid var(--paper-shadow);
+}
+.godice-diag__chip.is-ok { background: rgba(63, 191, 106, 0.16); border-color: #3fbf6a; color: var(--paper); }
+.godice-diag__chip.is-bad { background: rgba(196, 30, 30, 0.22); border-color: var(--blood-bright); color: var(--paper); }
+.godice-diag__tally-sum { font-family: var(--font-mono); font-size: 0.66rem; color: var(--paper-fade); }
+.godice-diag__bad-text { color: var(--blood-bright); }
 
 .godice-diag__dump {
   width: 100%;
