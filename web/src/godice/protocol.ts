@@ -54,36 +54,49 @@ export function dieValueFromXyz(xyz: readonly [number, number, number]): DieFace
 }
 
 /**
- * A decoded notification. We only care about the two roll-relevant kinds plus a catch-all:
+ * A decoded notification. We care about throws plus a catch-all:
  *   - `roll-start`  the die was picked up / is tumbling (first byte 'R' = 82). Arms a capture.
- *   - `stable`      the die came to rest flat on a face (first byte 'S' = 83) → carries `value`.
- *   - `other`       battery / colour / tilt-or-edge "stable" — ignored for capture.
- * Tilt/Move/Fake "stable" variants ('TS'/'MS'/'FS') are deliberately `other`: the die isn't flat
- * on a clean face, so we don't want to read a value off it.
+ *   - `stable`      the die came to rest → carries `value`. `flat` is true for a clean flat-face
+ *                   rest ('S'), false for the less-certain tilt/move rests ('TS'/'MS'). Both are
+ *                   real resting reads worth registering; the caller debounces (so a flat 'S'
+ *                   following a bounce wins) and the GM can correct a misread by tapping the slot.
+ *   - `other`       battery / colour / the 'fake' stable ('FS', a false stop) — ignored for capture.
+ *
+ * Reading the tilt/move variants (rather than dropping them, as we first did) is deliberate: a
+ * die that lands leaning or gets nudged still reports a face, and silently dropping those reads
+ * was a likely cause of "the throw didn't register."
  */
 export type GoDiceMessage =
   | { kind: "roll-start" }
-  | { kind: "stable"; value: DieFace; xyz: [number, number, number] }
+  | { kind: "stable"; value: DieFace; xyz: [number, number, number]; flat: boolean }
   | { kind: "other" };
 
-// Message identifier first bytes (ASCII), from the GoDice JS API.
-const MSG_ROLL_START = 82; // 'R'
-const MSG_STABLE = 83; // 'S'
+// Message identifier bytes (ASCII), from the GoDice JS API.
+const MSG_ROLL_START = 82; // 'R'  — die started moving
+const MSG_STABLE = 83; // 'S'  — flat rest (also the 2nd byte of the TS/MS/FS variants)
+const MSG_TILT = 84; // 'T' in 'TS' — at rest but tilted / on an edge
+const MSG_MOVE = 77; // 'M' in 'MS' — was at rest, then nudged
+// 'F' (70) in 'FS' is the *fake* stable — a false stop — and stays `other`.
 
 /**
- * Parse one TX notification. A genuine `Stable` ('S') frame carries the XYZ vector at bytes
- * 1..3 as signed int8; everything else (including the tilted/edge "stable" frames, which begin
- * with a letter pair) is not a clean face read and comes back as `roll-start` or `other`.
+ * Parse one TX notification. A flat 'S' rest carries XYZ at bytes 1..3; the two-letter tilt/move
+ * rests ('TS'/'MS') carry XYZ at bytes 2..4 (after their "x",'S' prefix). All are signed int8.
+ * The fake stable ('FS') and the non-roll frames (battery/colour) come back as `other`.
  */
 export function parseNotification(data: DataView): GoDiceMessage {
   if (data.byteLength === 0) return { kind: "other" };
   const first = data.getUint8(0);
   if (first === MSG_ROLL_START) return { kind: "roll-start" };
-  // A bare 'S' is the flat-rest message; 'FS'/'TS'/'MS' (first byte 70/84/77) are edge/tilt/move
-  // variants — not a flat face, so we don't read a value. Require at least the 3 vector bytes.
+  // Flat rest: 'S' + XYZ at offset 1 — the clean, high-confidence read.
   if (first === MSG_STABLE && data.byteLength >= 4) {
     const xyz: [number, number, number] = [data.getInt8(1), data.getInt8(2), data.getInt8(3)];
-    return { kind: "stable", value: dieValueFromXyz(xyz), xyz };
+    return { kind: "stable", value: dieValueFromXyz(xyz), xyz, flat: true };
+  }
+  // Tilt/move rest: 'TS'/'MS' + XYZ at offset 2 — a real resting read, just less certain than a
+  // flat 'S'. 'FS' (fake stop) is excluded.
+  if (data.byteLength >= 5 && data.getUint8(1) === MSG_STABLE && (first === MSG_TILT || first === MSG_MOVE)) {
+    const xyz: [number, number, number] = [data.getInt8(2), data.getInt8(3), data.getInt8(4)];
+    return { kind: "stable", value: dieValueFromXyz(xyz), xyz, flat: false };
   }
   return { kind: "other" };
 }

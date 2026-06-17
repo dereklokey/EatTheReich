@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { DieFace } from "@shared/domain/types.js";
-import { GoDiceManager, type GoDieInfo, type GoDiceRoll } from "./GoDice.js";
+import { GoDiceManager, type GoDieInfo, type GoDiceRoll, type GoDiceRawFrame } from "./GoDice.js";
 
 /**
  * App-level GoDice link (issue #50). One shared `GoDiceManager` lives here so a pairing made
@@ -37,6 +37,8 @@ interface GoDiceState {
   /** Subscribe to any live traffic from a die (movement/rest/battery) — the "it's talking now"
    *  cue used to flash a die's tag when you wobble it. Returns an unsubscribe. */
   subscribeActivity: (cb: (deviceId: string) => void) => () => void;
+  /** Subscribe to every raw die frame (decoded both ways) — powers the diagnostic harness. */
+  subscribeRawFrames: (cb: (frame: GoDiceRawFrame) => void) => () => void;
   /** Inject a synthetic roll for testing without hardware. */
   simulateRoll: (value?: DieFace) => void;
 }
@@ -91,6 +93,10 @@ export function GoDiceProvider({ children }: { children: ReactNode }) {
     (cb: (deviceId: string) => void) => manager.subscribe({ onActivity: cb }),
     [manager],
   );
+  const subscribeRawFrames = useCallback(
+    (cb: (frame: GoDiceRawFrame) => void) => manager.subscribe({ onRawFrame: cb }),
+    [manager],
+  );
   const simulateRoll = useCallback((value?: DieFace) => manager.simulateRoll(value), [manager]);
 
   const value = useMemo<GoDiceState>(
@@ -105,9 +111,22 @@ export function GoDiceProvider({ children }: { children: ReactNode }) {
       disconnectAll,
       subscribeRolls,
       subscribeActivity,
+      subscribeRawFrames,
       simulateRoll,
     }),
-    [manager, dice, connecting, error, connect, reconnect, disconnectAll, subscribeRolls, subscribeActivity, simulateRoll],
+    [
+      manager,
+      dice,
+      connecting,
+      error,
+      connect,
+      reconnect,
+      disconnectAll,
+      subscribeRolls,
+      subscribeActivity,
+      subscribeRawFrames,
+      simulateRoll,
+    ],
   );
 
   return <GoDiceCtx.Provider value={value}>{children}</GoDiceCtx.Provider>;

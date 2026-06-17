@@ -130,6 +130,11 @@
 /* A live frame just arrived from this die — flash it so a wobble visibly proves the link. */
 .reichroll__die-chip--live { box-shadow: 0 0 0 2px #fff, 0 0 12px 2px var(--hazard); transform: translateY(-1px); }
 .reichroll__die-chip--dropped { opacity: 0.55; filter: grayscale(0.7); }
+/* Dropped but actively auto-retrying — slightly brighter than a dead chip, with a turning mark. */
+.reichroll__die-chip--reconnecting { opacity: 0.8; filter: grayscale(0.3); }
+.reichroll__chip-spin { display: inline-block; animation: reichroll-spin 1.1s linear infinite; }
+@keyframes reichroll-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .reichroll__chip-spin { animation: none; } }
 /* Steady connection lamp: green when the GATT link is up, grey once it drops. */
 .reichroll__chip-dot { width: 0.45rem; height: 0.45rem; border-radius: 999px; flex: none; }
 .reichroll__chip-dot.is-on { background: #3fbf6a; box-shadow: 0 0 5px #3fbf6a; }
@@ -180,3 +185,60 @@
 }
 .reichroll__link:hover { color: var(--paper); }
 .reichroll__link:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
+
+/* --- Diagnostic harness (issue #50): a copy-paste data capture for wrong-face reads. --- */
+.godice-diag { display: flex; flex-direction: column; gap: 0.5rem; }
+.godice-diag__toggle { align-self: flex-start; }
+.godice-diag__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.6rem;
+  border: 1px dashed var(--paper-shadow);
+  border-radius: 6px;
+}
+.godice-diag__intro { font-style: normal; line-height: 1.35; }
+.godice-diag__latest {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--paper);
+}
+.godice-diag__latest b { color: var(--hazard); }
+.godice-diag__dim { color: var(--paper-fade); font-weight: normal; }
+
+.godice-diag__faces { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.3rem; }
+.godice-diag__face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.3rem 0;
+  font-family: var(--font-mono);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--paper-shadow);
+  border-radius: 4px;
+  color: var(--paper);
+  cursor: pointer;
+  transition: border-color var(--motion-fast), background var(--motion-fast);
+}
+.godice-diag__face:disabled { opacity: 0.45; cursor: default; }
+.godice-diag__face.is-next { border-color: var(--hazard); }
+.godice-diag__face.is-captured { background: rgba(63, 191, 106, 0.16); border-color: #3fbf6a; }
+.godice-diag__face-n { font-size: 0.95rem; font-weight: 700; }
+.godice-diag__face-read { font-size: 0.58rem; color: var(--paper-fade); }
+
+.godice-diag__dump {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  line-height: 1.3;
+  color: var(--paper);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--paper-shadow);
+  border-radius: 4px;
+  padding: 0.4rem;
+  resize: vertical;
+  white-space: pre;
+}
+.godice-diag__actions { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }

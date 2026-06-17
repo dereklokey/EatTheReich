@@ -80,11 +80,18 @@ export function GoDiceConnect() {
             {goDice.dice.map((d) => (
               <span
                 key={d.id}
-                className={`reichroll__die-chip ${d.connected ? "" : "reichroll__die-chip--dropped"} ${activeIds.has(d.id) ? "reichroll__die-chip--live" : ""}`}
-                title={d.connected ? `${d.name} — connected` : `${d.name} — link lost`}
+                className={`reichroll__die-chip ${d.connected ? "" : "reichroll__die-chip--dropped"} ${!d.connected && d.reconnecting ? "reichroll__die-chip--reconnecting" : ""} ${activeIds.has(d.id) ? "reichroll__die-chip--live" : ""}`}
+                title={
+                  d.connected
+                    ? `${d.name} — connected`
+                    : d.reconnecting
+                      ? `${d.name} — reconnecting… give it a shake to wake it`
+                      : `${d.name} — link lost`
+                }
               >
                 <span className={`reichroll__chip-dot ${d.connected ? "is-on" : "is-off"}`} />
                 {d.name}
+                {!d.connected && d.reconnecting && <span className="reichroll__chip-spin"> ⟳</span>}
                 {d.lastValue != null && <b> · {d.lastValue}</b>}
               </span>
             ))}
@@ -94,7 +101,9 @@ export function GoDiceConnect() {
           <span className="reichroll__hint">
             {connectedCount > 0
               ? "Wobble a die to confirm — its tag flashes when it’s talking to the app."
-              : "Link lost — reconnect to bring them back."}
+              : goDice.dice.some((d) => d.reconnecting)
+                ? "Link lost — give the dice a shake to wake them; they’ll reconnect on their own."
+                : "Link lost — reconnect to bring them back."}
           </span>
         </>
       )}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useGoDice } from "./GoDiceContext.js";
 import { GoDiceConnect } from "./GoDiceConnect.js";
+import { GoDiceDiagnostic } from "./GoDiceDiagnostic.js";
 import "./godice.css";
 
 /** A standard GoDice set is six; show at least that many lamps, growing if more are paired. */
@@ -79,6 +80,7 @@ export function GoDiceIndicator({ className = "" }: { className?: string }) {
             </button>
           </div>
           <GoDiceConnect />
+          <GoDiceDiagnostic />
           {connected > 0 && (
             <button className="reichroll__link godice-ind__disconnect" onClick={() => goDice.disconnectAll()}>
               disconnect all

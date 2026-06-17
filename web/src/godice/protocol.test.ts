@@ -39,9 +39,9 @@ describe("GoDice vector→value mapping", () => {
 });
 
 describe("GoDice notification parsing", () => {
-  it("reads the rolled value off a Stable frame", () => {
+  it("reads the rolled value off a flat Stable frame", () => {
     const msg = parseNotification(stableFrame(FACE_VECTORS[3]));
-    expect(msg).toEqual({ kind: "stable", value: 3, xyz: [0, 64, 0] });
+    expect(msg).toEqual({ kind: "stable", value: 3, xyz: [0, 64, 0], flat: true });
   });
 
   it("recognises a Roll Start ('R') frame", () => {
@@ -49,10 +49,30 @@ describe("GoDice notification parsing", () => {
     expect(parseNotification(dv)).toEqual({ kind: "roll-start" });
   });
 
-  it("treats tilt/move/edge 'stable' variants as non-readable", () => {
-    // 'TS' (84,83) is a tilted rest — the die isn't flat on a face, so no value is read.
-    const tilt = new DataView(new Uint8Array([84, 83, 0, 0]).buffer);
-    expect(parseNotification(tilt).kind).toBe("other");
+  it("reads tilt ('TS') and move ('MS') rests as less-certain stables (XYZ at offset 2)", () => {
+    // 'TS' (84,83) then the value-4 vector [0,-64,0] in bytes 2..4.
+    const tiltDv = new DataView(new ArrayBuffer(5));
+    tiltDv.setUint8(0, 84);
+    tiltDv.setUint8(1, 83);
+    tiltDv.setInt8(2, 0);
+    tiltDv.setInt8(3, -64);
+    tiltDv.setInt8(4, 0);
+    expect(parseNotification(tiltDv)).toEqual({ kind: "stable", value: 4, xyz: [0, -64, 0], flat: false });
+
+    // 'MS' (77,83) then the value-6 vector [64,0,0].
+    const moveDv = new DataView(new ArrayBuffer(5));
+    moveDv.setUint8(0, 77);
+    moveDv.setUint8(1, 83);
+    moveDv.setInt8(2, 64);
+    moveDv.setInt8(3, 0);
+    moveDv.setInt8(4, 0);
+    expect(parseNotification(moveDv)).toEqual({ kind: "stable", value: 6, xyz: [64, 0, 0], flat: false });
+  });
+
+  it("treats the fake stable ('FS'), battery, colour and empty frames as non-readable", () => {
+    // 'FS' (70,83) is a *false* stop — the die hasn't really settled, so no value is read.
+    const fake = new DataView(new Uint8Array([70, 83, 0, 0, 0]).buffer);
+    expect(parseNotification(fake).kind).toBe("other");
     // 'Bat'/'Col' and an empty frame are likewise ignored for capture.
     const battery = new DataView(new Uint8Array([66, 97, 116, 50]).buffer);
     expect(parseNotification(battery).kind).toBe("other");
