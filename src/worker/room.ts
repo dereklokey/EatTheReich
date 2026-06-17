@@ -214,11 +214,13 @@ export class GameRoom implements DurableObject {
         if (this.composingActor === conn) this.setComposing(null, null);
         return;
       }
-      // A seat that already took its turn this round (or is dead) can't be "about to take a
-      // turn" — RULES §1 is one turn per character per round. Ignore such a (stale) arm so a
-      // late announce can't strand the banner and block the table after a completed turn (#46).
+      // A seat that already took its turn this round (or is dead), or one announcing while a turn
+      // is already live, can't be "about to take a turn" — RULES §1 is one turn per character per
+      // round. Ignore such a (stale) arm so a late announce can't strand the banner and block the
+      // table after a completed turn (#46), nor re-arm it on top of an in-progress turn (#50).
       const acted = this.state?.actedThisRound.includes(msg.seat) || this.state?.characters[msg.seat]?.dead;
-      const valid = CHAR_IDS.includes(msg.seat) && (conn === "gm" || conn === msg.seat) && !acted;
+      const live = !!this.state?.currentTurn;
+      const valid = CHAR_IDS.includes(msg.seat) && (conn === "gm" || conn === msg.seat) && !acted && !live;
       if (valid) this.setComposing(msg.seat, conn);
       return;
     }
@@ -337,8 +339,18 @@ export class GameRoom implements DurableObject {
     // clear mustn't strand it) OR a turn just ended (commit/cancel/death/last-stand). Without
     // the turn-END clear, a `composing` announce that races the turn-ending intent stays armed
     // with no recovery path and hides every client's start controls, blocking the next turn (#46).
+    const turnStarted = !state.currentTurn && !!next.currentTurn;
     const turnEnded = !!state.currentTurn && !next.currentTurn;
-    if (this.composingSeat && (next.currentTurn || turnEnded)) this.setComposing(null, null);
+    if (this.composingSeat && (next.currentTurn || turnEnded)) {
+      this.setComposing(null, null);
+    } else if (turnStarted || turnEnded) {
+      // The in-memory pointer is already null here — but it may have been LOST to a hibernation
+      // (the DO forgets who was composing on wake, §3.4) while connected clients kept their
+      // mirror and never received a clear delta. A turn going live or ending is the moment that
+      // mirror is provably stale, so force a reconcile broadcast even though setComposing would
+      // otherwise no-op on an already-null pointer — otherwise the banner strands (#50).
+      this.broadcast({ t: "composing", seat: null });
+    }
     // The live allocation preview (#44) only means anything during the open turn's ALLOCATE.
     // Drop it when the turn ends (commit/cancel/death) so the next turn starts with a clean
     // tray and a mid-allocation reconnect can't inherit a stale overlay.

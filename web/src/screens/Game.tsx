@@ -15,6 +15,7 @@ import { GMPanel } from "@/gm/GMPanel";
 import { GoDiceIndicator } from "@/godice/GoDiceIndicator";
 import { CharacterSheet } from "@/sheet/CharacterSheet";
 import { seatName } from "@/game/seats";
+import { liveComposingSeat } from "@/game/turn";
 import { CHAR_IDS, type CharId } from "@shared/events/types.js";
 
 /**
@@ -66,12 +67,18 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
     announceComposing(composing ? composeSeat : null);
   }, [composing, composeSeat, announceComposing]);
 
-  // Once the active player rolls or cancels, the server clears `composingSeat`; drop any opted-in
-  // watch so the next prep must be opted into afresh (and the watch composer unmounts) (#47).
-  const watchedSeat = game.composingSeat;
+  // The room's `composingSeat` is a transient, in-memory pointer that's lost when the Durable
+  // Object hibernates (room.ts) — so a client that opened the Composer then went idle can keep a
+  // stale mirror the server never clears. Validate it against authoritative state before any
+  // banner or watch-view trusts it, so a completed turn can never leave "X is taking a turn…"
+  // stranded (#46/#50). Authoritative state always wins over the transient signal.
+  const liveComposing = game.state ? liveComposingSeat(game.state, game.composingSeat) : null;
+
+  // Once the active player rolls or cancels (or the pointer goes stale), drop any opted-in watch
+  // so the next prep must be opted into afresh (and the watch composer unmounts) (#47).
   useEffect(() => {
-    if (watchedSeat == null) setViewComposer(false);
-  }, [watchedSeat]);
+    if (liveComposing == null) setViewComposer(false);
+  }, [liveComposing]);
 
   if (game.deleted) return <GameEnded onExit={onExit} />;
 
@@ -117,7 +124,7 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
             <TurnControls
               state={game.state}
               mySeat={game.mySeat}
-              composingSeat={game.composingSeat}
+              composingSeat={liveComposing}
               onCompose={setComposeSeat}
               // Offer "View" only to a non-driver: when this device owns the open Composer
               // (composeSeat set) the banner is covered by it anyway, so there's nothing to watch (#47).
@@ -162,9 +169,9 @@ export function Game({ code, onExit }: { code: string; onExit: () => void }) {
       {/* Watcher's read-only view of the active player's pre-roll selection (issue #47): mounts only
           when this device opted in (View) and isn't itself the driver (composeSeat null). Mirrors the
           driver's broadcast picks; unmounts automatically when composing ends (composingSeat clears). */}
-      {game.state && game.composingSeat && composeSeat == null && viewComposer && (
+      {game.state && liveComposing && composeSeat == null && viewComposer && (
         <TurnComposer
-          seat={game.composingSeat}
+          seat={liveComposing}
           state={game.state}
           send={game.send}
           mySeat={game.mySeat}
