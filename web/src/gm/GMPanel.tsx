@@ -389,7 +389,7 @@ function SecondaryRow({ o, state, send }: { o: SecondaryObjective; state: GameSt
     : {};
   const patch = (p: Partial<SecondaryObjective>) => send({ kind: "update_secondary_objective", id: o.id, patch: p });
   // Slot-free gear (rulebook p39): granted as a no-slot asset to one player on completion.
-  const grant = (g: RewardItem) => send({ kind: "loot_add", seat: recipient, item: newRewardGear(g.name, g.bonus, g.note) });
+  const grant = (g: RewardItem) => send({ kind: "loot_add", seat: recipient, item: newRewardGear(g.name, g.bonus, g.note, g.uses) });
   // Staged reveal (issue #15): an unrevealed secondary is hidden from players — dim its info
   // (not the buttons) and offer the reveal toggle, mirroring staged threats.
   const isHidden = o.revealed === false;
@@ -673,19 +673,25 @@ function GrantLootSection({ state, send }: { state: GameState; send: (i: Intent)
   const [name, setName] = useState("");
   const [bonus, setBonus] = useState("");
   const [note, setNote] = useState("");
+  // Printed pip count of the last-picked suggestion (issue #55): carried so a quick-picked special
+  // item keeps its book value (beam emitter → 1). Reset to undefined the moment the GM hand-edits the
+  // name, so an improvised item falls back to the p39 default of 3.
+  const [uses, setUses] = useState<number | undefined>(undefined);
 
   const pickSuggestion = (ref: LootRef | undefined) => {
     if (!ref) return;
     setName(ref.name);
     setBonus(ref.bonus ?? "");
     setNote(ref.note ?? "");
+    setUses(ref.uses);
   };
   const grant = () => {
     if (!name.trim()) return;
-    send({ kind: "loot_add", seat, item: newLoot(name.trim(), bonus.trim() || undefined, note.trim() || undefined) });
+    send({ kind: "loot_add", seat, item: newLoot(name.trim(), bonus.trim() || undefined, note.trim() || undefined, uses) });
     setName("");
     setBonus("");
     setNote("");
+    setUses(undefined);
   };
 
   // The special loot the book lists for the currently-loaded scene (issue #4): surfaced
@@ -698,7 +704,7 @@ function GrantLootSection({ state, send }: { state: GameState; send: (i: Intent)
   return (
     <Section title="Grant loot">
       <p className="mono text-[0.65rem] text-paper-fade mb-2">
-        Looted gear becomes equipment with 3 uses and one bonus requirement (rulebook p39). It lands in the character’s Loot, ready to activate.
+        Looted gear becomes equipment with a bonus requirement (rulebook p39) — improvised loot gets 3 uses; special items keep their printed pip count. It lands in the character’s Loot, ready to activate.
       </p>
       <div className="flex flex-col gap-1.5">
         {/* min-w-0 + full-width rows keep long item names from forcing the panel to side-scroll (issue #4). */}
@@ -736,7 +742,7 @@ function GrantLootSection({ state, send }: { state: GameState; send: (i: Intent)
           <option value="">all special loot (suggestions)…</option>
           {LOOT_CATALOG.map((l, i) => <option key={i} value={i}>{l.name}</option>)}
         </select>
-        <input className="mono w-full min-w-0 px-2 py-1 bg-paper text-paper-ink" placeholder="item name" value={name} onChange={(e) => setName(e.target.value)} />
+        <input className="mono w-full min-w-0 px-2 py-1 bg-paper text-paper-ink" placeholder="item name" value={name} onChange={(e) => { setName(e.target.value); setUses(undefined); }} />
         <div className="flex gap-1.5">
           <input className="mono flex-1 min-w-0 px-2 py-1 bg-paper text-paper-ink" placeholder="bonus, e.g. ++anti-tank" value={bonus} onChange={(e) => setBonus(e.target.value)} title="leading +'s set the bonus die count" />
           <input className="mono flex-1 min-w-0 px-2 py-1 bg-paper text-paper-ink" placeholder="note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />

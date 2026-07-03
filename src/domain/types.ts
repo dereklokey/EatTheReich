@@ -99,6 +99,8 @@ export interface Threat {
 export interface RewardItem {
   name: string;
   bonus?: string;
+  /** Printed use-pip count (rulebook p39); undefined = no use track. */
+  uses?: number;
   note?: string;
 }
 

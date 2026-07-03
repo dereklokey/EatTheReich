@@ -17,6 +17,13 @@ export interface LootRef {
   name: string;
   /** Bonus requirement text, e.g. "++anti-tank". */
   bonus?: string;
+  /**
+   * Printed use-pip count for this specific item (the checkboxes drawn beside it in the
+   * scenario, rulebook pp51–62). Special location loot varies (rulebook p39: "different
+   * numbers of uses") — the beam emitter has 1 box, the greatbow 3 — so it's set per item
+   * here rather than defaulted. Omit to fall back to LOOT_DEFAULT_USES (3).
+   */
+  uses?: number;
   note?: string;
 }
 
@@ -25,8 +32,8 @@ export interface SecondaryObjectiveRef {
   rating: number;
   /** Free-text reward (effects/flavour) shown on the secondary objective. */
   reward?: string;
-  /** Slot-free special gear unlocked on completion (rulebook p39). */
-  rewardEquipment?: { name: string; bonus?: string; note?: string }[];
+  /** Slot-free special gear unlocked on completion (rulebook p39). `uses` = printed pip count. */
+  rewardEquipment?: { name: string; bonus?: string; uses?: number; note?: string }[];
 }
 
 /**
@@ -94,7 +101,7 @@ export const LOCATIONS: Location[] = [
     sector: 3,
     objectives: [{ name: "Punch a hole in the attacking line and get out of there", rating: 8 }],
     enemies: ["Infantry Squad x2", "Sniper Team (in an adjacent building)"],
-    loot: [{ name: "Particularly huge cross", bonus: "++swing for the fences" }],
+    loot: [{ name: "Particularly huge cross", bonus: "++swing for the fences", uses: 2 }],
   },
 
   // ── Sector 2 — the bulk of the assault ────────────────────────────────────
@@ -106,8 +113,8 @@ export const LOCATIONS: Location[] = [
     enemies: [{ ref: "Stahlsoldat", staged: true }], // dormant; powers up when roused
     ubermensch: "Stahlsoldat",
     loot: [
-      { name: "Prototype beam emitter", bonus: "++++properly calibrated before firing" },
-      { name: "Loose, glowing fuel source", bonus: "++near flammable material" },
+      { name: "Prototype beam emitter", bonus: "++++properly calibrated before firing", uses: 1 },
+      { name: "Loose, glowing fuel source", bonus: "++near flammable material", uses: 1 },
     ],
     secondaryObjectives: [
       {
@@ -115,8 +122,8 @@ export const LOCATIONS: Location[] = [
         rating: 5,
         reward: "These do not occupy Loot slots.",
         rewardEquipment: [
-          { name: "Quadrupedal weapons platform", bonus: "+shrug off incoming fire" },
-          { name: "Microwave array turret", bonus: "+++anti-tank" },
+          { name: "Quadrupedal weapons platform", bonus: "+shrug off incoming fire", uses: 4 },
+          { name: "Microwave array turret", bonus: "+++anti-tank", uses: 1 },
         ],
       },
     ],
@@ -135,9 +142,9 @@ export const LOCATIONS: Location[] = [
     objectives: [{ name: "Steal something flashy and get the hell out of there", rating: 8 }],
     enemies: ["Infantry Squad in an Armoured Car (giving chase)", "Sniper Team (on an adjacent rooftop)"],
     loot: [
-      { name: "Open-topped Italian speedster", bonus: "++stunts" },
-      { name: "Reliable German import", bonus: "++tight turns" },
-      { name: "Unremarkable French jalopy", bonus: "++go unnoticed" },
+      { name: "Open-topped Italian speedster", bonus: "++stunts", uses: 2 },
+      { name: "Reliable German import", bonus: "++tight turns", uses: 2 },
+      { name: "Unremarkable French jalopy", bonus: "++go unnoticed", uses: 2 },
     ],
   },
   {
@@ -151,7 +158,7 @@ export const LOCATIONS: Location[] = [
         name: "Team up with the Resistance",
         rating: 4,
         reward: "Does not occupy a Loot slot.",
-        rewardEquipment: [{ name: "Guerrilla Squad", bonus: "+flanking manoeuvre" }],
+        rewardEquipment: [{ name: "Guerrilla Squad", bonus: "+flanking manoeuvre", uses: 3 }],
       },
     ],
   },
@@ -162,10 +169,10 @@ export const LOCATIONS: Location[] = [
     objectives: [{ name: "Smash through the museum before you're overwhelmed by the undead", rating: 8, challenge: 1 }],
     enemies: ["Einherjar", "Museum Guards (same stats as Police Patrol)"],
     loot: [
-      { name: "Painstakingly maintained masterwork greatbow", bonus: "++silent killer" },
-      { name: "Still-functional improbably loaded cannon", bonus: "+++immobile target" },
-      { name: "Turncoat warrior mummy", bonus: "+bandage restraints" },
-      { name: "Napoleon's undead horse", bonus: "+trample" },
+      { name: "Painstakingly maintained masterwork greatbow", bonus: "++silent killer", uses: 3 },
+      { name: "Still-functional improbably loaded cannon", bonus: "+++immobile target", uses: 1 },
+      { name: "Turncoat warrior mummy", bonus: "+bandage restraints", uses: 2 },
+      { name: "Napoleon's undead horse", bonus: "+trample", uses: 2 },
     ],
   },
   {
@@ -200,7 +207,7 @@ export const LOCATIONS: Location[] = [
     sector: 1,
     objectives: [{ name: "Scramble across the motor pool", rating: 8 }],
     enemies: ["Motorcycle Squad", "Infantry Squad (guarding)", { ref: "Tank (after you defeat one enemy)", staged: true }],
-    loot: [{ name: "The souped-up bullet-proof black Volkswagen of your dreams", bonus: "++front-mounted machine guns" }],
+    loot: [{ name: "The souped-up bullet-proof black Volkswagen of your dreams", bonus: "++front-mounted machine guns", uses: 3 }],
     secondaryObjectives: [{ name: "Raid the ammunition dump", rating: 4, reward: "Each player restores all uses of any firearms, grenades or similar weapons" }],
   },
   {

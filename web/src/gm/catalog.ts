@@ -105,13 +105,17 @@ export const LOOT_CATALOG: LootRef[] = (() => {
   return out;
 })();
 
-/** Build a loot Equipment from GM input: 3 uses, occupies a Loot slot, optional bonus/note (rulebook p39). */
-export function newLoot(name: string, bonus?: string, note?: string): Equipment {
+/**
+ * Build a loot Equipment from GM input: occupies a Loot slot, optional bonus/note (rulebook p39).
+ * `uses` honours the item's printed pip count when known (special location loot varies — beam
+ * emitter 1, greatbow 3, rulebook pp51–62); generic/improvised loot defaults to 3 (rulebook p39).
+ */
+export function newLoot(name: string, bonus?: string, note?: string, uses?: number): Equipment {
   const b = parseLootBonus(bonus);
   return {
     id: `loot-${uuid().slice(0, 8)}`,
     name,
-    uses: LOOT_DEFAULT_USES,
+    uses: uses ?? LOOT_DEFAULT_USES,
     loot: true,
     ...(b ? { bonus: b } : {}),
     ...(note ? { note } : {}),
@@ -120,15 +124,17 @@ export function newLoot(name: string, bonus?: string, note?: string): Equipment 
 
 /**
  * Special gear unlocked by a Secondary Objective (rulebook p39): **slot-free**
- * (`loot: false` → never occupies/needs the one active loot slot, always available) and a
- * persistent asset (no use track — a weapons platform isn't a 3-use consumable).
+ * (`loot: false` → never occupies/needs the one active loot slot, always available). It still
+ * carries the item's printed use-pip count when known (issue #56: the Quadrupedal platform has 4
+ * boxes, the Microwave turret 1) — `uses` undefined leaves it untracked for open-ended assets.
  */
-export function newRewardGear(name: string, bonus?: string, note?: string): Equipment {
+export function newRewardGear(name: string, bonus?: string, note?: string, uses?: number): Equipment {
   const b = parseLootBonus(bonus);
   return {
     id: `gear-${uuid().slice(0, 8)}`,
     name,
     loot: false,
+    ...(uses !== undefined ? { uses } : {}),
     ...(b ? { bonus: b } : {}),
     ...(note ? { note } : {}),
   };

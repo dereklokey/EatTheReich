@@ -226,3 +226,44 @@ describe("secondary-objective reward gear (issue #4 gating)", () => {
     expect(parseLootBonus(gear[1]?.bonus)).toEqual({ tag: "anti-tank", plus: 3 });
   });
 });
+
+describe("loot & reward gear use-pip counts (issues #55/#56, rulebook pp51–62)", () => {
+  // The printed checkbox count beside each item — hand-tuned per item, NOT derived from the bonus
+  // (the fuel source is ++ but 1 box; the greatbow is ++ but 3). Every scenario item must carry it.
+  const USES: Record<string, number> = {
+    "Particularly huge cross": 2,
+    "Prototype beam emitter": 1,
+    "Loose, glowing fuel source": 1,
+    "Quadrupedal weapons platform": 4,
+    "Microwave array turret": 1,
+    "Open-topped Italian speedster": 2,
+    "Reliable German import": 2,
+    "Unremarkable French jalopy": 2,
+    "Guerrilla Squad": 3,
+    "Painstakingly maintained masterwork greatbow": 3,
+    "Still-functional improbably loaded cannon": 1,
+    "Turncoat warrior mummy": 2,
+    "Napoleon's undead horse": 2,
+    "The souped-up bullet-proof black Volkswagen of your dreams": 3,
+  };
+
+  it("every scenario loot & reward item carries its printed pip count", () => {
+    const items = [
+      ...LOCATIONS.flatMap((l) => l.loot ?? []),
+      ...LOCATIONS.flatMap((l) => l.secondaryObjectives ?? []).flatMap((s) => s.rewardEquipment ?? []),
+    ];
+    // Sanity: we actually enumerated the whole catalog the book prints.
+    expect(items.length).toBe(Object.keys(USES).length);
+    for (const item of items) {
+      expect(item.uses, `${item.name} must declare uses`).toBe(USES[item.name]);
+    }
+  });
+
+  it("the beam emitter is a 1-use item and the quadruped platform a 4-use item (issues #55/#56)", () => {
+    const pavilion = LOCATIONS.find((l) => l.id === "german-technology-pavilion");
+    const beam = pavilion?.loot?.find((l) => l.name === "Prototype beam emitter");
+    const quad = pavilion?.secondaryObjectives?.[0]?.rewardEquipment?.find((g) => g.name === "Quadrupedal weapons platform");
+    expect(beam?.uses).toBe(1);
+    expect(quad?.uses).toBe(4);
+  });
+});
