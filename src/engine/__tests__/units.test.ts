@@ -24,7 +24,7 @@ import {
 import { markInjury, emptyInjuryTrack, defaultCategoryFromD6, rendInjury, resolveInjury } from "../injury.js";
 import { naziSquad, infantrySquad, armouredInfantrySquad, policePatrol, einherjar, paratrooperSquad, motorcycleSquad, werhund, tank } from "../../data/threats.js";
 import { feedBlockedByBloodless, rendingClawsInPlay, isChallengeUnlowerable, sceneComplete } from "../../domain/types.js";
-import type { Objective } from "../../domain/types.js";
+import type { Objective, SecondaryObjective } from "../../domain/types.js";
 
 describe("buildPlayerPool", () => {
   it("sums stat + equipment + satisfied bonus + abilities", () => {
@@ -312,6 +312,46 @@ describe("allocation: feed, defend, eliminate", () => {
     // ...but with the stance every unit cuts rating (4 → 2), and the bump is ignored too.
     const ignored = applyOneAllocation(emptyAccumulator(board, 0, { [guarded.id]: 3 }, true), { kind: "eliminate", targetId: guarded.id, units: 2 });
     expect(ignored.board.threats[0]!.rating).toBe(2);
+  });
+});
+
+describe("allocation: advancing a Secondary Objective (issue #51)", () => {
+  const sec = (rating: number, challenge?: number): SecondaryObjective => ({
+    id: "s1",
+    name: "Power up the weapons platform",
+    kind: "secondary",
+    rating,
+    ...(challenge ? { challenge } : {}),
+  });
+
+  it("an `advance` die reduces a Secondary Objective's rating, exactly like a primary", () => {
+    const board: BoardState = { objectives: [], threats: [], secondaryObjectives: [sec(5)] };
+    const acc = applyOneAllocation(emptyAccumulator(board, 0), { kind: "advance", targetId: "s1", units: 2 });
+    expect(acc.board.secondaryObjectives?.[0]!.rating).toBe(3);
+  });
+
+  it("Challenge on a Secondary absorbs first, then the remainder cuts rating", () => {
+    const board: BoardState = { objectives: [], threats: [], secondaryObjectives: [sec(4, 1)] };
+    // A 2-unit crit: 1 unit soaked by Challenge, 1 unit cuts rating (4 → 3).
+    const acc = applyOneAllocation(emptyAccumulator(board, 0), { kind: "advance", targetId: "s1", units: 2 });
+    expect(acc.board.secondaryObjectives?.[0]!.rating).toBe(3);
+  });
+
+  it("clears at rating 0 and never goes negative", () => {
+    const board: BoardState = { objectives: [], threats: [], secondaryObjectives: [sec(2)] };
+    const acc = applyOneAllocation(emptyAccumulator(board, 0), { kind: "advance", targetId: "s1", units: 5 });
+    expect(acc.board.secondaryObjectives?.[0]!.rating).toBe(0);
+  });
+
+  it("a primary and a Secondary sharing the tray are advanced independently", () => {
+    const primary: Objective = { id: "o1", name: "Storm the pavilion", kind: "objective", rating: 9 };
+    const board: BoardState = { objectives: [primary], threats: [], secondaryObjectives: [sec(5)] };
+    const acc = [
+      { kind: "advance", targetId: "o1", units: 2 } as const,
+      { kind: "advance", targetId: "s1", units: 1 } as const,
+    ].reduce(applyOneAllocation, emptyAccumulator(board, 0));
+    expect(acc.board.objectives[0]!.rating).toBe(7);
+    expect(acc.board.secondaryObjectives?.[0]!.rating).toBe(4);
   });
 });
 

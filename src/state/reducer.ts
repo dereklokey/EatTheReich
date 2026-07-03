@@ -272,7 +272,9 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
         ...(e.payload.gmDiceReduction ? { gmDiceReduction: e.payload.gmDiceReduction } : {}),
       };
       const acc: AllocationAccumulator = {
-        board: { objectives: s.board.objectives, threats: s.board.threats },
+        // Include Secondary Objectives (issue #51) so an `advance` die can reduce one, exactly like a
+        // primary. Their reduced ratings are written back below alongside objectives/threats.
+        board: { objectives: s.board.objectives, threats: s.board.threats, secondaryObjectives: s.board.secondaryObjectives },
         gmDiceRemaining: turn.gmDiceRemaining ?? 0,
         bloodGained: 0,
         challengeConsumed: turn.challengeConsumed,
@@ -285,6 +287,7 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
         ...s.board,
         objectives: next.board.objectives,
         threats: next.board.threats,
+        ...(next.board.secondaryObjectives ? { secondaryObjectives: next.board.secondaryObjectives } : {}),
       });
       out = withTurn(out, {
         ...turn,

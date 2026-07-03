@@ -117,13 +117,21 @@ export function AllocationTray({
     ...(sheet?.advances ?? []).filter((p) => char.unlockedAdvances.includes(p.id)),
   ].filter((p) => p.mechanic === "special");
 
+  // Revealed Secondary Objectives are allocation targets too (issue #51) — dice advance them like a
+  // primary. Hidden ones (staged reveal, issue #15) never appear in the tray.
+  const revealedSecondaries = state.board.secondaryObjectives.filter((o) => o.revealed !== false);
+
   // Live preview via the real engine (challenge soak, rating clamp, GM-die removal). A
   // 'Painless' raise (#19) is threaded in as challengeBump so the soak preview matches the server.
   const challengeBump = turn.challengeBump;
   const preview = useMemo(() => {
-    const start = emptyAccumulator({ objectives: state.board.objectives, threats: state.board.threats }, gmRemaining, challengeBump);
+    const start = emptyAccumulator(
+      { objectives: state.board.objectives, threats: state.board.threats, secondaryObjectives: revealedSecondaries },
+      gmRemaining,
+      challengeBump,
+    );
     return assign.filter((a): a is Allocation => a !== null).reduce(applyOneAllocation, start);
-  }, [assign, state.board.objectives, state.board.threats, gmRemaining, challengeBump]);
+  }, [assign, state.board.objectives, state.board.threats, revealedSecondaries, gmRemaining, challengeBump]);
 
   // The incoming GM Attack: gmSuccessCount dice (post-passive), drawn from the rolled
   // successes; Defend allocations shave the live count, knocking dice off the table.
@@ -206,6 +214,8 @@ export function AllocationTray({
   const critPicked = pickedDie?.kind === "crit";
 
   const objLive = preview.board.objectives;
+  // Revealed Secondary Objectives, live off the same preview (issue #51) — advanceable like primaries.
+  const secLive = preview.board.secondaryObjectives ?? [];
   // Staged threats (issue #12) aren't in the fight, so they're not allocatable targets.
   const thrLive = preview.board.threats.filter((t) => t.active !== false);
   // Einherjar 'Bloodless' (#20): no Feed while it's the only Threat in play. Computed off the
@@ -223,6 +233,7 @@ export function AllocationTray({
   // don't enforce"). A valid home is an incomplete Objective, a live Threat, Feed, or Defend.
   const hasValidTarget =
     objLive.some((o) => o.rating > 0) ||
+    secLive.some((o) => o.rating > 0) ||
     thrLive.some((t) => t.rating > 0) ||
     !feedDisabled ||
     !defendDisabled;
@@ -316,6 +327,25 @@ export function AllocationTray({
               blocked={done}
               label={o.name}
               sub={`Objective · rating ${o.rating}${o.challenge ? ` · challenge ${o.challenge}` : ""}${done ? " · complete" : ""}`}
+              onClick={() => !done && place({ kind: "advance", targetId: o.id })}
+              placed={placedOn((a) => a.kind === "advance" && a.targetId === o.id)}
+              onUnplace={unassign}
+            />
+          );
+        })}
+        {secLive.map((o) => {
+          // Secondary Objectives advance on the same `advance` allocation as primaries (issue #51);
+          // rating 0 completes it (the server fires SECONDARY_OBJECTIVE_COMPLETED). Rescue objectives
+          // read as a rescue so the table knows a Downed ally comes back on completion.
+          const done = o.rating === 0;
+          return (
+            <TargetCard
+              key={o.id}
+              fx={cardFx[o.id]}
+              armed={picked !== null && !done}
+              blocked={done}
+              label={o.name}
+              sub={`${o.rescueFor ? "Rescue" : "Secondary"} · rating ${o.rating}${o.challenge ? ` · challenge ${o.challenge}` : ""}${done ? " · complete" : ""}`}
               onClick={() => !done && place({ kind: "advance", targetId: o.id })}
               placed={placedOn((a) => a.kind === "advance" && a.targetId === o.id)}
               onUnplace={unassign}

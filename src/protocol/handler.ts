@@ -22,8 +22,10 @@ import {
   reinforce,
   lowerChallenge,
   isBoardSpecialId,
+  applyOneAllocation,
   LAST_STAND_DICE,
 } from "../engine/index.js";
+import type { AllocationAccumulator } from "../engine/index.js";
 import { CHARACTERS_BY_ID } from "../data/characters.js";
 import { SECONDARY_OBJECTIVE_REWARDS } from "../data/rewards.js";
 import { activeMantle } from "../state/stances.js";
@@ -716,6 +718,32 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
               events.push({ type: "HEALED", payload: { seat: turn.seat, category: cat, box: box as 1 | 2, specialId: a.specialId, specialName: heal.name }, actor: turn.seat });
               healNow.set(cat, box - 1);
             }
+          }
+        }
+      }
+      // Auto-complete (issue #51): if these allocations reduce a revealed Secondary Objective to
+      // rating 0, fire the same SECONDARY_OBJECTIVE_COMPLETED the GM's manual button does — so a
+      // rescue Secondary brings its vampire back (RULES §5) and the completion is logged/rewindable.
+      // We replay the batch through the engine with the turn's live Challenge tally so a hit soaked
+      // by Challenge doesn't count as progress it didn't make. No rewardChoice: the p38 menu / gear
+      // grant stays a follow-up on the GM's completed-objective row (§0 "suggest, don't enforce").
+      const secondaries = state.board.secondaryObjectives;
+      if (secondaries.some((o) => o.rating > 0 && o.revealed !== false)) {
+        let acc: AllocationAccumulator = {
+          board: { objectives: state.board.objectives, threats: state.board.threats, secondaryObjectives: secondaries },
+          gmDiceRemaining: turn.gmDiceRemaining ?? 0,
+          bloodGained: 0,
+          challengeConsumed: turn.challengeConsumed,
+          specialsActivated: [],
+          ...(turn.challengeBump ? { challengeBump: turn.challengeBump } : {}),
+          ...(turn.ignoreThreatChallenge ? { ignoreThreatChallenge: true } : {}),
+        };
+        for (const a of intent.allocations) acc = applyOneAllocation(acc, a);
+        for (const o of secondaries) {
+          if (o.rating <= 0 || o.revealed === false) continue;
+          const after = acc.board.secondaryObjectives?.find((s) => s.id === o.id);
+          if (after && after.rating <= 0) {
+            events.push({ type: "SECONDARY_OBJECTIVE_COMPLETED", payload: { id: o.id }, actor: turn.seat });
           }
         }
       }

@@ -1989,3 +1989,81 @@ describe("processIntent — freeform out-of-turn roll (issue #17)", () => {
     expect(d.state.freeformRolls.iryna).toBeUndefined();
   });
 });
+
+describe("processIntent — Secondary Objectives advance in dice resolution (issue #51)", () => {
+  // A board with the standard primary + Threat plus a revealed plain Secondary Objective.
+  function framed(secondaryRating: number) {
+    const d = makeDriver();
+    d.run({
+      kind: "frame_scene",
+      objectives: [objective],
+      threats: [threat],
+      secondaryObjectives: [{ id: "sec", name: "Power up the platform", kind: "secondary", rating: secondaryRating }],
+    });
+    return d;
+  }
+
+  // Drive Iryna to the ALLOCATE phase with two survivor successes and a harmless Reich roll (no injury).
+  function toAllocate(d: ReturnType<typeof makeDriver>) {
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 4]), "iryna"); // two successes survive
+    d.run({ kind: "roll_gm" }, sequenceRoller([2, 2, 2]), "gm"); // zero Reich successes
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
+  }
+
+  it("an `advance` die reduces a Secondary's rating; clearing it to 0 auto-completes it", () => {
+    const d = framed(2);
+    toAllocate(d);
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "advance", targetId: "sec", units: 1 }, { kind: "advance", targetId: "sec", units: 1 }] },
+      sequenceRoller([]),
+      "iryna",
+    );
+    expect(events.some((e) => e.type === "SECONDARY_OBJECTIVE_COMPLETED" && (e.payload as { id: string }).id === "sec")).toBe(true);
+    expect(d.state.board.secondaryObjectives.find((o) => o.id === "sec")!.rating).toBe(0);
+  });
+
+  it("a partial advance leaves the Secondary open (no completion event)", () => {
+    const d = framed(3);
+    toAllocate(d);
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "advance", targetId: "sec", units: 1 }, { kind: "advance", targetId: "sec", units: 1 }] },
+      sequenceRoller([]),
+      "iryna",
+    );
+    expect(events.some((e) => e.type === "SECONDARY_OBJECTIVE_COMPLETED")).toBe(false);
+    expect(d.state.board.secondaryObjectives.find((o) => o.id === "sec")!.rating).toBe(1);
+  });
+
+  it("clearing a rescue Secondary with dice brings the Downed vampire back up (RULES §5)", () => {
+    // Down Astrid (3 leftover Reich dice → Downed), which auto-spawns her rescue Secondary.
+    const d = makeDriver();
+    d.run({ kind: "frame_scene", objectives: [objective], threats: [threat] });
+    d.run({ kind: "start_turn", seat: "astrid", stat: "BRAWL" }, sequenceRoller([]), "astrid");
+    d.run({ kind: "roll", playerPoolDice: 3 }, sequenceRoller([5, 4, 2]), "astrid");
+    d.run({ kind: "roll_gm" }, sequenceRoller([6, 6, 4]), "gm");
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "astrid");
+    d.run({ kind: "allocate", allocations: [{ kind: "advance", targetId: "obj1", units: 1 }, { kind: "advance", targetId: "obj1", units: 1 }] }, sequenceRoller([]), "astrid");
+    d.run({ kind: "commit" }, sequenceRoller([]), "astrid");
+    d.run({ kind: "roll_injury" }, sequenceRoller([5]), "astrid");
+    d.run({ kind: "resolve_injury" }, sequenceRoller([]), "astrid");
+    const rescueId = d.state.characters.astrid.rescueObjectiveId!;
+    expect(d.state.characters.astrid.downed).toBe(true);
+
+    // The GM reveals the rescue and sets its rating to 2; Iryna then clears it with two successes.
+    d.run({ kind: "update_secondary_objective", id: rescueId, patch: { revealed: true, rating: 2 } });
+    d.run({ kind: "start_turn", seat: "iryna", stat: "SHOOT" }, sequenceRoller([]), "iryna");
+    d.run({ kind: "roll", playerPoolDice: 2 }, sequenceRoller([5, 4]), "iryna");
+    d.run({ kind: "roll_gm" }, sequenceRoller([2, 2, 2]), "gm");
+    d.run({ kind: "resolve_discard" }, sequenceRoller([]), "iryna");
+    const events = d.run(
+      { kind: "allocate", allocations: [{ kind: "advance", targetId: rescueId, units: 1 }, { kind: "advance", targetId: rescueId, units: 1 }] },
+      sequenceRoller([]),
+      "iryna",
+    );
+
+    expect(events.some((e) => e.type === "SECONDARY_OBJECTIVE_COMPLETED")).toBe(true);
+    expect(d.state.characters.astrid.downed).toBe(false);
+    expect(d.state.characters.astrid.rescueObjectiveId).toBeUndefined();
+  });
+});

@@ -1,4 +1,4 @@
-import type { Objective, Threat } from "../domain/types.js";
+import type { Objective, Threat, SecondaryObjective } from "../domain/types.js";
 import { isBoardSpecialId } from "./specials.js";
 
 /**
@@ -56,6 +56,12 @@ export interface Allocation {
 export interface BoardState {
   objectives: Objective[];
   threats: Threat[];
+  /**
+   * Revealed Secondary Objectives (issue #51). Advanced by the same `advance` allocation as a
+   * primary Objective — dice reduce their rating (Challenge absorbs first). Optional so callers
+   * that don't fold secondaries (engine batch/tests) can omit it; treated as [] when absent.
+   */
+  secondaryObjectives?: SecondaryObjective[];
 }
 
 /**
@@ -98,6 +104,7 @@ export interface AllocationResult {
 const cloneBoard = (b: BoardState): BoardState => ({
   objectives: b.objectives.map((o) => ({ ...o })),
   threats: b.threats.map((t) => ({ ...t })),
+  ...(b.secondaryObjectives ? { secondaryObjectives: b.secondaryObjectives.map((o) => ({ ...o })) } : {}),
 });
 
 export function emptyAccumulator(
@@ -146,7 +153,12 @@ export function applyOneAllocation(
 
   switch (a.kind) {
     case "advance": {
-      const obj = a.targetId ? next.board.objectives.find((o) => o.id === a.targetId) : undefined;
+      // A primary Objective or a revealed Secondary Objective (issue #51) — both carry a rating
+      // reduced the same way, and Challenge absorbs first (keyed by target id either way).
+      const obj = a.targetId
+        ? next.board.objectives.find((o) => o.id === a.targetId) ??
+          next.board.secondaryObjectives?.find((o) => o.id === a.targetId)
+        : undefined;
       if (obj) {
         const absorb = absorbChallenge(obj.id, obj.challenge, a.units);
         obj.rating = Math.max(0, obj.rating - (a.units - absorb));
