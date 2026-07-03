@@ -388,8 +388,12 @@ function SecondaryRow({ o, state, send }: { o: SecondaryObjective; state: GameSt
     : rewardKind && rewardKind !== "blood" && rewardKind !== "equipment" && rewardTarget ? { rewardTargetId: rewardTarget }
     : {};
   const patch = (p: Partial<SecondaryObjective>) => send({ kind: "update_secondary_objective", id: o.id, patch: p });
-  // Slot-free gear (rulebook p39): granted as a no-slot asset to one player on completion.
-  const grant = (g: RewardItem) => send({ kind: "loot_add", seat: recipient, item: newRewardGear(g.name, g.bonus, g.note, g.uses) });
+  // Slot-free gear (rulebook p39): granted as a no-slot asset to one player on completion. Each
+  // reward item is grantable exactly once (issue #58) — the intent carries the objective + index so
+  // the server records it and rejects re-grants, and the button below locks to "Granted".
+  const granted = o.grantedRewardItems ?? [];
+  const grant = (g: RewardItem, i: number) =>
+    send({ kind: "grant_secondary_reward", objectiveId: o.id, index: i, seat: recipient, item: newRewardGear(g.name, g.bonus, g.note, g.uses) });
   // Staged reveal (issue #15): an unrevealed secondary is hidden from players — dim its info
   // (not the buttons) and offer the reveal toggle, mirroring staged threats.
   const isHidden = o.revealed === false;
@@ -437,11 +441,15 @@ function SecondaryRow({ o, state, send }: { o: SecondaryObjective; state: GameSt
                 {gear.map((g, i) => (
                   <div key={i} className="flex items-center gap-2 bg-paper-shadow/30 px-2 py-1" style={{ borderRadius: 2 }}>
                     <span className="flex-1 min-w-0">
-                      <span className="text-xs">{g.name}</span>
+                      <span className={`text-xs ${granted.includes(i) ? "line-through text-paper-fade" : ""}`}>{g.name}</span>
                       {g.bonus && <span className="text-[0.6rem] text-blood ml-1">{g.bonus}</span>}
                       <span className="text-[0.55rem] text-paper-fade ml-1">· no slot</span>
                     </span>
-                    <button className="display bg-blood text-paper px-2 py-0.5 text-[0.65rem]" style={{ borderRadius: 2 }} onClick={() => grant(g)}>grant</button>
+                    {granted.includes(i) ? (
+                      <span className="display bg-paper-shadow/40 text-hazard-ink px-2 py-0.5 text-[0.65rem] cursor-default" style={{ borderRadius: 2 }} title="Already handed out — grantable once">Granted</span>
+                    ) : (
+                      <button className="display bg-blood text-paper px-2 py-0.5 text-[0.65rem]" style={{ borderRadius: 2 }} onClick={() => grant(g, i)}>grant</button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -622,7 +630,8 @@ function RescueSection({ state, send }: { state: GameState; send: (i: Intent) =>
  * table running off the shared screen — sheets + board, no per-player turn composer — needs the GM to
  * do it for them. So this mirrors the sheet's unlock as a GM control: pick a player, grant the blood to
  * unlock a locked Advance. Reuses the existing `unlock_advance` intent (the GM may act on any seat,
- * §3.6) and the reducer dedups, so a double grant is a no-op. Re-lock on a misclick is the GM's Rewind.
+ * §3.6) and the reducer dedups, so a double grant is a no-op. A misclick is undone in place with the
+ * paired `relock_advance` intent (issue #59) — no Rewind needed.
  */
 function UbermenschBloodSection({ state, send }: { state: GameState; send: (i: Intent) => void }) {
   const firstClaimed = CHAR_IDS.find((id) => state.seats[id]?.claimed) ?? CHAR_IDS[0]!;
@@ -648,7 +657,16 @@ function UbermenschBloodSection({ state, send }: { state: GameState; send: (i: I
             <div key={a.id} className="paper paper-tight flex items-center gap-2 mono text-sm">
               <span className={`flex-1 ${isUnlocked ? "" : "text-paper-fade"}`}>{a.name}</span>
               {isUnlocked ? (
-                <span className="mono text-[0.65rem] text-hazard-ink font-bold">✓ unlocked</span>
+                <>
+                  <span className="mono text-[0.65rem] text-hazard-ink font-bold">✓ unlocked</span>
+                  <button
+                    className="mono text-[0.65rem] underline text-paper-fade shrink-0"
+                    onClick={() => send({ kind: "relock_advance", seat, advanceId: a.id })}
+                    title="Unlocked by mistake — lock it back"
+                  >
+                    re-lock
+                  </button>
+                </>
               ) : (
                 <button
                   className="shrink-0 display bg-blood text-paper px-2 py-0.5 text-xs"

@@ -128,8 +128,15 @@ export type Intent =
   /** Un-spend an equipment use (the sheet's click-to-remove); restores 1 use up to the item's max. */
   | { kind: "restore_equipment"; seat: CharId; itemId: string }
   | { kind: "loot_add"; seat: CharId; item: Equipment }
+  /** GM grants a Secondary Objective's slot-free reward gear to a player (issue #58). Carries the
+   *  source objective + reward index so it's grantable exactly once (server rejects re-grants) and
+   *  the board can streak the gift from the objective to the recipient's card. */
+  | { kind: "grant_secondary_reward"; objectiveId: string; index: number; seat: CharId; item: Equipment }
   | { kind: "loot_activate"; seat: CharId; itemId: string }
   | { kind: "unlock_advance"; seat: CharId; advanceId: string }
+  /** Re-lock an advance unlocked by mistake (issue #59). Symmetric to `unlock_advance` — the seat
+   *  owner (or GM) may take it back; server emits ADVANCE_LOCKED and the reducer drops the id. */
+  | { kind: "relock_advance"; seat: CharId; advanceId: string }
   /** Cut to a flashback (RULES §9): a once-per-session reroll on a weak roll. The scene is
    *  narrated out loud at the table, so the intent carries no text — just the seat (issue #9). */
   | { kind: "trigger_flashback"; seat: CharId }

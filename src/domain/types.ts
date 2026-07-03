@@ -117,6 +117,12 @@ export interface SecondaryObjective {
   /** Gear this objective unlocks on completion (slot-free). Drives the GM gate (issue #4). */
   rewardEquipment?: RewardItem[];
   /**
+   * Indices into `rewardEquipment` already handed to a player (issue #58). Each reward item is
+   * grantable exactly once: the GM's "grant" button flips to "Granted" and locks once its index
+   * lands here, so a distracted GM can't keep clicking and stacking duplicates onto a sheet.
+   */
+  grantedRewardItems?: number[];
+  /**
    * Staged reveal (issue #15): `false` means the GM has placed this Secondary but is holding
    * it back — hidden from players until revealed, mirroring a staged Threat. Omitted/`true` =
    * visible. Scene-loaded secondaries default to `false`; rescue + manually-added ones default

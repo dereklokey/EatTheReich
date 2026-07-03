@@ -9,6 +9,7 @@ import { seatName } from "@/game/seats";
 import { useEffects } from "@/effects/EffectsContext";
 import { useSound } from "@/effects/SoundContext";
 import "./blood-arc.css";
+import "./grant-fx.css";
 import "./board.css";
 
 /** Deterministic 32-bit string hash — stable per id, so a card's look never flickers. */
@@ -44,6 +45,21 @@ interface ShareArc {
   fromId: CharId;
   toId: CharId;
   amount: number;
+  seq: number;
+}
+
+/**
+ * A live loot-grant spectacle (issue #58): a fan of blood-red beams streaking from a completed
+ * Secondary Objective card to the recipient's character card, with the gear's name landing on the
+ * card. Positions are measured against the whole board-layout (source is in the board column, target
+ * in the crew rail), unlike the blood arc which stays inside the crew rail.
+ */
+interface GrantFx {
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  fromId: string;
+  toId: CharId;
+  itemName: string;
   seq: number;
 }
 
@@ -92,9 +108,13 @@ export function Board({
   const { reduced } = useEffects();
   const { play } = useSound();
   const crewRef = useRef<HTMLDivElement>(null);
+  const layoutRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const secCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const lastShareSeq = useRef(0);
+  const lastGrantSeq = useRef(0);
   const [arc, setArc] = useState<ShareArc | null>(null);
+  const [grantFx, setGrantFx] = useState<GrantFx | null>(null);
 
   // Watch the (session-local) event feed for a fresh BLOOD_SHARED and stream the arc.
   useEffect(() => {
@@ -123,6 +143,35 @@ export function Board({
     return () => clearTimeout(t);
   }, [arc]);
 
+  // Watch for a fresh SECONDARY_REWARD_GRANTED and streak the gift from the objective to the
+  // recipient's card (issue #58). Measured against the whole board-layout so it can cross from the
+  // board column to the crew rail. Skips silently if either card is offscreen (e.g. a hidden objective).
+  useEffect(() => {
+    let latest: GameEvent | undefined;
+    for (const e of events) if (e.type === "SECONDARY_REWARD_GRANTED" && e.seq > lastGrantSeq.current) latest = e;
+    if (!latest || latest.type !== "SECONDARY_REWARD_GRANTED") return;
+    lastGrantSeq.current = latest.seq;
+    if (reduced) return;
+
+    const layer = layoutRef.current;
+    const src = secCardRefs.current.get(latest.payload.objectiveId);
+    const dst = cardRefs.current.get(latest.payload.seat);
+    if (!layer || !src || !dst) return;
+    const lr = layer.getBoundingClientRect();
+    const center = (el: HTMLElement) => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left - lr.left + r.width / 2, y: r.top - lr.top + r.height / 2 };
+    };
+    play("feed");
+    setGrantFx({ from: center(src), to: center(dst), fromId: latest.payload.objectiveId, toId: latest.payload.seat, itemName: latest.payload.item.name, seq: latest.seq });
+  }, [events, reduced, play]);
+
+  useEffect(() => {
+    if (!grantFx) return;
+    const t = setTimeout(() => setGrantFx(null), 1700);
+    return () => clearTimeout(t);
+  }, [grantFx]);
+
   // Staged content is the GM's to reveal: players never see a staged threat / unrevealed
   // secondary objective / unrevealed loot, and the board gives no hint one exists. The GM
   // sees everything, staged items flagged + dimmed (issues #12, #15).
@@ -144,7 +193,8 @@ export function Board({
   const orderedCrew = [...CHAR_IDS].sort((a, b) => crewRank(a) - crewRank(b));
   return (
     <div className="substrate grain min-h-full p-4 pb-20 app-w">
-      <div className="board-layout">
+      <div ref={layoutRef} className="board-layout">
+        {grantFx && <GrantBeams key={grantFx.seq} fx={grantFx} />}
         {/* ───────── LEFT: the crew rail (issue #7) ───────── */}
         <section className="crew-rail-wrap" aria-label="F.A.N.G.">
           <h2 className="crew-rail-head">
@@ -166,7 +216,11 @@ export function Board({
                 // Whose turn (§6): the active vampire takes a warm spotlight; the rest
                 // recede while someone holds the floor. A state change, not ambient motion.
                 recede={!!state.activeSeat && state.activeSeat !== id && (state.seats[id]?.claimed ?? false)}
-                fx={arc ? (arc.fromId === id ? "bleed" : arc.toId === id ? "flood" : undefined) : undefined}
+                fx={
+                  arc ? (arc.fromId === id ? "bleed" : arc.toId === id ? "flood" : undefined)
+                  : grantFx && grantFx.toId === id ? "flood"
+                  : undefined
+                }
                 onOpen={onOpenSheet ? () => onOpenSheet(id) : undefined}
               />
             ))}
@@ -230,7 +284,15 @@ export function Board({
                       const gmCanReveal = isGm && onSetSecondaryRevealed;
                       const dim = hidden ? "opacity-30" : "";
                       return (
-                        <div key={o.id} className={`paper paper-tight paper--objective ${paperCut(o.id)} ${done ? "opacity-60" : ""}`} style={{ transform: `rotate(${cardTilt(o.id)}deg)` }}>
+                        <div
+                          key={o.id}
+                          ref={(el) => {
+                            if (el) secCardRefs.current.set(o.id, el);
+                            else secCardRefs.current.delete(o.id);
+                          }}
+                          className={`paper paper-tight paper--objective ${paperCut(o.id)} ${done ? "opacity-60" : ""} ${grantFx?.fromId === o.id ? "grant-source" : ""}`}
+                          style={{ transform: `rotate(${cardTilt(o.id)}deg)` }}
+                        >
                           <div className="flex items-center gap-2">
                             <div className={`flex-1 min-w-0 ${dim}`}>
                               <div className="flex items-baseline justify-between gap-2">
@@ -574,6 +636,59 @@ function BloodArc({ arc }: { arc: ShareArc }) {
       >
         +{amount}
       </motion.span>
+    </div>
+  );
+}
+
+/**
+ * The loot-grant spectacle (issue #58): a fan of blood-red beams sprayed from a completed Secondary
+ * Objective card to the recipient's character card, with the gear's name landing on the card. It's the
+ * blood arc's louder cousin — many beams instead of one, and a longer flourish — as the issue asked.
+ * One-shot; positions are measured from live rects so it tracks the layout.
+ */
+function GrantBeams({ fx }: { fx: GrantFx }) {
+  const { from, to, itemName } = fx;
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  const nx = -dy / dist; // unit perpendicular to the giver→receiver line
+  const ny = dx / dist;
+  const BEAMS = 7;
+  const spread = Math.min(120, Math.max(48, dist * 0.28));
+  const beams = Array.from({ length: BEAMS }, (_, i) => {
+    const t = (i / (BEAMS - 1)) * 2 - 1; // −1..1: fan the apexes symmetrically about the straight line
+    const lift = t * spread;
+    const mx = (from.x + to.x) / 2 + nx * lift;
+    const my = (from.y + to.y) / 2 + ny * lift;
+    return { path: `M ${from.x} ${from.y} Q ${mx} ${my} ${to.x} ${to.y}`, delay: i * 0.05, wide: i % 2 === 0 };
+  });
+  return (
+    <div className="grant-fx" aria-hidden>
+      <svg className="grant-fx__svg">
+        {beams.map((b, i) => (
+          <motion.path
+            key={i}
+            d={b.path}
+            fill="none"
+            stroke="var(--blood-bright)"
+            strokeWidth={b.wide ? 2.5 : 1.4}
+            strokeLinecap="round"
+            initial={{ pathLength: 0, opacity: 0 }}
+            animate={{ pathLength: 1, opacity: [0, 0.9, 0] }}
+            transition={{ duration: 1.05, delay: b.delay, ease: [0.2, 0.7, 0.2, 1] }}
+          />
+        ))}
+      </svg>
+      <span className="grant-fx__anchor" style={{ left: to.x, top: to.y }}>
+        <motion.span
+          className="grant-fx__label display"
+          initial={{ y: 8, opacity: 0, scale: 0.7 }}
+          animate={{ y: [8, -30], opacity: [0, 1, 1, 0], scale: [0.7, 1, 1, 0.95] }}
+          transition={{ duration: 1.35, delay: 0.4, ease: "easeOut" }}
+        >
+          {itemName}
+        </motion.span>
+      </span>
     </div>
   );
 }

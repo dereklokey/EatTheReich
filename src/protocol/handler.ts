@@ -1044,10 +1044,20 @@ export function processIntent(state: GameState, intent: Intent, deps: IntentDeps
     }
     case "loot_add":
       return ok([{ type: "LOOT_ADDED", payload: { seat: intent.seat, item: intent.item }, actor: intent.seat }]);
+    case "grant_secondary_reward": {
+      // Grantable exactly once (issue #58): the button locks client-side, but enforce it here too so a
+      // double-click / stale client can't stack duplicates onto a sheet. Silently no-op an already-granted
+      // index rather than erroring — the reward is already where it belongs.
+      const obj = state.board.secondaryObjectives.find((o) => o.id === intent.objectiveId);
+      if (!obj || (obj.grantedRewardItems ?? []).includes(intent.index)) return ok([]);
+      return ok([{ type: "SECONDARY_REWARD_GRANTED", payload: { objectiveId: intent.objectiveId, index: intent.index, seat: intent.seat, item: intent.item }, actor: intent.seat }]);
+    }
     case "loot_activate":
       return ok([{ type: "LOOT_ACTIVATED", payload: { seat: intent.seat, itemId: intent.itemId }, actor: intent.seat }]);
     case "unlock_advance":
       return ok([{ type: "ADVANCE_UNLOCKED", payload: { seat: intent.seat, advanceId: intent.advanceId }, actor: intent.seat }]);
+    case "relock_advance":
+      return ok([{ type: "ADVANCE_LOCKED", payload: { seat: intent.seat, advanceId: intent.advanceId }, actor: intent.seat }]);
     case "trigger_flashback": {
       // A flashback is a one-per-session *reroll* the player calls on a weak roll (RULES §9,
       // rulebook p41), so it only makes sense in the roll window: after the player has cast

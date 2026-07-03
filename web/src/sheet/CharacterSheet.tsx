@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { GameState } from "@shared/state/types.js";
 import type { Intent } from "@shared/protocol/messages.js";
 import type { CharId } from "@shared/events/types.js";
@@ -474,7 +474,7 @@ function PowerSection({
     <Section title={title}>
       {advances && (
         <p className="mono text-[0.65rem] text-paper-fade italic mb-2 -mt-1">
-          Locked until you drink Übermensch (mini-boss) blood{canEdit ? " — then tap unlock" : ""}.
+          Locked until you drink Übermensch (mini-boss) blood{canEdit ? " — then break the chains" : ""}.
         </p>
       )}
       {powers.map((p) => {
@@ -487,33 +487,125 @@ function PowerSection({
         // also Blood-spent server-side, so no generic "spend" button either.
         const stanceActive = p.mechanic === "active" && p.setsStance;
         return (
-          <div key={p.id} className={`mb-2 border-b border-paper-shadow/40 pb-2 ${locked ? "opacity-50" : ""}`}>
-            <div className="flex items-center gap-2">
-              <span className="mono text-sm font-bold flex-1">{p.name}</span>
-              <span className="mono text-[0.6rem] uppercase text-paper-fade">{p.mechanic}{p.bloodCost ? ` · ${p.bloodCost} blood` : ""}</span>
-              {advances && locked && canEdit && (
-                <button className="mono text-xs underline text-blood" title="Drank Übermensch blood" onClick={() => send({ kind: "unlock_advance", seat, advanceId: p.id })}>
-                  unlock
-                </button>
+          <div key={p.id} className={`${advances ? "relative " : ""}mb-2 border-b border-paper-shadow/40 pb-2`}>
+            {/* Content dims under the chains while locked; the chain overlay itself stays full-strength. */}
+            <div className={locked ? "opacity-50" : ""}>
+              <div className="flex items-center gap-2">
+                <span className="mono text-sm font-bold flex-1">{p.name}</span>
+                <span className="mono text-[0.6rem] uppercase text-paper-fade">{p.mechanic}{p.bloodCost ? ` · ${p.bloodCost} blood` : ""}</span>
+                {/* Unlocked by mistake? The seat owner can slap the chains back on (issue #59). */}
+                {advances && !locked && canEdit && (
+                  <button
+                    className="advance-relock"
+                    title="Re-lock this advance (unlocked by mistake)"
+                    aria-label="Re-lock this advance"
+                    onClick={() => send({ kind: "relock_advance", seat, advanceId: p.id })}
+                  >
+                    <LockGlyph open />
+                  </button>
+                )}
+                {!locked && canEdit && p.mechanic === "active" && !challengeActive && !stanceActive && p.bloodCost && char.blood >= p.bloodCost && (
+                  <button className="mono text-xs underline text-blood" onClick={() => send({ kind: "change_blood", seat, delta: -(p.bloodCost ?? 0), reason: p.name })}>
+                    spend {p.bloodCost}
+                  </button>
+                )}
+              </div>
+              <div className="mono text-[0.7rem] text-paper-fade">{p.text}</div>
+              {p.bonus && <div className="mono text-[0.65rem] text-paper-fade">+{p.bonus.plus} when “{p.bonus.tag}”</div>}
+              {!locked && canEdit && challengeActive && (
+                <ChallengeReductionControl power={p} seat={seat} blood={char.blood} board={board} send={send} />
               )}
-              {!locked && canEdit && p.mechanic === "active" && !challengeActive && !stanceActive && p.bloodCost && char.blood >= p.bloodCost && (
-                <button className="mono text-xs underline text-blood" onClick={() => send({ kind: "change_blood", seat, delta: -(p.bloodCost ?? 0), reason: p.name })}>
-                  spend {p.bloodCost}
-                </button>
+              {!locked && stanceActive && (
+                <StanceControl power={p} seat={seat} char={char} board={board} canEdit={canEdit} send={send} />
               )}
             </div>
-            <div className="mono text-[0.7rem] text-paper-fade">{p.text}</div>
-            {p.bonus && <div className="mono text-[0.65rem] text-paper-fade">+{p.bonus.plus} when “{p.bonus.tag}”</div>}
-            {!locked && canEdit && challengeActive && (
-              <ChallengeReductionControl power={p} seat={seat} blood={char.blood} board={board} send={send} />
-            )}
-            {!locked && stanceActive && (
-              <StanceControl power={p} seat={seat} char={char} board={board} canEdit={canEdit} send={send} />
+            {advances && locked && (
+              <AdvanceLock canEdit={canEdit} onBreak={() => send({ kind: "unlock_advance", seat, advanceId: p.id })} />
             )}
           </div>
         );
       })}
     </Section>
+  );
+}
+
+/**
+ * The locked-advance chains (issue #59). A locked Advance is bound in crossed chains with a padlock in
+ * the middle; the seat owner taps the padlock to "drink the Übermensch blood." The shackle springs, the
+ * two chains recoil off the card edges, and only when that break animation *finishes* do we fire
+ * `unlock_advance` — so the state flip that removes the overlay lands after the spectacle, not before it.
+ * Read-only viewers see the chains but can't break them. All motion is auto-zeroed under reduce-effects
+ * (theme.css), so it degrades to an instant toggle. Re-locking (the header's open padlock) simply
+ * re-mounts this overlay, which clanks back into place via its entrance animation.
+ */
+function AdvanceLock({ canEdit, onBreak }: { canEdit: boolean; onBreak: () => void }) {
+  const [breaking, setBreaking] = useState(false);
+  const uid = useId();
+  return (
+    <div
+      className={`advance-chains${breaking ? " advance-chains--break" : ""}`}
+      onAnimationEnd={(e) => {
+        // Fire the unlock exactly once, when the padlock's own break animation ends (not the chains').
+        if (breaking && e.animationName === "advance-lock-break") onBreak();
+      }}
+    >
+      <span className="advance-chain advance-chain--top" aria-hidden>
+        <ChainBand id={`${uid}-t`} />
+      </span>
+      <span className="advance-chain advance-chain--bottom" aria-hidden>
+        <ChainBand id={`${uid}-b`} />
+      </span>
+      <button
+        type="button"
+        className="advance-lock"
+        disabled={!canEdit || breaking}
+        aria-label={canEdit ? "Break the chains — unlock this advance" : "Locked until Übermensch blood"}
+        title={canEdit ? "Drank Übermensch blood — break the chains" : "Locked until you drink Übermensch blood"}
+        onClick={() => canEdit && setBreaking(true)}
+      >
+        <LockGlyph />
+      </button>
+    </div>
+  );
+}
+
+/** A width-filling band of interlocking chain links, tiled via an SVG pattern (unique id per band). */
+function ChainBand({ id }: { id: string }) {
+  return (
+    <svg className="advance-chain-svg" width="100%" height="100%" preserveAspectRatio="none" aria-hidden focusable="false">
+      <defs>
+        <pattern id={id} width="24" height="14" patternUnits="userSpaceOnUse">
+          {/* Dark outer stroke + light inner stroke = a cylindrical steel-link look. The second link runs
+              past the tile edge so the chain reads continuous across tiles. */}
+          <g fill="none">
+            <rect x="2" y="2.5" width="14" height="9" rx="4.5" stroke="#3c4047" strokeWidth="4.6" />
+            <rect x="12" y="2.5" width="14" height="9" rx="4.5" stroke="#3c4047" strokeWidth="4.6" />
+            <rect x="2" y="2.5" width="14" height="9" rx="4.5" stroke="#c2c7d0" strokeWidth="1.7" />
+            <rect x="12" y="2.5" width="14" height="9" rx="4.5" stroke="#c2c7d0" strokeWidth="1.7" />
+          </g>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill={`url(#${id})`} />
+    </svg>
+  );
+}
+
+/** A crisp SVG padlock that themes off `currentColor`; `open` swaps to a sprung shackle for the re-lock control. */
+function LockGlyph({ open = false }: { open?: boolean }) {
+  return (
+    <svg className={`lock-glyph${open ? " lock-glyph--open" : ""}`} viewBox="0 0 24 24" width="1em" height="1em" aria-hidden focusable="false">
+      <path
+        className="lock-shackle"
+        d={open ? "M8 11V7a4 4 0 0 1 7.6-1.8" : "M8 11V7a4 4 0 0 1 8 0v4"}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <rect className="lock-body" x="5" y="11" width="14" height="10" rx="2" fill="currentColor" />
+      <circle cx="12" cy="15.2" r="1.5" fill="#1d2026" />
+      <rect x="11.25" y="15.2" width="1.5" height="3.1" rx="0.75" fill="#1d2026" />
+    </svg>
   );
 }
 

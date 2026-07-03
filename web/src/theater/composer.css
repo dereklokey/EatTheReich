@@ -257,6 +257,8 @@
   animation: minidie-drop var(--motion-base) var(--ease-impact) both;
 }
 .minidie--bonus { box-shadow: 0 0 0 1px var(--hazard), 0 1px 0 rgba(0, 0, 0, 0.4); }
+/* Go Out With A Bang: the +1 die from spending an item's last use — blood-red ring. */
+.minidie--bang { box-shadow: 0 0 0 1px var(--blood-bright), 0 1px 0 rgba(0, 0, 0, 0.4); }
 @keyframes minidie-drop {
   0% { transform: translateY(-120%) rotate(-18deg); opacity: 0; }
   70% { transform: translateY(8%) rotate(3deg); opacity: 1; }

@@ -1810,6 +1810,53 @@ describe("processIntent — loot", () => {
   });
 });
 
+describe("processIntent — grant secondary reward (issue #58)", () => {
+  const secWithGear = {
+    id: "sec",
+    name: "Crack the armoury",
+    kind: "secondary" as const,
+    rating: 0,
+    rewardEquipment: [{ name: "Panzerfaust", uses: 1 }, { name: "Medkit" }],
+  };
+
+  it("grants a reward item once, drops the loot, marks it, and rejects re-grants", () => {
+    const d = makeDriver();
+    d.run({ kind: "add_secondary_objective", objective: secWithGear });
+
+    const item = { id: "gear-pf", name: "Panzerfaust", loot: false, uses: 1 };
+    const ev = d.run({ kind: "grant_secondary_reward", objectiveId: "sec", index: 0, seat: "iryna", item });
+    expect(ev.map((e) => e.type)).toEqual(["SECONDARY_REWARD_GRANTED"]);
+    expect(d.state.characters.iryna.loot.map((l) => l.id)).toEqual(["gear-pf"]);
+    expect(d.state.characters.iryna.equipmentUses["gear-pf"]).toBe(1);
+    expect(d.state.board.secondaryObjectives.find((o) => o.id === "sec")?.grantedRewardItems).toEqual([0]);
+
+    // Re-granting the same index is a silent no-op — no event, no duplicate on the sheet.
+    const again = d.run({ kind: "grant_secondary_reward", objectiveId: "sec", index: 0, seat: "iryna", item: { ...item, id: "gear-dup" } });
+    expect(again).toEqual([]);
+    expect(d.state.characters.iryna.loot.map((l) => l.id)).toEqual(["gear-pf"]);
+  });
+
+  it("tracks each reward index independently", () => {
+    const d = makeDriver();
+    d.run({ kind: "add_secondary_objective", objective: secWithGear });
+    d.run({ kind: "grant_secondary_reward", objectiveId: "sec", index: 1, seat: "iryna", item: { id: "gear-med", name: "Medkit", loot: false } });
+    expect(d.state.board.secondaryObjectives.find((o) => o.id === "sec")?.grantedRewardItems).toEqual([1]);
+
+    // index 0 is still open, and can go to a different player.
+    const ev = d.run({ kind: "grant_secondary_reward", objectiveId: "sec", index: 0, seat: "nicole", item: { id: "gear-pf", name: "Panzerfaust", loot: false } });
+    expect(ev.map((e) => e.type)).toEqual(["SECONDARY_REWARD_GRANTED"]);
+    expect(d.state.board.secondaryObjectives.find((o) => o.id === "sec")?.grantedRewardItems).toEqual([1, 0]);
+    expect(d.state.characters.nicole.loot.map((l) => l.id)).toEqual(["gear-pf"]);
+  });
+
+  it("no-ops a grant against an unknown objective", () => {
+    const d = makeDriver();
+    const ev = d.run({ kind: "grant_secondary_reward", objectiveId: "nope", index: 0, seat: "iryna", item: { id: "g", name: "G", loot: false } });
+    expect(ev).toEqual([]);
+    expect(d.state.characters.iryna.loot).toEqual([]);
+  });
+});
+
 describe("processIntent — manual injury override (sheet click-to-mark)", () => {
   it("marks an injury box with no Blood cost, recording the 2nd-box penalty", () => {
     const d = makeDriver();

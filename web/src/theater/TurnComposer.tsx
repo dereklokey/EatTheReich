@@ -515,9 +515,13 @@ function PoolLine({
           <span className="composer__src-sub">{sub}</span>
         </span>
         <span className="composer__dice">
-          {Array.from({ length: dice + bonusDice }, (_, i) => (
-            <span key={i} className={`minidie ${i >= dice ? "minidie--bonus" : ""}`} />
+          {Array.from({ length: dice }, (_, i) => (
+            <span key={`d${i}`} className="minidie" />
           ))}
+          {Array.from({ length: bonusDice }, (_, i) => (
+            <span key={`b${i}`} className="minidie minidie--bonus" />
+          ))}
+          {goesOutWithABang && <span className="minidie minidie--bang" title="last use — Go Out With A Bang +1" />}
         </span>
         {onRemove ? (
           <button className="composer__x" onClick={onRemove} title="drop from the pool">

@@ -87,3 +87,134 @@
   opacity: 0.85;
 }
 .stamp--rust { color: var(--hazard-warm); border-color: var(--hazard-warm); }
+
+/* ===========================================================================
+   Locked Advances (issue #59): a padlock-and-chains overlay bound across a
+   locked Advance. Tapping the padlock springs the shackle and recoils the
+   chains off both edges before the unlock commits. The entrance "clank" also
+   covers a re-lock. All motion is zeroed under reduce-effects (theme.css),
+   leaving a clean instant lock/unlock.
+   =========================================================================== */
+.advance-chains {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;         /* only the padlock button catches clicks */
+  overflow: hidden;             /* clip the chains as they fly off the card edges */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: chains-clank 260ms var(--ease-impact) both;
+}
+
+/* Two chain bands cross in an X, centred on the card and rotated in opposite directions so they meet
+   right under the padlock; splayed wider than the card so their ends bleed off (and clip) at the edges. */
+.advance-chain {
+  position: absolute;
+  left: -12%;
+  top: 50%;
+  width: 124%;
+  height: 13px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.55));
+  opacity: 0.82;                /* a hair back, so the padlock reads as the focal point */
+  will-change: transform, opacity;
+  transform: translateY(-50%) rotate(var(--chain-rot, 0deg));
+}
+.advance-chain-svg { display: block; width: 100%; height: 100%; }
+.advance-chain--top { --chain-rot: -24deg; }
+.advance-chain--bottom { --chain-rot: 24deg; }
+
+.advance-lock {
+  position: relative;
+  z-index: 4;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #e2e7ef;               /* bright brushed steel */
+  font-size: 33px;              /* drives the 1em glyph */
+  line-height: 1;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7));
+  transition: transform 120ms ease, color 120ms ease;
+}
+/* A soft dark disc behind the padlock lifts it off the chains so it reads as the thing to press. */
+.advance-lock::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -3px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(20, 16, 33, 0.62) 42%, transparent 72%);
+}
+.advance-lock:hover:not(:disabled),
+.advance-lock:focus-visible:not(:disabled) {
+  color: #f4f7fb;
+  transform: scale(1.12);
+  outline: none;
+}
+.advance-lock:disabled { cursor: default; }
+.lock-glyph { display: block; width: 1em; height: 1em; }
+.lock-shackle { transform-box: fill-box; transform-origin: left bottom; }
+
+/* The small open-padlock button in an unlocked Advance's header that snaps the chains back on. */
+.advance-relock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--paper-fade);
+  font-size: 15px;
+  line-height: 1;
+  transition: color 120ms ease, transform 120ms ease;
+}
+.advance-relock:hover,
+.advance-relock:focus-visible {
+  color: var(--blood);
+  transform: scale(1.15);
+  outline: none;
+}
+
+/* --- The break: shackle springs, chains recoil, padlock pops then drops away. --- */
+.advance-chains--break .lock-shackle { animation: shackle-open 260ms var(--ease-impact) 120ms both; }
+.advance-chains--break .advance-chain--top { animation: chain-snap-top 520ms var(--ease-impact) 180ms both; }
+.advance-chains--break .advance-chain--bottom { animation: chain-snap-bottom 520ms var(--ease-impact) 180ms both; }
+.advance-chains--break .advance-lock { animation: advance-lock-break 700ms var(--ease-impact) both; }
+
+@keyframes chains-clank {
+  0% { opacity: 0; transform: translateY(-3px) scale(1.04); }
+  55% { opacity: 1; transform: translateY(1px) scale(0.996); }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes shackle-open {
+  0%, 35% { transform: rotate(0) translateY(0); }
+  100% { transform: rotate(-36deg) translateY(-1px); }
+}
+@keyframes chain-snap-top {
+  0% { transform: translate(0, -50%) rotate(var(--chain-rot)); opacity: 0.82; }
+  16% { transform: translate(5px, -50%) rotate(var(--chain-rot)); opacity: 0.82; }  /* a beat of tension */
+  100% { transform: translate(-150%, -50%) rotate(calc(var(--chain-rot) - 10deg)); opacity: 0; }
+}
+@keyframes chain-snap-bottom {
+  0% { transform: translate(0, -50%) rotate(var(--chain-rot)); opacity: 0.82; }
+  16% { transform: translate(-5px, -50%) rotate(var(--chain-rot)); opacity: 0.82; }
+  100% { transform: translate(150%, -50%) rotate(calc(var(--chain-rot) + 10deg)); opacity: 0; }
+}
+@keyframes advance-lock-break {
+  0% { transform: translate(0, 0) scale(1) rotate(0); opacity: 1; }
+  12% { transform: translate(-2px, 0) rotate(-6deg); }
+  24% { transform: translate(2px, 0) rotate(6deg); }
+  34% { transform: translate(-1px, 0) rotate(-3deg); }
+  44% { transform: translate(0, -1px) scale(1.2) rotate(0); opacity: 1; }  /* pops as the shackle springs */
+  100% { transform: translate(0, 26px) scale(0.7) rotate(9deg); opacity: 0; }
+}

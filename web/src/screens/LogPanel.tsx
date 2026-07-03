@@ -211,6 +211,8 @@ function describe(e: GameEvent, state: GameState): { text: string; tone: Tone } 
       return { text: `${seatName(e.payload.seat)} activated a loot item.`, tone: "default" };
     case "ADVANCE_UNLOCKED":
       return { text: `${seatName(e.payload.seat)} unlocked an advance.`, tone: "hazard" };
+    case "ADVANCE_LOCKED":
+      return { text: `${seatName(e.payload.seat)} re-locked an advance.`, tone: "fade" };
 
     case "SECONDARY_OBJECTIVE_ADDED":
       return { text: `Secondary objective added: ${e.payload.objective.name}.`, tone: "default" };

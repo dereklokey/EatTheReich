@@ -453,12 +453,35 @@ export function applyEvent(state: GameState, e: GameEvent): GameState {
         loot: [...c.loot, e.payload.item],
         ...(e.payload.item.uses !== undefined ? { equipmentUses: { ...c.equipmentUses, [e.payload.item.id]: e.payload.item.uses } } : {}),
       }));
+    case "SECONDARY_REWARD_GRANTED": {
+      // Two jobs (issue #58): drop the slot-free gear onto the recipient (same as LOOT_ADDED) AND
+      // record the reward index as granted so the GM's grant button locks. Adding the index is
+      // idempotent — the handler only emits once, but replay/defensiveness shouldn't double it.
+      const withLoot = updateChar(s, e.payload.seat, (c) => ({
+        ...c,
+        loot: [...c.loot, e.payload.item],
+        ...(e.payload.item.uses !== undefined ? { equipmentUses: { ...c.equipmentUses, [e.payload.item.id]: e.payload.item.uses } } : {}),
+      }));
+      return withBoard(withLoot, {
+        ...withLoot.board,
+        secondaryObjectives: withLoot.board.secondaryObjectives.map((o) => {
+          if (o.id !== e.payload.objectiveId) return o;
+          const granted = o.grantedRewardItems ?? [];
+          return granted.includes(e.payload.index) ? o : { ...o, grantedRewardItems: [...granted, e.payload.index] };
+        }),
+      });
+    }
     case "LOOT_ACTIVATED":
       return updateChar(s, e.payload.seat, (c) => ({ ...c, activeLootSlot: e.payload.itemId }));
     case "ADVANCE_UNLOCKED":
       return updateChar(s, e.payload.seat, (c) =>
         c.unlockedAdvances.includes(e.payload.advanceId) ? c : { ...c, unlockedAdvances: [...c.unlockedAdvances, e.payload.advanceId] },
       );
+    case "ADVANCE_LOCKED":
+      return updateChar(s, e.payload.seat, (c) => ({
+        ...c,
+        unlockedAdvances: c.unlockedAdvances.filter((id) => id !== e.payload.advanceId),
+      }));
 
     case "SECONDARY_OBJECTIVE_ADDED":
       return withBoard(s, { ...s.board, secondaryObjectives: [...s.board.secondaryObjectives, e.payload.objective] });

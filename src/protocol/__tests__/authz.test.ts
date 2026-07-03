@@ -81,6 +81,8 @@ describe("authorizeIntent — a seated player", () => {
     expect(authorizeIntent(s, "iryna", { kind: "loot_activate", seat: "iryna", itemId: "x" }).ok).toBe(true);
     expect(authorizeIntent(s, "iryna", { kind: "loot_activate", seat: "nicole", itemId: "x" }).ok).toBe(false);
     expect(authorizeIntent(s, "iryna", { kind: "loot_add", seat: "iryna", item: { id: "x", name: "X" } }).ok).toBe(false);
+    // Granting a Secondary-Objective reward is the GM's call too (issue #58) — even to yourself.
+    expect(authorizeIntent(s, "iryna", { kind: "grant_secondary_reward", objectiveId: "sec", index: 0, seat: "iryna", item: { id: "g", name: "G" } }).ok).toBe(false);
   });
 
   it("may use the safety tools, including recording Lines/Veils", () => {

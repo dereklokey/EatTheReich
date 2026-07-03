@@ -5,6 +5,9 @@
 .board-layout {
   display: grid;
   gap: 1rem;
+  /* Positioning context for the loot-grant beams (issue #58), which span from the board column
+     to the crew rail — unlike the blood arc, which is scoped to the crew rail. */
+  position: relative;
 }
 
 /* The crew rail itself is the positioning context for the blood-share arc (it wraps

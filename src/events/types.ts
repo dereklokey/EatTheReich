@@ -236,8 +236,16 @@ export interface EventPayloads {
    */
   EQUIPMENT_DEGRADED: { seat: CharId; itemId: string; itemName: string; roll: DieFace };
   LOOT_ADDED: { seat: CharId; item: Equipment };
+  /**
+   * A Secondary Objective's slot-free reward gear handed to a player (issue #58). One event does
+   * two jobs in the reducer — adds the loot to the recipient AND marks the reward index granted so
+   * the GM's button locks to "Granted" — and carries everything the board needs to streak the gift
+   * from the objective card to the recipient's card (`objectiveId` → source, `seat` → target).
+   */
+  SECONDARY_REWARD_GRANTED: { objectiveId: string; index: number; seat: CharId; item: Equipment };
   LOOT_ACTIVATED: { seat: CharId; itemId: string };
   ADVANCE_UNLOCKED: { seat: CharId; advanceId: string };
+  ADVANCE_LOCKED: { seat: CharId; advanceId: string };
 
   SECONDARY_OBJECTIVE_ADDED: { objective: SecondaryObjective };
   SECONDARY_OBJECTIVE_UPDATED: { id: string; patch: Partial<SecondaryObjective> };
